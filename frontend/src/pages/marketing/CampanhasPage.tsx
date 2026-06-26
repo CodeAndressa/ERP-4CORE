@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Megaphone, Plus, X, TrendingUp, DollarSign, Target } from 'lucide-react';
+import { Megaphone, Plus, X, DollarSign, Target } from 'lucide-react';
 import { Card } from '../../shared/components/ui/Card';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Badge } from '../../shared/components/ui/Badge';

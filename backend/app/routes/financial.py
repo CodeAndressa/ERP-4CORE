@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 
 from app.services.asaas_service import AsaasService, AsaasUnavailable
+from app.services.manual_financial_service import manual_financial_snapshot
 
 router = APIRouter(prefix="/financial", tags=["financial"])
 
@@ -24,3 +25,21 @@ async def list_transactions():
 @router.get("/categories")
 def list_categories():
     return []
+
+@router.get("/manual")
+def manual_financial():
+    return manual_financial_snapshot()
+
+
+@router.get("/expenses")
+def list_expenses():
+    return manual_financial_snapshot()["expenses"]
+
+
+@router.get("/direct-sales")
+async def list_direct_sales():
+    try:
+        payments = (await AsaasService().payments()).get("data", [])
+    except AsaasUnavailable:
+        payments = []
+    return manual_financial_snapshot(payments)["direct_sales"]

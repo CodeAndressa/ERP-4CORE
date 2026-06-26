@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Zap } from 'lucide-react';
 import AppLayout from './components/AppLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -56,21 +55,6 @@ import ConciliacaoPage from './pages/financeiro/ConciliacaoPage';
 // Marketing — novas páginas
 import CampanhasPage from './pages/marketing/CampanhasPage';
 import PlanejamentoPage from './pages/marketing/PlanejamentoPage';
-
-function ComingSoon({ title, phase }: { title: string; phase?: number }) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center rounded-2xl py-20 text-center"
-      style={{ border: '1px dashed var(--erp-border-strong)', background: 'var(--erp-surface)' }}
-    >
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-400">
-        <Zap size={22} />
-      </div>
-      <p className="text-base font-semibold" style={{ color: 'var(--erp-text)' }}>{title}</p>
-      <p className="mt-2 text-sm" style={{ color: 'var(--erp-text-muted)' }}>Em desenvolvimento · {phase ? `Fase ${phase}` : 'Em breve'}</p>
-    </div>
-  );
-}
 
 function App() {
   return (

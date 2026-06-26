@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.services.manual_financial_service import manual_financial_snapshot
 
 
 class AsaasUnavailable(Exception):
@@ -114,4 +115,13 @@ class AsaasService:
         base["recurring_value"] = round(sum(float(item.get("value") or 0) for item in active_subscriptions), 2)
         base["recurring_count"] = len(active_subscriptions)
         base["subscriptions"] = active_subscriptions
+        base["manual_financial"] = manual_financial_snapshot(raw)
+        base["summary"] = {
+            "total_received": base["received_value"],
+            "total_pending": base["pending_value"],
+            "total_overdue": base["overdue_value"],
+            "mrr": base["recurring_value"],
+            "expenses_total": base["manual_financial"]["summary"]["expenses_total"],
+            "direct_sales_total": base["manual_financial"]["summary"]["direct_sales_total"],
+        }
         return base

@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Dark mode (default — html.dark) ──────────────────────────────────────── */
+:root,
+html.dark {
+  color-scheme: dark;
+
+  --erp-bg:            #060517;
+  --erp-surface:       #0d0a2a;
+  --erp-surface-2:     #131035;
+  --erp-surface-3:     #100d30;
+  --erp-text:          #f0edff;
+  --erp-text-muted:    #8b82b0;
+  --erp-text-dim:      #4a4470;
+  --erp-border:        rgba(255,255,255,0.07);
+  --erp-border-strong: rgba(255,255,255,0.12);
+  --erp-sidebar-bg:    #070519;
+  --erp-header-bg:     rgba(6,5,23,0.88);
+
+  /* Card hover glow */
+  --erp-card-hover-border: rgba(124,77,255,0.28);
+  --erp-card-hover-shadow: 0 0 0 1px rgba(124,77,255,0.14);
+
+  /* Violet brand — same in both modes */
+  --erp-violet:        #7c4dff;
+  --erp-violet-light:  #a78bfa;
+  --erp-violet-dim:    rgba(124,77,255,0.12);
+}
+
+/* ── Light mode (html.light) ──────────────────────────────────────────────── */
+html.light {
+  color-scheme: light;
+
+  --erp-bg:            #f7f5ff;
+  --erp-surface:       #ffffff;
+  --erp-surface-2:     #f0eeff;
+  --erp-surface-3:     #e8e4ff;
+  --erp-text:          #0f0c2a;
+  --erp-text-muted:    #5c5780;
+  --erp-text-dim:      #9b94c0;
+  --erp-border:        rgba(0,0,0,0.07);
+  --erp-border-strong: rgba(0,0,0,0.12);
+  --erp-sidebar-bg:    #f0eeff;
+  --erp-header-bg:     rgba(247,245,255,0.90);
+
+  --erp-card-hover-border: rgba(124,77,255,0.3);
+  --erp-card-hover-shadow: 0 0 0 1px rgba(124,77,255,0.12);
+
+  --erp-violet:        #6c3cf7;
+  --erp-violet-light:  #8b5cf6;
+  --erp-violet-dim:    rgba(108,60,247,0.10);
+}
+
+/* ── Base reset ───────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--erp-bg);
+  color: var(--erp-text);
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: -0.015em;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark body {
+  background-image:
+    radial-gradient(circle at top, rgba(124,77,255,0.14), transparent 32%),
+    linear-gradient(180deg, #060517 0%, #0c0828 100%);
+}
+
+html.light body {
+  background-image:
+    radial-gradient(circle at top right, rgba(124,77,255,0.06), transparent 40%),
+    linear-gradient(180deg, #f7f5ff 0%, #f0eeff 100%);
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar             { width: 5px; height: 5px; }
+::-webkit-scrollbar-track       { background: transparent; }
+::-webkit-scrollbar-thumb       { background: var(--erp-border-strong); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--erp-text-dim); }
+
+/* ── Tooltip ───────────────────────────────────────────────────────────────── */
+.erp-tooltip {
+  background: var(--erp-surface-2);
+  border: 1px solid var(--erp-border-strong);
+  color: var(--erp-text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+}
+
+/* ── Chart tooltip ──────────────────────────────────────────────────────────── */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: var(--erp-surface-2) !important;
+  border: 1px solid var(--erp-border-strong) !important;
+  border-radius: 10px !important;
+  color: var(--erp-text) !important;
+}

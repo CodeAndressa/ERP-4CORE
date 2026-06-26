@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Kanban, FileText, AlertTriangle, Download, TrendingUp } from 'lucide-react';
+import { Users, Kanban, FileText, Download, TrendingUp } from 'lucide-react';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
 import { api } from '../../services/api';

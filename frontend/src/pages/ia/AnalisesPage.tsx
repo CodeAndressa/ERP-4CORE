@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Brain, RefreshCw, AlertTriangle, ChevronRight } from 'lucide-react';
+import { Brain, AlertTriangle, ChevronRight } from 'lucide-react';
 import { api } from '../../services/api';
 import { Card } from '../../shared/components/ui/Card';
 

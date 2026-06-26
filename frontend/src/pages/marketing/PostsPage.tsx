@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Camera, Globe, Mail, Layers, Video, Edit3, Search } from 'lucide-react';
 import { api } from '../../services/api';
-import { Card, CardHeader } from '../../shared/components/ui/Card';
+import { Card } from '../../shared/components/ui/Card';
 import { Badge } from '../../shared/components/ui/Badge';
 
 interface Post {

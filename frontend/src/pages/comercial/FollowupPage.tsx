@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Phone, Mail, Users, Bell, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
-import { Card, CardHeader } from '../../shared/components/ui/Card';
+import { Card } from '../../shared/components/ui/Card';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 
 type ContactType = 'ligação' | 'email' | 'reunião' | 'whatsapp';

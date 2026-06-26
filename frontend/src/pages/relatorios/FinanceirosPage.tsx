@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { TrendingUp, DollarSign, RefreshCw, AlertTriangle, Download } from 'lucide-react';

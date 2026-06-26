@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, Users, Mail, Video, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Phone, Users, Mail, Video, Plus } from 'lucide-react';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 
 type EventType = 'reunião' | 'ligação' | 'email' | 'videocall';

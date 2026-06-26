@@ -2,7 +2,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts';
-import { TrendingUp, Users, Heart, FileText, BarChart2 } from 'lucide-react';
+import { TrendingUp, Users, Heart, FileText } from 'lucide-react';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
 
@@ -106,7 +106,7 @@ export default function MetricasMarketingPage() {
 
       {/* Engagement by channel */}
       <Card padding="lg">
-        <CardHeader title="Engajamento por Canal" subtitle="Taxa de engajamento % e número de posts" icon={<BarChart2 size={15} />} />
+        <CardHeader title="Engajamento por Canal" subtitle="Taxa de engajamento % e número de posts" />
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={CHANNEL_ENGAGEMENT} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />

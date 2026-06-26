@@ -55,10 +55,6 @@ const CHANNEL_ICONS: Record<string, React.ReactNode> = {
 const CHANNELS = ['Instagram', 'LinkedIn', 'E-mail', 'Stories', 'YouTube'];
 const FORMATS  = ['Carrossel', 'Reels', 'Artigo', 'Newsletter', 'Evento', 'Estático', 'Vídeo'];
 
-function fmtDate(iso: string) {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-}
-
 function weekLabel(iso: string) {
   const d = new Date(iso + 'T12:00:00');
   const monday = new Date(d);

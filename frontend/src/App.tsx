@@ -9,7 +9,6 @@ import LeadsPage from './pages/LeadsPage';
 import LeadsPageNew from './pages/LeadsPageNew';
 import ProposalsPage from './pages/ProposalsPage';
 import KnowledgePage from './pages/KnowledgePage';
-import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import SiteMetricsPage from './pages/SiteMetricsPage';
 import ContractsPage from './pages/ContractsPage';

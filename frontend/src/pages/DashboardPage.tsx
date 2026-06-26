@@ -98,15 +98,25 @@ function EmptyChart({ label }: { label: string }) {
 export default function DashboardPage() {
   const [asaas, setAsaas] = useState<AsaasData | null>(null);
   const [asaasLoading, setAsaasLoading] = useState(true);
+  const [asaasError, setAsaasError] = useState<string | null>(null);
   const [site, setSite] = useState<SiteData | null>(null);
   const [siteLoading, setSiteLoading] = useState(true);
 
-  useEffect(() => {
+  const loadAsaas = () => {
+    setAsaasLoading(true);
+    setAsaasError(null);
     api.get<AsaasData>('/financial/overview')
       .then(({ data }) => setAsaas(data))
-      .catch(() => setAsaas(null))
+      .catch((e) => {
+        const msg = e?.response?.data?.detail || e?.message || 'Falha ao conectar ao ASAAS';
+        setAsaasError(msg);
+        setAsaas(null);
+      })
       .finally(() => setAsaasLoading(false));
+  };
 
+  useEffect(() => {
+    loadAsaas();
     api.get<SiteData>('/site/dashboard?days=30')
       .then(({ data }) => setSite(data))
       .catch(() => setSite(null))
@@ -145,6 +155,20 @@ export default function DashboardPage() {
           Atualizar
         </button>
       </div>
+
+      {/* ── ASAAS error banner ─────────────────────────────────────────── */}
+      {asaasError && (
+        <div
+          className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}
+        >
+          <AlertTriangle size={14} className="flex-shrink-0" />
+          <span><strong>ASAAS:</strong> {asaasError}</span>
+          <button onClick={loadAsaas} className="ml-auto flex items-center gap-1 text-xs opacity-70 hover:opacity-100">
+            <RefreshCw size={11} /> Tentar novamente
+          </button>
+        </div>
+      )}
 
       {/* ── ASAAS financial KPIs ────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

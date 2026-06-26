@@ -7,6 +7,7 @@ import MarketingPage from './pages/MarketingPage';
 import FinancialPage from './pages/FinancialPage';
 import ClientsPage from './pages/ClientsPage';
 import LeadsPage from './pages/LeadsPage';
+import LeadsPageNew from './pages/LeadsPageNew';
 import ProposalsPage from './pages/ProposalsPage';
 import KnowledgePage from './pages/KnowledgePage';
 import AiPage from './pages/AiPage';
@@ -14,6 +15,11 @@ import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import SiteMetricsPage from './pages/SiteMetricsPage';
 import ContractsPage from './pages/ContractsPage';
+import PipelinePage from './pages/PipelinePage';
+import FinanceiroLayout from './pages/financeiro/FinanceiroPage';
+import ContasReceberPage from './pages/financeiro/ContasReceberPage';
+import MensalidadesPage from './pages/financeiro/MensalidadesPage';
+import ProjecoesPage from './pages/financeiro/ProjecoesPage';
 
 function ComingSoon({ title, phase }: { title: string; phase?: number }) {
   return (
@@ -44,27 +50,26 @@ function App() {
         {/* Comercial */}
         <Route path="comercial">
           <Route index element={<Navigate to="/comercial/pipeline" replace />} />
-          <Route path="leads"     element={<LeadsPage />} />
+          <Route path="leads"     element={<LeadsPageNew />} />
           <Route path="clientes"  element={<ClientsPage />} />
-          <Route path="pipeline"  element={<ComingSoon title="Pipeline Kanban" phase={2} />} />
+          <Route path="pipeline"  element={<PipelinePage />} />
           <Route path="funil"     element={<ComingSoon title="Funil de Conversão" phase={2} />} />
           <Route path="propostas" element={<ProposalsPage />} />
           <Route path="agenda"    element={<ComingSoon title="Agenda Comercial" phase={2} />} />
           <Route path="followup"  element={<ComingSoon title="Follow-up" phase={2} />} />
         </Route>
 
-        {/* Financeiro */}
-        <Route path="financeiro">
-          <Route index element={<FinancialPage />} />
+        {/* Financeiro — Fase 3 */}
+        <Route path="financeiro" element={<FinanceiroLayout />}>
+          <Route path="contas-receber" element={<ContasReceberPage />} />
+          <Route path="mensalidades"   element={<MensalidadesPage />} />
+          <Route path="projecoes"      element={<ProjecoesPage />} />
           <Route path="receitas"       element={<ComingSoon title="Receitas" phase={3} />} />
           <Route path="despesas"       element={<ComingSoon title="Despesas" phase={3} />} />
           <Route path="fluxo-caixa"    element={<ComingSoon title="Fluxo de Caixa" phase={3} />} />
           <Route path="contas-pagar"   element={<ComingSoon title="Contas a Pagar" phase={3} />} />
-          <Route path="contas-receber" element={<ComingSoon title="Contas a Receber" phase={3} />} />
-          <Route path="mensalidades"   element={<ComingSoon title="Mensalidades" phase={3} />} />
           <Route path="orcamento"      element={<ComingSoon title="Orçamento" phase={3} />} />
           <Route path="conciliacao"    element={<ComingSoon title="Conciliação" phase={3} />} />
-          <Route path="projecoes"      element={<ComingSoon title="Projeções" phase={3} />} />
         </Route>
 
         {/* Marketing */}

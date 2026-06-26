@@ -35,7 +35,7 @@ const PERIOD_OPTIONS = [
   { label: '90d', value: 90 },
 ];
 
-const SOURCE_COLORS = ['#7c3aed', '#a78bfa', '#c4b5fd', '#6d28d9', '#e5e7eb'];
+const SOURCE_COLORS = ['#2b165c', '#6b5a95', '#b8adc9', '#2b165c', '#e5e7eb'];
 
 export default function SiteMetricsPage() {
   const [days, setDays] = useState(30);
@@ -58,8 +58,8 @@ export default function SiteMetricsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Analytics · Supabase</p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Métricas do Site</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Analytics Â· Supabase</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>MÃ©tricas do Site</h1>
           {data?.synced_at && (
             <p className="text-xs mt-1" style={{ color: 'var(--erp-text-dim)' }}>
               Atualizado: {new Date(data.synced_at).toLocaleString('pt-BR')}
@@ -90,33 +90,33 @@ export default function SiteMetricsPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Visitantes"    value={loading ? '…' : String(s?.visitors ?? 0)}    detail={`últimos ${days} dias`}                                                            tone="violet"  icon={<Users size={16} />}             />
-        <MetricCard label="Pageviews"     value={loading ? '…' : String(s?.pageviews ?? 0)}   detail="páginas vistas"                                                                    tone="emerald" icon={<Globe size={16} />}             />
-        <MetricCard label="Conversões"    value={loading ? '…' : String(s?.conversions ?? 0)} detail={s?.conversion_rate != null ? `${s.conversion_rate.toFixed(1)}% taxa` : 'formulários'} tone="amber" icon={<MousePointerClick size={16} />} />
-        <MetricCard label="Leads gerados" value={loading ? '…' : String(s?.leads ?? 0)}       detail="via site"                                                                          tone="violet"  icon={<TrendingUp size={16} />}        />
+        <MetricCard label="Visitantes"    value={loading ? 'â€¦' : String(s?.visitors ?? 0)}    detail={`Ãºltimos ${days} dias`}                                                            tone="violet"  icon={<Users size={16} />}             />
+        <MetricCard label="Pageviews"     value={loading ? 'â€¦' : String(s?.pageviews ?? 0)}   detail="pÃ¡ginas vistas"                                                                    tone="emerald" icon={<Globe size={16} />}             />
+        <MetricCard label="ConversÃµes"    value={loading ? 'â€¦' : String(s?.conversions ?? 0)} detail={s?.conversion_rate != null ? `${s.conversion_rate.toFixed(1)}% taxa` : 'formulÃ¡rios'} tone="amber" icon={<MousePointerClick size={16} />} />
+        <MetricCard label="Leads gerados" value={loading ? 'â€¦' : String(s?.leads ?? 0)}       detail="via site"                                                                          tone="violet"  icon={<TrendingUp size={16} />}        />
       </div>
 
       {chartData.length > 0 && (
         <Card padding="lg">
-          <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Tráfego diário</p>
+          <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>TrÃ¡fego diÃ¡rio</p>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
               <defs>
                 <linearGradient id="gVisitors" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#2b165c" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#2b165c" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gPageviews" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#6b5a95" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#6b5a95" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
               <XAxis dataKey="date" tick={{ fill: 'var(--erp-text-dim)', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--erp-text-dim)', fontSize: 10 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', borderRadius: 8, color: 'var(--erp-text)', fontSize: 12 }} />
-              <Area type="monotone" dataKey="pageviews" stroke="#a78bfa" strokeWidth={1.5} fill="url(#gPageviews)" name="Pageviews" />
-              <Area type="monotone" dataKey="visitors"  stroke="#7c3aed" strokeWidth={2}   fill="url(#gVisitors)"  name="Visitantes" />
+              <Area type="monotone" dataKey="pageviews" stroke="#6b5a95" strokeWidth={1.5} fill="url(#gPageviews)" name="Pageviews" />
+              <Area type="monotone" dataKey="visitors"  stroke="#2b165c" strokeWidth={2}   fill="url(#gVisitors)"  name="Visitantes" />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
@@ -125,7 +125,7 @@ export default function SiteMetricsPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Card padding="lg">
-            <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Páginas mais vistas</p>
+            <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>PÃ¡ginas mais vistas</p>
             {(data?.top_pages?.length ?? 0) > 0 ? (
               <div className="space-y-2">
                 {data!.top_pages!.slice(0, 8).map((pg, i) => {
@@ -147,7 +147,7 @@ export default function SiteMetricsPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm" style={{ color: 'var(--erp-text-dim)' }}>Sem dados disponíveis</p>
+              <p className="text-sm" style={{ color: 'var(--erp-text-dim)' }}>Sem dados disponÃ­veis</p>
             )}
           </Card>
         </div>

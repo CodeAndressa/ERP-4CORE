@@ -16,17 +16,17 @@ const COLLECTIONS = [
   { label: 'Comercial',             count: 8  },
   { label: 'Marketing',             count: 7  },
   { label: 'Financeiro',            count: 5  },
-  { label: 'Jurídico e regulatório',count: 9  },
+  { label: 'JurÃ­dico e regulatÃ³rio',count: 9  },
 ];
 
 const SEED_ENTRIES: Entry[] = [
-  { id: 1, category: 'Processos',  title: 'Onboarding de clientes',       updatedAt: '2026-06-26', owner: 'Operações', status: 'disponivel' },
-  { id: 2, category: 'Comercial',  title: 'Roteiro de diagnóstico',       updatedAt: '2026-06-24', owner: 'Comercial', status: 'disponivel' },
+  { id: 1, category: 'Processos',  title: 'Onboarding de clientes',       updatedAt: '2026-06-26', owner: 'OperaÃ§Ãµes', status: 'disponivel' },
+  { id: 2, category: 'Comercial',  title: 'Roteiro de diagnÃ³stico',       updatedAt: '2026-06-24', owner: 'Comercial', status: 'disponivel' },
   { id: 3, category: 'Marketing',  title: 'Guia de tom de voz',           updatedAt: '2026-06-20', owner: 'Marketing', status: 'disponivel' },
-  { id: 4, category: 'Jurídico',   title: 'Checklist Portaria 671',       updatedAt: '2026-06-18', owner: 'Consultoria', status: 'disponivel' },
+  { id: 4, category: 'JurÃ­dico',   title: 'Checklist Portaria 671',       updatedAt: '2026-06-18', owner: 'Consultoria', status: 'disponivel' },
   { id: 5, category: 'Comercial',  title: 'Roteiro de follow-up',         updatedAt: '2026-06-15', owner: 'Comercial', status: 'revisao'    },
-  { id: 6, category: 'Processos',  title: 'Gestão de contratos',          updatedAt: '2026-06-12', owner: 'Operações', status: 'disponivel' },
-  { id: 7, category: 'Financeiro', title: 'Política de precificação',     updatedAt: '2026-06-10', owner: 'Diretoria', status: 'revisao'    },
+  { id: 6, category: 'Processos',  title: 'GestÃ£o de contratos',          updatedAt: '2026-06-12', owner: 'OperaÃ§Ãµes', status: 'disponivel' },
+  { id: 7, category: 'Financeiro', title: 'PolÃ­tica de precificaÃ§Ã£o',     updatedAt: '2026-06-10', owner: 'Diretoria', status: 'revisao'    },
 ];
 
 export default function KnowledgePage() {
@@ -47,7 +47,7 @@ export default function KnowledgePage() {
     const diffDays = Math.floor(diffMs / 86400000);
     if (diffDays === 0) return 'Hoje';
     if (diffDays === 1) return 'Ontem';
-    if (diffDays < 7) return `${diffDays} dias atrás`;
+    if (diffDays < 7) return `${diffDays} dias atrÃ¡s`;
     return d.toLocaleDateString('pt-BR');
   }
 
@@ -63,14 +63,14 @@ export default function KnowledgePage() {
           <div className="flex items-center gap-2 rounded-xl px-3 py-2"
             style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', minWidth: 200 }}>
             <Search size={13} style={{ color: 'var(--erp-text-muted)' }} />
-            <input type="text" placeholder="Buscar conteúdo…" value={search}
+            <input type="text" placeholder="Buscar conteÃºdoâ€¦" value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="flex-1 bg-transparent text-sm outline-none" style={{ color: 'var(--erp-text)' }} />
           </div>
           <button className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium"
             style={{ background: 'var(--erp-violet)', color: '#fff' }}>
             <Plus size={14} />
-            Novo conteúdo
+            Novo conteÃºdo
           </button>
         </div>
       </div>
@@ -78,7 +78,7 @@ export default function KnowledgePage() {
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Collections sidebar */}
         <Card padding="lg">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--erp-text-dim)' }}>Coleções</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--erp-text-dim)' }}>ColeÃ§Ãµes</p>
           <div className="space-y-1">
             <button
               onClick={() => setActiveCollection(null)}
@@ -88,7 +88,7 @@ export default function KnowledgePage() {
                 color: !activeCollection ? 'var(--erp-violet-light)' : 'var(--erp-text-muted)',
               }}
             >
-              <span>Todas as coleções</span>
+              <span>Todas as coleÃ§Ãµes</span>
               <span className="text-xs font-bold">{SEED_ENTRIES.length}</span>
             </button>
             {COLLECTIONS.map((col) => (
@@ -114,7 +114,7 @@ export default function KnowledgePage() {
             <div className="flex flex-col items-center gap-3 rounded-2xl py-14"
               style={{ border: '1px dashed var(--erp-border)' }}>
               <BookOpen size={28} style={{ color: 'var(--erp-text-dim)' }} />
-              <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum conteúdo encontrado</p>
+              <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum conteÃºdo encontrado</p>
             </div>
           ) : filtered.map((entry) => (
             <div key={entry.id}
@@ -133,7 +133,7 @@ export default function KnowledgePage() {
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] uppercase tracking-wide font-medium"
                       style={{ color: 'var(--erp-violet-light)' }}>{entry.category}</span>
-                    <span className="text-[10px]" style={{ color: 'var(--erp-text-dim)' }}>·</span>
+                    <span className="text-[10px]" style={{ color: 'var(--erp-text-dim)' }}>Â·</span>
                     <span className="text-[10px]" style={{ color: 'var(--erp-text-dim)' }}>{entry.owner}</span>
                   </div>
                 </div>
@@ -144,7 +144,7 @@ export default function KnowledgePage() {
                     background: entry.status === 'disponivel' ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)',
                     color: entry.status === 'disponivel' ? '#34d399' : '#fbbf24',
                   }}>
-                  {entry.status === 'disponivel' ? 'Disponível' : 'Em revisão'}
+                  {entry.status === 'disponivel' ? 'DisponÃ­vel' : 'Em revisÃ£o'}
                 </span>
                 <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--erp-text-dim)' }}>
                   <Clock size={9} />

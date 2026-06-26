@@ -1,3 +1,5 @@
+export type CostKind = 'fixed' | 'recurring';
+
 export interface ManualExpense {
   id: string;
   month: string;
@@ -6,6 +8,8 @@ export interface ManualExpense {
   description: string;
   value: number;
   vendor: string;
+  kind: CostKind;
+  recurrence: string;
   notes?: string | null;
 }
 
@@ -29,16 +33,21 @@ export interface DirectSale {
 
 export interface ManualFinancial {
   expenses: ManualExpense[];
+  fixed_costs: ManualExpense[];
+  recurring_costs: ManualExpense[];
   direct_sales: DirectSale[];
   monthly: {
     month: string;
     expenses: number;
+    fixed_costs: number;
+    recurring_costs: number;
     manual_revenue: number;
     unmatched_direct_sales: number;
   }[];
   summary: {
     expenses_total: number;
     fixed_expenses_total: number;
+    recurring_expenses_total: number;
     variable_expenses_total: number;
     direct_sales_total: number;
     unmatched_direct_sales_total: number;
@@ -63,4 +72,8 @@ export function monthLabel(month: string) {
 export function formatDate(iso?: string) {
   if (!iso) return '-';
   return new Date(`${iso}T12:00:00`).toLocaleDateString('pt-BR');
+}
+
+export function localCostKey(kind: CostKind) {
+  return `4core.finance.${kind}.manual_entries`;
 }

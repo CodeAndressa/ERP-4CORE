@@ -15,11 +15,11 @@ type IntegrationStatus = {
 };
 
 const INTEGRATIONS = [
-  { key: 'site_analytics' as const, label: 'Métricas do Site',      desc: 'Supabase · acessos, conversões e leads',       icon: Globe      },
-  { key: 'financial'      as const, label: 'Financeiro',             desc: 'ASAAS · cobranças e pagamentos',               icon: DollarSign  },
-  { key: 'instagram'      as const, label: 'Instagram Business',     desc: 'Meta · métricas e conteúdo',                   icon: Camera      },
-  { key: 'ai'             as const, label: 'Assistente IA',          desc: 'Groq · recomendações e análises',              icon: Brain       },
-  { key: 'email'          as const, label: 'E-mail transacional',    desc: 'Resend · avisos e automações',                 icon: Mail        },
+  { key: 'site_analytics' as const, label: 'MÃ©tricas do Site',      desc: 'Supabase Â· acessos, conversÃµes e leads',       icon: Globe      },
+  { key: 'financial'      as const, label: 'Financeiro',             desc: 'ASAAS Â· cobranÃ§as e pagamentos',               icon: DollarSign  },
+  { key: 'instagram'      as const, label: 'Instagram Business',     desc: 'Meta Â· mÃ©tricas e conteÃºdo',                   icon: Camera      },
+  { key: 'ai'             as const, label: 'Assistente IA',          desc: 'Groq Â· recomendaÃ§Ãµes e anÃ¡lises',              icon: Brain       },
+  { key: 'email'          as const, label: 'E-mail transacional',    desc: 'Resend Â· avis?os e automaÃ§Ãµes',                 icon: Mail        },
 ];
 
 export default function SettingsPage() {
@@ -47,9 +47,9 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Administração</p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Configurações</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>{activeCount} de {INTEGRATIONS.length} integrações ativas</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>AdministraÃ§Ã£o</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>ConfiguraÃ§Ãµes</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>{activeCount} de {INTEGRATIONS.length} integraÃ§Ãµes ativas</p>
         </div>
         <button
           onClick={handleSave}
@@ -60,7 +60,7 @@ export default function SettingsPage() {
           }}
         >
           {saved ? <CheckCircle size={14} /> : <Save size={14} />}
-          {saved ? 'Salvo!' : 'Salvar alterações'}
+          {saved ? 'Salvo!' : 'Salvar alteraÃ§Ãµes'}
         </button>
       </div>
 
@@ -68,10 +68,10 @@ export default function SettingsPage() {
         {/* Company data */}
         <Card padding="lg">
           <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Dados da empresa</p>
-          <p className="text-xs mb-4" style={{ color: 'var(--erp-text-muted)' }}>Exibidos em documentos e comunicações</p>
+          <p className="text-xs mb-4" style={{ color: 'var(--erp-text-muted)' }}>Exibidos em documentos e comunicaÃ§Ãµes</p>
           <div className="space-y-3">
             {[
-              { label: 'Nome da empresa', value: '4Core Consultoria Estratégica' },
+              { label: 'Nome da empresa', value: '4Core Consultoria EstratÃ©gica' },
               { label: 'CNPJ', value: '00.000.000/0001-00' },
               { label: 'E-mail financeiro', value: 'financeiro@4core.com.br' },
               { label: 'Telefone', value: '+55 (11) 90000-0000' },
@@ -91,9 +91,9 @@ export default function SettingsPage() {
         {/* Integration status */}
         <Card padding="lg">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Status das integrações</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Status das integraÃ§Ãµes</p>
             <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-              {checked ? 'Leitura atual do backend' : 'Verificando…'}
+              {checked ? 'Leitura atual do backend' : 'Verificandoâ€¦'}
             </span>
           </div>
           <div className="space-y-3">
@@ -140,7 +140,7 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-2">
             {[
-              { name: 'Sócia 4Core', email: 'socia@4core.com.br', role: 'Admin' },
+              { name: 'SÃ³cia 4Core', email: 'socia@4core.com.br', role: 'Admin' },
             ].map((user) => (
               <div key={user.email} className="flex items-center gap-3 rounded-xl px-3 py-3"
                 style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)' }}>
@@ -163,10 +163,10 @@ export default function SettingsPage() {
 
         {/* Setup guide */}
         <Card padding="lg">
-          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Como ativar uma integração</p>
+          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Como ativar uma integraÃ§Ã£o</p>
           <div className="space-y-3">
             {[
-              'Copie os valores da variável no painel da Vercel (Settings → Environment Variables)',
+              'Copie os valores da variÃ¡vel no painel da Vercel (Settings â†’ Environment Variables)',
               'Adicione a chave correspondente no `.env` local para desenvolvimento',
               'Atualize esta tela e confirme o status no painel acima',
             ].map((step, i) => (

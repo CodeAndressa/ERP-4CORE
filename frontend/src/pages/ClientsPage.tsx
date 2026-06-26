@@ -37,14 +37,14 @@ export default function ClientsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial · ASAAS</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial Â· ASAAS</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Clientes</h1>
         </div>
         <div className="flex items-center gap-2 rounded-xl px-3 py-2"
           style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', minWidth: 220 }}>
           <Search size={13} style={{ color: 'var(--erp-text-muted)' }} />
           <input
-            type="text" placeholder="Buscar cliente…" value={search}
+            type="text" placeholder="Buscar clienteâ€¦" value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-transparent text-sm outline-none"
             style={{ color: 'var(--erp-text)' }}
@@ -53,9 +53,9 @@ export default function ClientsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="Clientes"    value={loading ? '…' : String(clients.length)} detail="sincronizados · ASAAS" tone="violet" icon={<Users size={16} />} />
+        <MetricCard label="Clientes"    value={loading ? 'â€¦' : String(clients.length)} detail="sincronizados Â· ASAAS" tone="violet" icon={<Users size={16} />} />
         <MetricCard label="Fonte"       value="ASAAS" detail="dados em tempo real" tone="emerald" icon={<Building2 size={16} />} />
-        <MetricCard label="Exportação"  value="—" detail="Aguarda mapeamento" tone="amber" />
+        <MetricCard label="ExportaÃ§Ã£o"  value="â€”" detail="Aguarda mapeamento" tone="amber" />
       </div>
 
       {error && (
@@ -101,15 +101,15 @@ export default function ClientsPage() {
                     <td className="px-4 py-3">
                       {c.email
                         ? <div className="flex items-center gap-1.5"><Mail size={11} style={{ color: 'var(--erp-text-dim)' }} /><span style={{ color: 'var(--erp-text-muted)' }}>{c.email}</span></div>
-                        : <span style={{ color: 'var(--erp-text-dim)' }}>—</span>}
+                        : <span style={{ color: 'var(--erp-text-dim)' }}>â€”</span>}
                     </td>
                     <td className="px-4 py-3">
                       {c.phone
                         ? <div className="flex items-center gap-1.5"><Phone size={11} style={{ color: 'var(--erp-text-dim)' }} /><span style={{ color: 'var(--erp-text-muted)' }}>{c.phone}</span></div>
-                        : <span style={{ color: 'var(--erp-text-dim)' }}>—</span>}
+                        : <span style={{ color: 'var(--erp-text-dim)' }}>â€”</span>}
                     </td>
                     <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                      {c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '—'}
+                      {c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : 'â€”'}
                     </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"

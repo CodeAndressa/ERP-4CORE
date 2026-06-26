@@ -11,8 +11,8 @@ interface Analysis {
 
 const RESUMO_TYPES = [
   { id: 'semanal',  label: 'Resumo Semanal',  prompt: 'Gere um resumo executivo da semana: principais eventos, alertas financeiros, comerciais e de marketing.' },
-  { id: 'mensal',   label: 'Resumo Mensal',   prompt: 'Gere um resumo executivo do mês: resultados alcançados, desvios do plano e próximos passos estratégicos.' },
-  { id: 'executivo',label: 'Briefing Diário', prompt: 'Gere um briefing executivo para hoje: o que precisa de atenção imediata e quais são as 3 prioridades do dia.' },
+  { id: 'mensal',   label: 'Resumo Mensal',   prompt: 'Gere um resumo executivo do mÃªs: resultados alcanÃ§ados, desvios do plano e prÃ³ximos passos estratÃ©gicos.' },
+  { id: 'executivo',label: 'Briefing DiÃ¡rio', prompt: 'Gere um briefing executivo para hoje: o que precisa de atenÃ§Ã£o imediata e quais sÃ£o as 3 prioridades do dia.' },
 ];
 
 export default function ResumosPage() {
@@ -38,8 +38,8 @@ export default function ResumosPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Inteligência IA</p>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Resumos Automáticos</h1>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>InteligÃªncia IA</p>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Resumos AutomÃ¡ticos</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Resumos executivos gerados pela IA com base nos dados da plataforma</p>
       </div>
 
@@ -68,7 +68,7 @@ export default function ResumosPage() {
           style={{ background: 'var(--erp-violet)', color: '#fff' }}
         >
           <FileText size={14} />
-          {loading ? 'Gerando…' : 'Gerar resumo'}
+          {loading ? 'Gerandoâ€¦' : 'Gerar resumo'}
         </button>
       </Card>
 
@@ -110,7 +110,7 @@ export default function ResumosPage() {
           </Card>
           {(data.actions ?? []).length > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--erp-text-dim)' }}>Ações prioritárias</p>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--erp-text-dim)' }}>AÃ§Ãµes prioritÃ¡rias</p>
               <div className="space-y-2">
                 {(data.actions ?? []).map((a, i) => (
                   <div key={i} className="flex items-start gap-3 rounded-xl px-4 py-3"

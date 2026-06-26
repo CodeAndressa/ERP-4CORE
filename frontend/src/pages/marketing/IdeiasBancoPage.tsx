@@ -15,17 +15,17 @@ interface Ideia {
 }
 
 const SEED_IDEIAS: Ideia[] = [
-  { id: 1, title: 'Guia eSocial para PMEs', angle: 'Como simplificar obrigações sem burocracia', format: 'Artigo', channel: 'LinkedIn', tags: ['eSocial', 'PME', 'compliance'], status: 'nova' },
-  { id: 2, title: 'Série: Erros comuns em folha de pagamento', angle: '5 erros que custam caro — com exemplos reais', format: 'Carrossel', channel: 'Instagram', tags: ['folha', 'erros', 'educacional'], status: 'nova' },
+  { id: 1, title: 'Guia eSocial para PMEs', angle: 'Como simplificar obrigaÃ§Ãµes sem burocracia', format: 'Artigo', channel: 'LinkedIn', tags: ['eSocial', 'PME', 'compliance'], status: 'nova' },
+  { id: 2, title: 'SÃ©rie: Erros comuns em folha de pagamento', angle: '5 erros que custam caro â€” com exemplos reais', format: 'Carrossel', channel: 'Instagram', tags: ['folha', 'erros', 'educacional'], status: 'nova' },
   { id: 3, title: 'Calculadora de encargos trabalhistas', angle: 'Ferramenta interativa no site', format: 'Landing page', channel: 'Site', tags: ['ferramenta', 'encargos', 'lead gen'], status: 'desenvolvendo' },
   { id: 4, title: 'Case: Como reduzimos passivos trabalhistas em 40%', angle: 'Resultado real com cliente do setor industrial', format: 'Case study', channel: 'LinkedIn', tags: ['case', 'resultado', 'industrial'], status: 'desenvolvendo' },
-  { id: 5, title: 'Newsletter mensal: Atualizações trabalhistas', angle: 'Resumo do mês para gestores de RH', format: 'Newsletter', channel: 'E-mail', tags: ['newsletter', 'atualização', 'RH'], status: 'pronta' },
+  { id: 5, title: 'Newsletter mensal: AtualizaÃ§Ãµes trabalhistas', angle: 'Resumo do mÃªs para gestores de RH', format: 'Newsletter', channel: 'E-mail', tags: ['newsletter', 'atualizaÃ§Ã£o', 'RH'], status: 'pronta' },
   { id: 6, title: 'Webinar: Compliance trabalhista 2026', angle: 'Ao vivo com especialistas da 4Core', format: 'Webinar', channel: 'LinkedIn', tags: ['webinar', 'ao vivo', 'especialistas'], status: 'pronta' },
 ];
 
 const COLUMN_CONFIG: { id: IdeiaStatus; label: string; description: string; color: string }[] = [
   { id: 'nova',         label: 'Novas Ideias',          description: 'Ideias brutas para avaliar', color: 'var(--erp-text-dim)' },
-  { id: 'desenvolvendo',label: 'Desenvolvendo',          description: 'Em criação ou refinamento',  color: '#fbbf24' },
+  { id: 'desenvolvendo',label: 'Desenvolvendo',          description: 'Em criaÃ§Ã£o ou refinamento',  color: '#fbbf24' },
   { id: 'pronta',       label: 'Pronta para Executar',  description: 'Aprovadas e prontas',         color: '#34d399' },
 ];
 
@@ -95,14 +95,14 @@ export default function IdeiasBancoPage() {
           <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Nova ideia</p>
           <div className="grid gap-3 sm:grid-cols-2">
             <input
-              placeholder="Título da ideia"
+              placeholder="TÃ­tulo da ideia"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               className="rounded-xl px-3 py-2 text-sm outline-none sm:col-span-2"
               style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
             />
             <input
-              placeholder="Ângulo / abordagem"
+              placeholder="Ã‚ngulo / abordagem"
               value={form.angle}
               onChange={(e) => setForm((f) => ({ ...f, angle: e.target.value }))}
               className="rounded-xl px-3 py-2 text-sm outline-none sm:col-span-2"
@@ -117,7 +117,7 @@ export default function IdeiasBancoPage() {
               {['Instagram', 'LinkedIn', 'E-mail', 'Stories', 'Site'].map((c) => <option key={c}>{c}</option>)}
             </select>
             <input
-              placeholder="Tags (vírgula para separar)"
+              placeholder="Tags (vÃ­rgula para separar)"
               value={form.tags}
               onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
               className="rounded-xl px-3 py-2 text-sm outline-none"
@@ -198,7 +198,7 @@ export default function IdeiasBancoPage() {
                             className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all hover:opacity-80"
                             style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }}
                           >
-                            Avançar <ArrowRight size={10} />
+                            AvanÃ§ar <ArrowRight size={10} />
                           </button>
                         )}
                       </div>

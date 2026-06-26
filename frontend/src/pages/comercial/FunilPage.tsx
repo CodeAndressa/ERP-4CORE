@@ -16,9 +16,9 @@ interface Lead {
 type Stage = { label: string; statuses: string[]; color: string; bg: string; };
 
 const STAGES: Stage[] = [
-  { label: 'Lead',        statuses: ['lead', 'novo', 'new'],                     color: '#a78bfa', bg: 'rgba(167,139,250,0.1)'  },
-  { label: 'Em contato',  statuses: ['contato', 'em contato', 'contact'],         color: '#7c3aed', bg: 'rgba(124,58,237,0.1)'   },
-  { label: 'Qualificado', statuses: ['qualificado', 'qualified'],                  color: '#6d28d9', bg: 'rgba(109,40,217,0.1)'   },
+  { label: 'Lead',        statuses: ['lead', 'novo', 'new'],                     color: '#6b5a95', bg: 'rgba(43,22,92,0.1)'  },
+  { label: 'Em contato',  statuses: ['contato', 'em contato', 'contact'],         color: '#2b165c', bg: 'rgba(43,22,92,0.1)'   },
+  { label: 'Qualificado', statuses: ['qualificado', 'qualified'],                  color: '#2b165c', bg: 'rgba(43,22,92,0.1)'   },
   { label: 'Proposta',    statuses: ['proposta', 'negociacao', 'proposal'],        color: '#fbbf24', bg: 'rgba(251,191,36,0.1)'   },
   { label: 'Fechado',     statuses: ['fechado', 'ganho', 'won', 'closed', 'won'], color: '#34d399', bg: 'rgba(52,211,153,0.1)'   },
 ];
@@ -61,14 +61,14 @@ export default function FunilPage() {
     <div className="space-y-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial</p>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Funil de Conversão</h1>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Funil de ConversÃ£o</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Jornada do lead da entrada ao fechamento</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="Total pipeline"  value={loading ? '…' : money(totalPipeline)} detail={`${total} leads`}                tone="violet"  icon={<TrendingUp size={16} />} />
-        <MetricCard label="Taxa conversão"  value={loading ? '…' : `${convRate}%`}       detail="lead → fechado"                 tone="emerald" icon={<Target size={16} />}    />
-        <MetricCard label="Fechamentos"     value={loading ? '…' : String(closedCount)}  detail={`de ${total} leads totais`}    tone="amber"   icon={<Users size={16} />}     />
+        <MetricCard label="Total pipeline"  value={loading ? 'â€¦' : money(totalPipeline)} detail={`${total} leads`}                tone="violet"  icon={<TrendingUp size={16} />} />
+        <MetricCard label="Taxa conversÃ£o"  value={loading ? 'â€¦' : `${convRate}%`}       detail="lead â†’ fechado"                 tone="emerald" icon={<Target size={16} />}    />
+        <MetricCard label="Fechamentos"     value={loading ? 'â€¦' : String(closedCount)}  detail={`de ${total} leads totais`}    tone="amber"   icon={<Users size={16} />}     />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -172,9 +172,9 @@ export default function FunilPage() {
                         style={{ background: stage.bg, color: stage.color }}>{stage.label}</span>
                     </td>
                     <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: 'var(--erp-violet-light)' }}>
-                      {l.potential_value ? money(l.potential_value) : '—'}
+                      {l.potential_value ? money(l.potential_value) : 'â€”'}
                     </td>
-                    <td className="px-4 py-3 text-xs capitalize" style={{ color: 'var(--erp-text-muted)' }}>{l.source ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs capitalize" style={{ color: 'var(--erp-text-muted)' }}>{l.source ?? 'â€”'}</td>
                   </tr>
                 );
               })}

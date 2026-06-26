@@ -15,9 +15,6 @@ import PipelinePage from './pages/PipelinePage';
 
 // Financeiro (Fase 3)
 import FinanceiroLayout from './pages/financeiro/FinanceiroPage';
-import ContasReceberPage from './pages/financeiro/ContasReceberPage';
-import MensalidadesPage from './pages/financeiro/MensalidadesPage';
-import ProjecoesPage from './pages/financeiro/ProjecoesPage';
 
 // Marketing (Fase 4)
 import MarketingLayout from './pages/marketing/MarketingLayout';
@@ -33,7 +30,7 @@ import SugestoesPage from './pages/ia/SugestoesPage';
 import AnalisesPage from './pages/ia/AnalisesPage';
 import ResumosPage from './pages/ia/ResumosPage';
 
-// Relatórios (Fase 6)
+// RelatÃ³rios (Fase 6)
 import RelatoriosLayout from './pages/relatorios/RelatoriosLayout';
 import RelatoriosOverview from './pages/relatorios/RelatoriosOverview';
 import FinanceirosPage from './pages/relatorios/FinanceirosPage';
@@ -44,15 +41,12 @@ import FollowupPage from './pages/comercial/FollowupPage';
 import AgendaPage from './pages/comercial/AgendaPage';
 import FunilPage from './pages/comercial/FunilPage';
 
-// Financeiro — novas páginas
+// Financeiro â€” novas pÃ¡ginas
 import ReceitasPage from './pages/financeiro/ReceitasPage';
-import FluxoCaixaPage from './pages/financeiro/FluxoCaixaPage';
-import DespesasPage from './pages/financeiro/DespesasPage';
-import ContasPagarPage from './pages/financeiro/ContasPagarPage';
-import OrcamentoPage from './pages/financeiro/OrcamentoPage';
-import ConciliacaoPage from './pages/financeiro/ConciliacaoPage';
+import CustosFixosPage from './pages/financeiro/CustosFixosPage';
+import CustosRecorrentesPage from './pages/financeiro/CustosRecorrentesPage';
 
-// Marketing — novas páginas
+// Marketing â€” novas pÃ¡ginas
 import CampanhasPage from './pages/marketing/CampanhasPage';
 import PlanejamentoPage from './pages/marketing/PlanejamentoPage';
 
@@ -62,7 +56,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<AppLayout />}>
 
-        {/* Visão Geral */}
+        {/* VisÃ£o Geral */}
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"    element={<DashboardPage />} />
         <Route path="site-metrics" element={<SiteMetricsPage />} />
@@ -79,20 +73,23 @@ function App() {
           <Route path="followup"  element={<FollowupPage />} />
         </Route>
 
-        {/* Financeiro — Fase 3 */}
+        {/* Financeiro - controle premium */}
         <Route path="financeiro" element={<FinanceiroLayout />}>
-          <Route path="contas-receber" element={<ContasReceberPage />} />
-          <Route path="mensalidades"   element={<MensalidadesPage />} />
-          <Route path="projecoes"      element={<ProjecoesPage />} />
-          <Route path="receitas"       element={<ReceitasPage />} />
-          <Route path="despesas"       element={<DespesasPage />} />
-          <Route path="fluxo-caixa"    element={<FluxoCaixaPage />} />
-          <Route path="contas-pagar"   element={<ContasPagarPage />} />
-          <Route path="orcamento"      element={<OrcamentoPage />} />
-          <Route path="conciliacao"    element={<ConciliacaoPage />} />
+          <Route path="receita" element={<ReceitasPage />} />
+          <Route path="custos-fixos" element={<CustosFixosPage />} />
+          <Route path="custos-recorrentes" element={<CustosRecorrentesPage />} />
+          <Route path="receitas" element={<Navigate to="/financeiro/receita" replace />} />
+          <Route path="despesas" element={<Navigate to="/financeiro/custos-fixos" replace />} />
+          <Route path="fluxo-caixa" element={<Navigate to="/financeiro" replace />} />
+          <Route path="contas-receber" element={<Navigate to="/financeiro/receita" replace />} />
+          <Route path="mensalidades" element={<Navigate to="/financeiro/custos-recorrentes" replace />} />
+          <Route path="projecoes" element={<Navigate to="/financeiro" replace />} />
+          <Route path="contas-pagar" element={<Navigate to="/financeiro/custos-fixos" replace />} />
+          <Route path="orcamento" element={<Navigate to="/financeiro" replace />} />
+          <Route path="conciliacao" element={<Navigate to="/financeiro/receita" replace />} />
         </Route>
 
-        {/* Marketing — Fase 4 */}
+        {/* Marketing â€” Fase 4 */}
         <Route path="marketing" element={<MarketingLayout />}>
           <Route index element={<Navigate to="/marketing/calendario" replace />} />
           <Route path="calendario"   element={<CalendarioPage />} />
@@ -103,7 +100,7 @@ function App() {
           <Route path="planejamento" element={<PlanejamentoPage />} />
         </Route>
 
-        {/* IA — Fase 5 */}
+        {/* IA â€” Fase 5 */}
         <Route path="ia" element={<IALayout />}>
           <Route index element={<Navigate to="/ia/chat" replace />} />
           <Route path="chat"      element={<ChatPage />} />
@@ -112,7 +109,7 @@ function App() {
           <Route path="resumos"   element={<ResumosPage />} />
         </Route>
 
-        {/* Relatórios — Fase 6 */}
+        {/* RelatÃ³rios â€” Fase 6 */}
         <Route path="relatorios" element={<RelatoriosLayout />}>
           <Route index element={<RelatoriosOverview />} />
           <Route path="financeiros" element={<FinanceirosPage />} />

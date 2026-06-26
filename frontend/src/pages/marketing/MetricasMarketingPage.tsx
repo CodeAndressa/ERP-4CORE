@@ -32,12 +32,12 @@ const FORMAT_BREAKDOWN = [
   { name: 'Outros',      value: 1 },
 ];
 
-const COLORS = ['#7c4dff', '#34d399', '#fbbf24', '#67e8f9', '#f87171'];
+const COLORS = ['#2b165c', '#34d399', '#fbbf24', '#67e8f9', '#f87171'];
 
 const Tip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl px-3 py-2 text-xs shadow-2xl"
+    <div className="rounded-xl px-3 py-2 text-xs"
       style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border-strong)', color: 'var(--erp-text)' }}>
       <p className="mb-1" style={{ color: 'var(--erp-text-muted)' }}>{label}</p>
       {payload.map((p: any) => (
@@ -52,27 +52,27 @@ export default function MetricasMarketingPage() {
     <div className="space-y-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Métricas de Marketing</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Dados dos últimos 60 dias</p>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>MÃ©tricas de Marketing</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Dados dos Ãºltimos 60 dias</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Alcance Total"  value="24.800" detail="+18% vs. mês anterior" tone="violet"  icon={<TrendingUp size={16} />} trend={18}  sparkline={[22, 24, 21, 26, 28, 25, 29, 32]} />
-        <MetricCard label="Engajamento"    value="6,2%"   detail="média por publicação"  tone="emerald" icon={<Heart    size={16} />} trend={4.2}  sparkline={[5, 5.8, 6, 5.5, 6.2, 6.8, 6.1, 6.4]} />
-        <MetricCard label="Leads gerados"  value="18"     detail="últimos 30 dias"        tone="amber"   icon={<Users   size={16} />} trend={12.5} />
-        <MetricCard label="Conteúdos"      value="12"     detail="8 publicados"           tone="cyan"    icon={<FileText size={16} />} />
+        <MetricCard label="Alcance Total"  value="24.800" detail="+18% vs. mÃªs anterior" tone="violet"  icon={<TrendingUp size={16} />} trend={18}  sparkline={[22, 24, 21, 26, 28, 25, 29, 32]} />
+        <MetricCard label="Engajamento"    value="6,2%"   detail="mÃ©dia por publicaÃ§Ã£o"  tone="emerald" icon={<Heart    size={16} />} trend={4.2}  sparkline={[5, 5.8, 6, 5.5, 6.2, 6.8, 6.1, 6.4]} />
+        <MetricCard label="Leads gerados"  value="18"     detail="Ãºltimos 30 dias"        tone="amber"   icon={<Users   size={16} />} trend={12.5} />
+        <MetricCard label="ConteÃºdos"      value="12"     detail="8 publicados"           tone="cyan"    icon={<FileText size={16} />} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Alcance semanal */}
         <Card className="lg:col-span-2" padding="lg">
-          <CardHeader title="Alcance Semanal" subtitle="Impressões e interações" />
+          <CardHeader title="Alcance Semanal" subtitle="ImpressÃµes e interaÃ§Ãµes" />
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={WEEKLY_REACH} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="gReach" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#7c4dff" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#7c4dff" stopOpacity={0} />
+                  <stop offset="5%"  stopColor="#2b165c" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#2b165c" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="gEngaj" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%"  stopColor="#34d399" stopOpacity={0.25} />
@@ -83,7 +83,7 @@ export default function MetricasMarketingPage() {
               <XAxis dataKey="week" tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
               <Tooltip content={<Tip />} />
-              <Area name="Alcance"     type="monotone" dataKey="alcance"     stroke="#7c4dff" strokeWidth={2} fill="url(#gReach)" />
+              <Area name="Alcance"     type="monotone" dataKey="alcance"     stroke="#2b165c" strokeWidth={2} fill="url(#gReach)" />
               <Area name="Engajamento" type="monotone" dataKey="engajamento" stroke="#34d399" strokeWidth={2} fill="url(#gEngaj)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -91,7 +91,7 @@ export default function MetricasMarketingPage() {
 
         {/* Format breakdown */}
         <Card padding="lg">
-          <CardHeader title="Formatos" subtitle="Distribuição de conteúdos" />
+          <CardHeader title="Formatos" subtitle="DistribuiÃ§Ã£o de conteÃºdos" />
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={FORMAT_BREAKDOWN} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={45} outerRadius={70} paddingAngle={3}>
@@ -106,14 +106,14 @@ export default function MetricasMarketingPage() {
 
       {/* Engagement by channel */}
       <Card padding="lg">
-        <CardHeader title="Engajamento por Canal" subtitle="Taxa de engajamento % e número de posts" />
+        <CardHeader title="Engajamento por Canal" subtitle="Taxa de engajamento % e nÃºmero de posts" />
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={CHANNEL_ENGAGEMENT} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
             <XAxis dataKey="canal" tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={36} />
             <Tooltip content={<Tip />} />
-            <Bar name="Engajamento %" dataKey="engajamento" fill="#7c4dff" radius={[4, 4, 0, 0]} maxBarSize={48} />
+            <Bar name="Engajamento %" dataKey="engajamento" fill="#2b165c" radius={[4, 4, 0, 0]} maxBarSize={48} />
           </BarChart>
         </ResponsiveContainer>
       </Card>

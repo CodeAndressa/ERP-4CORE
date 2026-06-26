@@ -17,8 +17,8 @@ const MOCK_EXTRA: Post[] = [
   { id: 'm1', title: 'Checklist de conformidade trabalhista', channel: 'Instagram', status: 'publicado', format: 'Carrossel', date: '2026-07-01' },
   { id: 'm2', title: 'Case Grupo Atlas', channel: 'LinkedIn', status: 'revisao', format: 'Artigo', date: '2026-07-04' },
   { id: 'm3', title: 'Guia Portaria 671', channel: 'E-mail', status: 'agendado', format: 'Newsletter', date: '2026-07-08' },
-  { id: 'm4', title: 'Bastidores da 4Core', channel: 'Stories', status: 'ideia', format: 'Vídeo', date: '2026-07-10' },
-  { id: 'm5', title: 'Dicas de documentação trabalhista', channel: 'Instagram', status: 'agendado', format: 'Reels', date: '2026-07-15' },
+  { id: 'm4', title: 'Bastidores da 4Core', channel: 'Stories', status: 'ideia', format: 'VÃ­deo', date: '2026-07-10' },
+  { id: 'm5', title: 'Dicas de documentaÃ§Ã£o trabalhista', channel: 'Instagram', status: 'agendado', format: 'Reels', date: '2026-07-15' },
 ];
 
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
@@ -34,7 +34,7 @@ const STATUS_TONE: Record<string, StatusTone> = {
   publicado: 'emerald', agendado: 'violet', revisao: 'amber', ideia: 'slate',
 };
 const STATUS_LABELS: Record<string, string> = {
-  publicado: 'Publicado', agendado: 'Agendado', revisao: 'Em revisão', ideia: 'Ideia',
+  publicado: 'Publicado', agendado: 'Agendado', revisao: 'Em revisÃ£o', ideia: 'Ideia',
 };
 
 export default function PostsPage() {
@@ -72,7 +72,7 @@ export default function PostsPage() {
             <Search size={13} style={{ color: 'var(--erp-text-muted)' }} />
             <input
               type="text"
-              placeholder="Buscar…"
+              placeholder="Buscarâ€¦"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="flex-1 bg-transparent text-sm outline-none"
@@ -113,7 +113,7 @@ export default function PostsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                  {['Título', 'Canal', 'Formato', 'Data', 'Status'].map((h) => (
+                  {['TÃ­tulo', 'Canal', 'Formato', 'Data', 'Status'].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
                       style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                   ))}
@@ -134,9 +134,9 @@ export default function PostsPage() {
                         <span style={{ color: 'var(--erp-text-muted)' }}>{p.channel}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{p.format ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{p.format ?? 'â€”'}</td>
                     <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                      {p.date ? new Date(p.date + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
+                      {p.date ? new Date(p.date + 'T12:00:00').toLocaleDateString('pt-BR') : 'â€”'}
                     </td>
                     <td className="px-4 py-3">
                       <Badge tone={STATUS_TONE[p.status] ?? 'slate'} dot>

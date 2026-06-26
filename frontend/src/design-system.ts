@@ -4,10 +4,10 @@ export const theme = {
     surface: '#120f3a',
     surfaceSoft: 'rgba(74, 45, 173, 0.16)',
     surfaceStrong: '#0d0a2a',
-    primary: '#7c4dff',
-    primaryDark: '#5c32d4',
-    primaryLight: '#c7b0ff',
-    accent: '#d56cff',
+    primary: '#2b165c',
+    primaryDark: '#211047',
+    primaryLight: '#3f2479',
+    accent: '#5b3b96',
     text: '#f5f3ff',
     textMuted: '#c8bff8',
     border: 'rgba(255,255,255,0.1)',
@@ -25,6 +25,6 @@ export const theme = {
     md: '18px',
   },
   shadow: {
-    soft: '0 24px 80px rgba(15, 10, 40, 0.24)',
-  },
+  soft: 'none',
+},
 };

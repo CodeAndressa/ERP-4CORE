@@ -27,9 +27,9 @@ interface Deal {
 
 const STAGES: { id: Stage; label: string; color: string; bgDot: string }[] = [
   { id: 'novo',        label: 'Novo',       color: '#06b6d4', bgDot: 'bg-cyan-400' },
-  { id: 'qualificado', label: 'Qualificado', color: '#7c4dff', bgDot: 'bg-violet-400' },
+  { id: 'qualificado', label: 'Qualificado', color: '#2b165c', bgDot: 'bg-violet-400' },
   { id: 'proposta',    label: 'Proposta',    color: '#f59e0b', bgDot: 'bg-amber-400' },
-  { id: 'negociacao',  label: 'Negociação',  color: '#f97316', bgDot: 'bg-orange-400' },
+  { id: 'negociacao',  label: 'NegociaÃ§Ã£o',  color: '#f97316', bgDot: 'bg-orange-400' },
   { id: 'fechado',     label: 'Fechado',     color: '#10b981', bgDot: 'bg-emerald-400' },
 ];
 
@@ -41,27 +41,27 @@ const INITIAL_DEALS: Deal[] = [
   { id: 'd5',  name: 'Braun & Associados',  value: 90000,  contact: 'Marcos Braun',    stage: 'novo',        heat: 'hot',  daysInStage: 1  },
 
   { id: 'd6',  name: 'DataSync Br',         value: 62000,  contact: 'Luciana Torres',  stage: 'qualificado', heat: 'hot',  daysInStage: 4  },
-  { id: 'd7',  name: 'Prime Soluções',      value: 210000, contact: 'João Figueiredo', stage: 'qualificado', heat: 'hot',  daysInStage: 7  },
-  { id: 'd8',  name: 'Omega Indústria',     value: 45000,  contact: 'Cláudia Nunes',   stage: 'qualificado', heat: 'warm', daysInStage: 12 },
-  { id: 'd9',  name: 'Startup Visão',       value: 18000,  contact: 'Pedro Alves',     stage: 'qualificado', heat: 'cold', daysInStage: 8  },
-  { id: 'd10', name: 'Fortex Construções',  value: 340000, contact: 'Sandra Fortex',   stage: 'qualificado', heat: 'warm', daysInStage: 6  },
+  { id: 'd7',  name: 'Prime SoluÃ§Ãµes',      value: 210000, contact: 'JoÃ£o Figueiredo', stage: 'qualificado', heat: 'hot',  daysInStage: 7  },
+  { id: 'd8',  name: 'Omega IndÃºstria',     value: 45000,  contact: 'ClÃ¡udia Nunes',   stage: 'qualificado', heat: 'warm', daysInStage: 12 },
+  { id: 'd9',  name: 'Startup VisÃ£o',       value: 18000,  contact: 'Pedro Alves',     stage: 'qualificado', heat: 'cold', daysInStage: 8  },
+  { id: 'd10', name: 'Fortex ConstruÃ§Ãµes',  value: 340000, contact: 'Sandra Fortex',   stage: 'qualificado', heat: 'warm', daysInStage: 6  },
 
   { id: 'd11', name: 'VoxTech Analytics',   value: 55000,  contact: 'Diego Ramos',     stage: 'proposta',    heat: 'hot',  daysInStage: 3  },
-  { id: 'd12', name: 'Maplink Logística',   value: 89000,  contact: 'Isabela Costa',   stage: 'proposta',    heat: 'warm', daysInStage: 9  },
-  { id: 'd13', name: 'CloudNine Serviços',  value: 175000, contact: 'Thiago Avelar',   stage: 'proposta',    heat: 'hot',  daysInStage: 5  },
+  { id: 'd12', name: 'Maplink LogÃ­stica',   value: 89000,  contact: 'Isabela Costa',   stage: 'proposta',    heat: 'warm', daysInStage: 9  },
+  { id: 'd13', name: 'CloudNine ServiÃ§os',  value: 175000, contact: 'Thiago Avelar',   stage: 'proposta',    heat: 'hot',  daysInStage: 5  },
   { id: 'd14', name: 'Veritas Consultoria', value: 42000,  contact: 'Renata Veritas',  stage: 'proposta',    heat: 'cold', daysInStage: 14 },
   { id: 'd15', name: 'Helix Software',      value: 67000,  contact: 'Bruno Helix',     stage: 'proposta',    heat: 'warm', daysInStage: 2  },
 
   { id: 'd16', name: 'Synapse IA',          value: 290000, contact: 'Camila Synapse',  stage: 'negociacao',  heat: 'hot',  daysInStage: 6  },
   { id: 'd17', name: 'Macro Sistemas',      value: 130000, contact: 'Augusto Macro',   stage: 'negociacao',  heat: 'warm', daysInStage: 11 },
   { id: 'd18', name: 'InfraCloud Br',       value: 78000,  contact: 'Viviane Infra',   stage: 'negociacao',  heat: 'hot',  daysInStage: 4  },
-  { id: 'd19', name: 'Petros Mineração',    value: 510000, contact: 'Eduardo Petros',  stage: 'negociacao',  heat: 'warm', daysInStage: 18 },
-  { id: 'd20', name: 'Quantum Apps',        value: 44000,  contact: 'Letícia Quantum', stage: 'negociacao',  heat: 'cold', daysInStage: 7  },
+  { id: 'd19', name: 'Petros MineraÃ§Ã£o',    value: 510000, contact: 'Eduardo Petros',  stage: 'negociacao',  heat: 'warm', daysInStage: 18 },
+  { id: 'd20', name: 'Quantum Apps',        value: 44000,  contact: 'LetÃ­cia Quantum', stage: 'negociacao',  heat: 'cold', daysInStage: 7  },
 
   { id: 'd21', name: 'Riverbend Tech',      value: 195000, contact: 'Felipe River',    stage: 'fechado',     heat: 'hot',  daysInStage: 0  },
   { id: 'd22', name: 'Grupo Novalink',      value: 88000,  contact: 'Patricia Nova',   stage: 'fechado',     heat: 'warm', daysInStage: 0  },
   { id: 'd23', name: 'Aether Sistemas',     value: 320000, contact: 'Rodrigo Aether',  stage: 'fechado',     heat: 'hot',  daysInStage: 0  },
-  { id: 'd24', name: 'BlueSpark Digital',   value: 56000,  contact: 'Natália Spark',   stage: 'fechado',     heat: 'warm', daysInStage: 0  },
+  { id: 'd24', name: 'BlueSpark Digital',   value: 56000,  contact: 'NatÃ¡lia Spark',   stage: 'fechado',     heat: 'warm', daysInStage: 0  },
   { id: 'd25', name: 'Exactus Finance',     value: 143000, contact: 'Henrique Exact',  stage: 'fechado',     heat: 'hot',  daysInStage: 1  },
 ];
 
@@ -84,7 +84,7 @@ function DealCard({ deal, isDragging = false }: { deal: Deal; isDragging?: boole
     cursor: isDragging ? 'grabbing' : 'grab',
     background: 'var(--erp-surface)',
     border: '1px solid var(--erp-border)',
-    transition: 'box-shadow 0.15s, border-color 0.15s',
+    transition: 'border-color 0.15s',
   };
 
   return (
@@ -126,7 +126,6 @@ function DealCardOverlay({ deal }: { deal: Deal }) {
       style={{
         background: 'var(--erp-surface)',
         border: '1px solid var(--erp-border-strong)',
-        boxShadow: '0 12px 40px rgba(124,77,255,0.25)',
         width: 220,
         cursor: 'grabbing',
       }}
@@ -174,7 +173,6 @@ function KanbanColumn({
         background: 'var(--erp-surface)',
         border: `1px solid ${isOver ? stage.color + '44' : 'var(--erp-border)'}`,
         transition: 'border-color 0.15s',
-        boxShadow: isOver ? `0 0 0 2px ${stage.color}33` : undefined,
         minWidth: 240,
       }}
     >
@@ -257,7 +255,7 @@ export default function PipelinePage() {
       <style>{`
         .deal-card:hover {
           border-color: var(--erp-border-strong) !important;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+
         }
       `}</style>
 
@@ -318,7 +316,7 @@ export default function PipelinePage() {
           <div>
             <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Maior valor</p>
             <p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>
-              {topDeal ? fmt(topDeal.value) : '—'}
+              {topDeal ? fmt(topDeal.value) : 'â€”'}
             </p>
             {topDeal && (
               <p className="text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>{topDeal.name}</p>

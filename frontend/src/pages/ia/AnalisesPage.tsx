@@ -6,10 +6,10 @@ import { Card } from '../../shared/components/ui/Card';
 type Scope = 'operacao' | 'financeiro' | 'comercial' | 'marketing' | 'site' | 'clientes' | 'propostas';
 
 const SCOPES: { id: Scope; label: string; prompt: string }[] = [
-  { id: 'financeiro', label: 'Financeiro', prompt: 'Faça uma análise profunda do cenário financeiro atual, identificando riscos e oportunidades.' },
+  { id: 'financeiro', label: 'Financeiro', prompt: 'FaÃ§a uma anÃ¡lise profunda do cenÃ¡rio financeiro atual, identificando riscos e oportunidades.' },
   { id: 'comercial',  label: 'Comercial',  prompt: 'Analise o pipeline comercial e identifique os principais bloqueios e oportunidades de crescimento.' },
-  { id: 'marketing',  label: 'Marketing',  prompt: 'Analise a performance de marketing e sugira otimizações para aumentar geração de leads.' },
-  { id: 'operacao',   label: 'Operação',   prompt: 'Faça uma análise completa das operações e identifique as principais ineficiências.' },
+  { id: 'marketing',  label: 'Marketing',  prompt: 'Analise a performance de marketing e sugira otimizaÃ§Ãµes para aumentar geraÃ§Ã£o de leads.' },
+  { id: 'operacao',   label: 'OperaÃ§Ã£o',   prompt: 'FaÃ§a uma anÃ¡lise completa das operaÃ§Ãµes e identifique as principais ineficiÃªncias.' },
 ];
 
 interface Analysis {
@@ -31,20 +31,20 @@ export default function AnalisesPage() {
     setData(null);
     api.post<{ analysis: Analysis }>('/ai/analyze', { scope, instructions: s.prompt })
       .then(({ data: d }) => setData(d.analysis))
-      .catch((e) => setError(e?.response?.data?.detail || 'Falha ao gerar análise'))
+      .catch((e) => setError(e?.response?.data?.detail || 'Falha ao gerar anÃ¡lise'))
       .finally(() => setLoading(false));
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Inteligência IA</p>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Análises Profundas</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Análise detalhada por área com identificação de riscos e oportunidades</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>InteligÃªncia IA</p>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>AnÃ¡lises Profundas</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>AnÃ¡lise detalhada por Ã¡rea com identificaÃ§Ã£o de riscos e oportunidades</p>
       </div>
 
       <Card padding="lg">
-        <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Selecione a área para análise</p>
+        <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Selecione a Ã¡rea para anÃ¡lise</p>
         <div className="flex flex-wrap gap-2 mb-4">
           {SCOPES.map((s) => (
             <button
@@ -71,7 +71,7 @@ export default function AnalisesPage() {
           style={{ background: 'var(--erp-violet)', color: '#fff' }}
         >
           <Brain size={14} />
-          {loading ? 'Analisando…' : 'Gerar análise'}
+          {loading ? 'Analisandoâ€¦' : 'Gerar anÃ¡lise'}
         </button>
       </Card>
 

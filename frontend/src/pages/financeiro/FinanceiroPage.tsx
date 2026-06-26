@@ -1,21 +1,13 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
-} from 'recharts';
-import {
-  DollarSign, TrendingUp, TrendingDown, AlertTriangle, RefreshCw,
-  CheckCircle, Users, ArrowRight, CreditCard,
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import { api } from '../../services/api';
 import { SubNav } from '../../shared/components/layout/SubNav';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
-import type { ManualFinancial } from './manualFinance';
+import { currency, monthLabel, type ManualFinancial } from './manualFinance';
 
-// ─── types ────────────────────────────────────────────────────────────────────
 export type AsaasData = {
   received_value: number;
   pending_value: number;
@@ -26,7 +18,6 @@ export type AsaasData = {
   customers_total: number;
   recurring_value: number;
   recurring_count: number;
-  forecast_6_months: { month: string; value: number }[];
   billing_types: { type: string; value: number }[];
   daily_status: { date: string; received: number; confirmed: number; pending: number; overdue: number }[];
   payments: {
@@ -44,54 +35,20 @@ export type AsaasData = {
   };
 };
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-export const money = (v: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
+export const money = (value: number) => currency(value);
 
 const TABS = [
-  { label: 'Visão Geral',     path: '/financeiro' },
-  { label: 'A Receber',       path: '/financeiro/contas-receber' },
-  { label: 'Mensalidades',    path: '/financeiro/mensalidades' },
-  { label: 'Projeções',       path: '/financeiro/projecoes' },
-  { label: 'Receitas',        path: '/financeiro/receitas' },
-  { label: 'Despesas',        path: '/financeiro/despesas' },
-  { label: 'Fluxo de Caixa',  path: '/financeiro/fluxo-caixa' },
+  { label: 'Receita', path: '/financeiro/receita' },
+  { label: 'Custos Fixos', path: '/financeiro/custos-fixos' },
+  { label: 'Custos Recorrentes', path: '/financeiro/custos-recorrentes' },
 ];
 
 const PERIODS = [
-  { label: '30d', value: 30 },
   { label: '90d', value: 90 },
   { label: '180d', value: 180 },
   { label: '365d', value: 365 },
 ];
 
-const BILLING_LABELS: Record<string, string> = {
-  BOLETO: 'Boleto',
-  CREDIT_CARD: 'Cartão',
-  PIX: 'PIX',
-  DEBIT_CARD: 'Débito',
-  UNDEFINED: 'Outros',
-};
-
-const BILLING_COLORS = ['#7c4dff', '#34d399', '#fbbf24', '#67e8f9', '#f87171'];
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="rounded-xl px-3 py-2 text-xs shadow-2xl"
-      style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border-strong)', color: 'var(--erp-text)' }}>
-      <p className="mb-1" style={{ color: 'var(--erp-text-muted)' }}>{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color }} className="font-medium">
-          {p.name}: {typeof p.value === 'number' ? money(p.value) : p.value}
-        </p>
-      ))}
-    </div>
-  );
-};
-
-// ─── context / shared state ──────────────────────────────────────────────────
-// Sub-pages import and use this hook to get shared data
 let _sharedData: AsaasData | null = null;
 let _sharedLoading = true;
 
@@ -99,7 +56,6 @@ export function useFinanceiroData() {
   return { data: _sharedData, loading: _sharedLoading };
 }
 
-// ─── FinanceiroLayout — wraps all sub-pages with SubNav + shared data fetch ──
 export function FinanceiroLayout() {
   const { pathname } = useLocation();
   const isIndex = pathname === '/financeiro';
@@ -108,326 +64,184 @@ export function FinanceiroLayout() {
     <div className="space-y-0">
       <SubNav tabs={TABS} />
       <div className="pt-6">
-        {isIndex ? <FinanceiroOverview /> : <Outlet />}
+        {isIndex ? <FinanceiroCockpit /> : <Outlet />}
       </div>
     </div>
   );
 }
 
-// ─── Main overview page ───────────────────────────────────────────────────────
-function FinanceiroOverview() {
+function chartTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl px-3 py-2 text-xs" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border-strong)', color: 'var(--erp-text)' }}>
+      <p className="mb-1" style={{ color: 'var(--erp-text-muted)' }}>{label}</p>
+      {payload.map((item: any) => (
+        <p key={item.name} style={{ color: item.color }} className="font-medium">{item.name}: {currency(Number(item.value), 2)}</p>
+      ))}
+    </div>
+  );
+}
+
+function FinanceiroCockpit() {
   const [data, setData] = useState<AsaasData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState(180);
-  const [expandedCard, setExpandedCard] = useState<'pending' | null>(null);
 
-  const load = useCallback(() => {
+  const load = useCallback((forceRefresh = false) => {
     setLoading(true);
     setError(null);
-    api.get<AsaasData>(`/financial/overview?days=${days}`)
-      .then(({ data: d }) => { setData(d); _sharedData = d; _sharedLoading = false; })
-      .catch((e) => setError(e?.response?.data?.detail || 'Falha ao conectar ao ASAAS'))
+    api.get<AsaasData>(`/financial/overview?days=${days}${forceRefresh ? '&refresh=true' : ''}`)
+      .then(({ data: response }) => {
+        setData(response);
+        _sharedData = response;
+        _sharedLoading = false;
+      })
+      .catch((err) => setError(err?.response?.data?.detail || 'Falha ao conectar dados financeiros'))
       .finally(() => setLoading(false));
   }, [days]);
 
-  useEffect(() => { load(); }, [load]);
-
-  const forecastData = (data?.forecast_6_months ?? []).map((d) => ({
-    ...d,
-    label: new Date(d.month + '-02').toLocaleString('pt-BR', { month: 'short' }),
-  }));
-
-  const billingData = (data?.billing_types ?? []).map((b) => ({
-    name: BILLING_LABELS[b.type] ?? b.type,
-    value: b.value,
-  }));
+  useEffect(() => { load(false); }, [load]);
 
   const manual = data?.manual_financial;
-  const expensesTotal = manual?.summary.expenses_total ?? 0;
-  const directSalesUnmatched = manual?.summary.unmatched_direct_sales_total ?? 0;
-  const netCash = (data?.received_value ?? 0) + directSalesUnmatched - expensesTotal;
+  const received = data?.received_value ?? 0;
+  const pending = data?.pending_value ?? 0;
+  const directSales = manual?.summary.unmatched_direct_sales_total ?? 0;
+  const fixedCosts = manual?.summary.fixed_expenses_total ?? 0;
+  const recurringCosts = manual?.summary.recurring_expenses_total ?? 0;
+  const totalCosts = fixedCosts + recurringCosts;
+  const net = received + directSales - totalCosts;
+  const margin = received + directSales > 0 ? (net / (received + directSales)) * 100 : 0;
+
+  const monthly = new Map<string, { month: string; asaas: number; direct: number; fixed: number; recurring: number }>();
+  (data?.payments ?? []).forEach((payment) => {
+    const month = (payment.due_date ?? '').slice(0, 7);
+    if (!month) return;
+    const row = monthly.get(month) ?? { month, asaas: 0, direct: 0, fixed: 0, recurring: 0 };
+    if (['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(payment.status)) {
+      row.asaas += payment.value;
+    }
+    monthly.set(month, row);
+  });
+  (manual?.monthly ?? []).forEach((item) => {
+    const row = monthly.get(item.month) ?? { month: item.month, asaas: 0, direct: 0, fixed: 0, recurring: 0 };
+    row.direct = item.unmatched_direct_sales;
+    row.fixed = item.fixed_costs;
+    row.recurring = item.recurring_costs;
+    monthly.set(item.month, row);
+  });
+
+  const rows = Array.from(monthly.values()).sort((a, b) => a.month.localeCompare(b.month)).map((row) => ({
+    ...row,
+    label: monthLabel(row.month),
+    receita: row.asaas + row.direct,
+    custos: row.fixed + row.recurring,
+    saldo: row.asaas + row.direct - row.fixed - row.recurring,
+  }));
 
   return (
     <div className="space-y-6">
-      {/* Title + period filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--erp-text)' }}>Financeiro</h1>
-          <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Dados reais · ASAAS</p>
+      <div className="flex flex-col gap-3 border-b border-violet-100 pb-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
+          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--erp-violet-light)' }}>Cockpit financeiro</p>
+          <h1 className="shrink-0 text-xl font-bold" style={{ color: 'var(--erp-text)' }}>Controle Premium</h1>
+          <p className="min-w-0 truncate text-sm" style={{ color: 'var(--erp-text-muted)' }}>Receita ASAAS, venda direta e custos manuais em uma leitura executiva</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid var(--erp-border)' }}>
-            {PERIODS.map((p) => (
+          <div className="flex overflow-hidden rounded-xl" style={{ border: '1px solid var(--erp-border)' }}>
+            {PERIODS.map((period) => (
               <button
-                key={p.value}
-                onClick={() => setDays(p.value)}
+                key={period.value}
+                onClick={() => setDays(period.value)}
                 className="px-3 py-1.5 text-xs font-medium transition-colors"
-                style={{
-                  background: days === p.value ? 'var(--erp-violet)' : 'var(--erp-surface)',
-                  color: days === p.value ? '#fff' : 'var(--erp-text-muted)',
-                }}
+                style={{ background: days === period.value ? 'var(--erp-violet)' : 'var(--erp-surface)', color: days === period.value ? '#fff' : 'var(--erp-text-muted)' }}
               >
-                {p.label}
+                {period.label}
               </button>
             ))}
           </div>
-          <button
-            onClick={load}
-            className="flex h-8 w-8 items-center justify-center rounded-xl transition-colors"
-            style={{ border: '1px solid var(--erp-border)', color: 'var(--erp-text-muted)', background: 'var(--erp-surface)' }}
-          >
+          <button onClick={() => load(true)} className="flex h-8 w-8 items-center justify-center rounded-full" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface)', color: 'var(--erp-text-muted)' }}>
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      {/* Error */}
       {error && (
-        <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+        <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
           <AlertTriangle size={14} />
-          <span><strong>ASAAS:</strong> {error}</span>
+          <span>{error}</span>
         </div>
       )}
 
-      {/* KPIs */}
-      <div className="space-y-3">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Recebido"
-            value={loading ? '…' : data ? money(data.received_value) : '—'}
-            detail={data ? `${data.received_count} cobranças · ${days}d` : undefined}
-            tone="emerald"
-            icon={<CheckCircle size={16} />}
-          />
-          <MetricCard
-            label="A Receber"
-            value={loading ? '…' : data ? money(data.pending_value) : '—'}
-            detail={data ? `${data.pending_count} pendentes` : undefined}
-            tone="violet"
-            icon={<DollarSign size={16} />}
-            tooltip="Cobranças criadas no ASAAS que ainda não foram pagas (status PENDING). Inclui vencimentos futuros e cobranças aguardando pagamento."
-            expandable
-            expanded={expandedCard === 'pending'}
-            onExpand={() => setExpandedCard(expandedCard === 'pending' ? null : 'pending')}
-          />
-          <MetricCard
-            label="Em Atraso"
-            value={loading ? '…' : data ? money(data.overdue_value) : '—'}
-            detail={data ? `${data.overdue_count} vencidas` : undefined}
-            tone="rose"
-            icon={<AlertTriangle size={16} />}
-          />
-          <MetricCard
-            label="Recorrente (MRR)"
-            value={loading ? '…' : data ? money(data.recurring_value) : '—'}
-            detail={data ? `${data.recurring_count} assinaturas ativas` : undefined}
-            tone="amber"
-            icon={<RefreshCw size={16} />}
-          />
-        </div>
-
-        {/* Expandable: A Receber detail */}
-        {expandedCard === 'pending' && data && (() => {
-          const pending = data.payments.filter((p) =>
-            ['PENDING', 'AWAITING_RISK_ANALYSIS', 'AWAITING_CHARGEBACK_REVERSAL'].includes(p.status)
-          );
-          return (
-            <div
-              className="rounded-2xl overflow-hidden"
-              style={{ border: '1px solid var(--erp-border-strong)', background: 'var(--erp-surface)' }}
-            >
-              <div className="flex items-center justify-between px-5 py-3"
-                style={{ borderBottom: '1px solid var(--erp-border)', background: 'var(--erp-surface-2)' }}>
-                <div className="flex items-center gap-2">
-                  <DollarSign size={14} style={{ color: 'var(--erp-violet-light)' }} />
-                  <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-text-muted)' }}>
-                    Detalhamento · A Receber
-                  </span>
-                </div>
-                <span className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>
-                  {pending.length} cobrança{pending.length !== 1 ? 's' : ''} · {money(pending.reduce((s, p) => s + p.value, 0))}
-                </span>
-              </div>
-              {pending.length === 0 ? (
-                <p className="py-8 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma cobrança pendente</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                        {['Cliente', 'Descrição', 'Vencimento', 'Valor', 'Status'].map((h) => (
-                          <th key={h} className="px-5 py-2.5 text-left text-xs font-semibold uppercase tracking-wider"
-                            style={{ color: 'var(--erp-text-dim)' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pending.map((p, i) => (
-                        <tr
-                          key={p.id}
-                          style={{ borderBottom: i < pending.length - 1 ? '1px solid var(--erp-border)' : undefined }}
-                        >
-                          <td className="px-5 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{p.customer}</td>
-                          <td className="px-5 py-3 max-w-[220px] truncate text-xs" style={{ color: 'var(--erp-text-muted)' }}>{p.description}</td>
-                          <td className="px-5 py-3 tabular-nums text-xs" style={{ color: 'var(--erp-text-muted)' }}>{p.due_date}</td>
-                          <td className="px-5 py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-violet-light)' }}>{money(p.value)}</td>
-                          <td className="px-5 py-3">
-                            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                              style={{ background: 'rgba(251,191,36,0.12)', color: '#fbbf24' }}>
-                              Pendente
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
-      {/* Secondary KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          label="Clientes"
-          value={loading ? '…' : data ? String(data.customers_total) : '—'}
-          detail="Total cadastrados · ASAAS"
-          tone="cyan"
-          icon={<Users size={16} />}
-        />
-        <MetricCard label="Despesas"      value={loading ? '…' : money(expensesTotal)} detail={manual ? `${manual.expenses.length} lan�amentos manuais` : 'custos mensais'} tone="rose"    icon={<TrendingDown size={16} />} />
-        <MetricCard label="Lucro L�quido" value={loading ? '…' : money(netCash)} detail="recebido + venda direta - despesas" tone="emerald" icon={<TrendingUp  size={16} />} />
-        <MetricCard label="Reposi��o Caixa" value={loading ? '…' : money(directSalesUnmatched)} detail="venda direta sem match ASAAS" tone="violet"  icon={<CreditCard  size={16} />} />
+        <MetricCard label="Receita realizada" value={loading ? '...' : currency(received + directSales, 2)} detail={`${currency(received, 2)} ASAAS + ${currency(directSales, 2)} venda direta`} tone="emerald" icon={<ArrowUpRight size={16} />} />
+        <MetricCard label="Custos controlados" value={loading ? '...' : currency(totalCosts, 2)} detail={`${currency(fixedCosts, 2)} fixos + ${currency(recurringCosts, 2)} recorrentes`} tone="rose" icon={<ArrowDownRight size={16} />} />
+        <MetricCard label="Resultado líquido" value={loading ? '...' : currency(net, 2)} detail={`${margin.toFixed(1)}% margem operacional`} tone={net >= 0 ? 'cyan' : 'amber'} icon={<Banknote size={16} />} />
+        <MetricCard label="A receber" value={loading ? '...' : currency(pending, 2)} detail={`${data?.pending_count ?? 0} cobranças pendentes`} tone="violet" icon={<WalletCards size={16} />} />
       </div>
 
-      {/* Charts row */}
-      <div className="grid gap-4 lg:grid-cols-3">
-
-        {/* Forecast chart */}
-        <Card className="lg:col-span-2" padding="lg">
-          <CardHeader
-            title="Previsão de Recebimento"
-            subtitle={forecastData.length ? `${days} dias por vencimento · ASAAS` : 'Aguardando dados'}
-            action={
-              <Link to="/financeiro/projecoes" className="text-xs flex items-center gap-1" style={{ color: 'var(--erp-violet-light)' }}>
-                Detalhes <ArrowRight size={11} />
-              </Link>
-            }
-          />
-          {forecastData.length ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={forecastData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-                <defs>
-                  <linearGradient id="gFin" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#7c4dff" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#7c4dff" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={36} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area name="Previsto" type="monotone" dataKey="value" stroke="#7c4dff" strokeWidth={2} fill="url(#gFin)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-44 items-center justify-center rounded-xl"
-              style={{ border: '1px dashed var(--erp-border-strong)' }}>
-              <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                {loading ? 'Carregando…' : 'Sem dados de previsão'}
-              </p>
-            </div>
-          )}
-        </Card>
-
-        {/* Meios de pagamento */}
+      <div className="grid gap-4 xl:grid-cols-1">
         <Card padding="lg">
-          <CardHeader title="Meios de Pagamento" subtitle="Por volume cobrado" />
-          {billingData.length ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={billingData} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={50} outerRadius={75} paddingAngle={3}>
-                  {billingData.map((_, i) => (
-                    <Cell key={i} fill={BILLING_COLORS[i % BILLING_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--erp-text-muted)' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-44 items-center justify-center rounded-xl"
-              style={{ border: '1px dashed var(--erp-border-strong)' }}>
-              <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                {loading ? 'Carregando…' : 'Sem dados'}
-              </p>
-            </div>
-          )}
+          <CardHeader title="Receita x custos" subtitle="Visão mensal consolidada" />
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: 'var(--erp-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: 'var(--erp-text-dim)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `R$${(Number(value) / 1000).toFixed(0)}k`} />
+              <Tooltip content={chartTooltip} />
+              <Bar dataKey="asaas" name="ASAAS" stackId="receita" fill="#34d399" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="direct" name="Venda direta" stackId="receita" fill="#67e8f9" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="fixed" name="Fixos" stackId="custos" fill="#f87171" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="recurring" name="Recorrentes" stackId="custos" fill="#fbbf24" radius={[5, 5, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </Card>
       </div>
 
-      {/* Payments list */}
       <Card padding="lg">
-        <CardHeader
-          title="Cobranças Recentes"
-          subtitle={`${data?.payments?.length ?? 0} registros · amostra ${days}d`}
-          action={
-            <Link to="/financeiro/contas-receber" className="text-xs flex items-center gap-1" style={{ color: 'var(--erp-violet-light)' }}>
-              Ver tudo <ArrowRight size={11} />
-            </Link>
-          }
-        />
-        {loading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-12 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />
-            ))}
-          </div>
-        ) : (data?.payments ?? []).length === 0 ? (
-          <p className="py-8 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma cobrança no período</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                  {['Cliente', 'Descrição', 'Vencimento', 'Valor', 'Status'].map((h) => (
-                    <th key={h} className="pb-2.5 text-left text-xs font-semibold uppercase tracking-wider"
-                      style={{ color: 'var(--erp-text-dim)' }}>{h}</th>
-                  ))}
+        <CardHeader title="Mapa mensal" subtitle="Tudo que importa para decidir rápido" />
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
+                {['Mês', 'Receita ASAAS', 'Venda direta', 'Custos fixos', 'Custos recorrentes', 'Saldo'].map((heading) => (
+                  <th key={heading} className="pb-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--erp-text-dim)' }}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y" style={{ borderColor: 'var(--erp-border)' }}>
+              {rows.map((row) => (
+                <tr key={row.month}>
+                  <td className="py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{row.label}</td>
+                  <td className="py-3 tabular-nums" style={{ color: '#34d399' }}>{currency(row.asaas, 2)}</td>
+                  <td className="py-3 tabular-nums" style={{ color: '#67e8f9' }}>{currency(row.direct, 2)}</td>
+                  <td className="py-3 tabular-nums" style={{ color: '#f87171' }}>{currency(row.fixed, 2)}</td>
+                  <td className="py-3 tabular-nums" style={{ color: '#fbbf24' }}>{currency(row.recurring, 2)}</td>
+                  <td className="py-3 font-semibold tabular-nums" style={{ color: row.saldo >= 0 ? '#34d399' : '#f87171' }}>{currency(row.saldo, 2)}</td>
                 </tr>
-              </thead>
-              <tbody className="divide-y" style={{ borderColor: 'var(--erp-border)' }}>
-                {(data?.payments ?? []).slice(0, 10).map((p) => {
-                  const isPaid = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(p.status);
-                  const isOverdue = p.status === 'OVERDUE';
-                  return (
-                    <tr key={p.id}>
-                      <td className="py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{p.customer}</td>
-                      <td className="py-3 max-w-[200px] truncate" style={{ color: 'var(--erp-text-muted)' }}>{p.description}</td>
-                      <td className="py-3 tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{p.due_date}</td>
-                      <td className="py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>{money(p.value)}</td>
-                      <td className="py-3">
-                        <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                          style={{
-                            background: isPaid ? 'rgba(52,211,153,0.12)' : isOverdue ? 'rgba(248,113,113,0.12)' : 'rgba(251,191,36,0.12)',
-                            color: isPaid ? '#34d399' : isOverdue ? '#f87171' : '#fbbf24',
-                          }}>
-                          {isPaid ? 'Pago' : isOverdue ? 'Vencido' : 'Pendente'}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card padding="lg">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}><ShieldCheck size={18} /></div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Receita centralizada</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>ASAAS, pendências, recebidos e venda direta conciliada ficam em Receita.</p>
+        </Card>
+        <Card padding="lg">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}><ArrowDownRight size={18} /></div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Custos fixos manuais</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Impostos, logística e obrigações previsíveis com cadastro rápido.</p>
+        </Card>
+        <Card padding="lg">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}><RefreshCw size={18} /></div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Recorrências sob controle</p>
+          <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Software, contabilidade, empréstimos e contratos mensais sem poluir a navegação.</p>
+        </Card>
+      </div>
     </div>
   );
 }

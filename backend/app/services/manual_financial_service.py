@@ -5,7 +5,9 @@ from datetime import date
 from decimal import Decimal
 import re
 import unicodedata
-from typing import Any
+from typing import Any, Literal
+
+ExpenseKind = Literal["fixed", "recurring"]
 
 
 @dataclass(frozen=True)
@@ -17,6 +19,8 @@ class ManualExpense:
     description: str
     value: Decimal
     vendor: str
+    kind: ExpenseKind
+    recurrence: str
     notes: str | None = None
 
 
@@ -32,21 +36,12 @@ class DirectSaleInstallment:
     source: str = "Reposicao de caixa"
 
 
-MONTHS_2026 = {
-    "Abril": "2026-04",
-    "Maio": "2026-05",
-    "Junho": "2026-06",
-    "Julho": "2026-07",
-    "Agosto": "2026-08",
-}
-
-
 EXPENSES = [
-    ManualExpense("exp-topdata-software-2026-06", "2026-06", "2026-06-15", "Software e servicos", "Software Topdata", Decimal("220.00"), "Topdata"),
-    ManualExpense("exp-emprestimo-2026-06", "2026-06", "2026-06-24", "Emprestimo", "Emprestimo", Decimal("1368.00"), "Instituicao financeira"),
-    ManualExpense("exp-imposto-2026-06", "2026-06", "2026-06-22", "Impostos", "Imposto", Decimal("86.50"), "Governo"),
-    ManualExpense("exp-correios-2026-06", "2026-06", "2026-06-22", "Logistica", "Correios", Decimal("90.00"), "Correios"),
-    ManualExpense("exp-contabilidade-2026-06", "2026-06", "2026-06-16", "Contabilidade", "Contabilidade", Decimal("315.00"), "Contabilidade", "Faturamento de maio"),
+    ManualExpense("exp-topdata-software-2026-06", "2026-06", "2026-06-15", "Software", "Software Topdata", Decimal("220.00"), "Topdata", "recurring", "Mensal"),
+    ManualExpense("exp-emprestimo-2026-06", "2026-06", "2026-06-24", "Financeiro", "Emprestimo", Decimal("1368.00"), "Instituicao financeira", "recurring", "Mensal"),
+    ManualExpense("exp-imposto-2026-06", "2026-06", "2026-06-22", "Impostos", "Imposto", Decimal("86.50"), "Governo", "fixed", "Pontual"),
+    ManualExpense("exp-correios-2026-06", "2026-06", "2026-06-22", "Logistica", "Correios", Decimal("90.00"), "Correios", "fixed", "Pontual"),
+    ManualExpense("exp-contabilidade-2026-06", "2026-06", "2026-06-16", "Contabilidade", "Contabilidade", Decimal("315.00"), "Contabilidade", "recurring", "Mensal", "Faturamento de maio"),
 ]
 
 
@@ -104,21 +99,24 @@ def _match_installment(installment: DirectSaleInstallment, payments: list[dict[s
     return None
 
 
+def _expense_payload(item: ManualExpense) -> dict[str, Any]:
+    return {
+        "id": item.id,
+        "month": item.month,
+        "date": item.date,
+        "category": item.category,
+        "description": item.description,
+        "value": _money(item.value),
+        "vendor": item.vendor,
+        "kind": item.kind,
+        "recurrence": item.recurrence,
+        "notes": item.notes,
+    }
+
+
 def manual_financial_snapshot(asaas_payments: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     payments = asaas_payments or []
-    expenses = [
-        {
-            "id": item.id,
-            "month": item.month,
-            "date": item.date,
-            "category": item.category,
-            "description": item.description,
-            "value": _money(item.value),
-            "vendor": item.vendor,
-            "notes": item.notes,
-        }
-        for item in EXPENSES
-    ]
+    expenses = [_expense_payload(item) for item in EXPENSES]
 
     direct_sales = []
     for item in DIRECT_SALE_INSTALLMENTS:
@@ -140,23 +138,29 @@ def manual_financial_snapshot(asaas_payments: list[dict[str, Any]] | None = None
 
     monthly: dict[str, dict[str, float]] = {}
     for item in expenses:
-        bucket = monthly.setdefault(item["month"], {"month": item["month"], "manual_revenue": 0.0, "expenses": 0.0, "unmatched_direct_sales": 0.0})
+        bucket = monthly.setdefault(item["month"], {"month": item["month"], "manual_revenue": 0.0, "expenses": 0.0, "fixed_costs": 0.0, "recurring_costs": 0.0, "unmatched_direct_sales": 0.0})
         bucket["expenses"] += item["value"]
+        bucket["fixed_costs" if item["kind"] == "fixed" else "recurring_costs"] += item["value"]
     for item in direct_sales:
-        bucket = monthly.setdefault(item["month"], {"month": item["month"], "manual_revenue": 0.0, "expenses": 0.0, "unmatched_direct_sales": 0.0})
+        bucket = monthly.setdefault(item["month"], {"month": item["month"], "manual_revenue": 0.0, "expenses": 0.0, "fixed_costs": 0.0, "recurring_costs": 0.0, "unmatched_direct_sales": 0.0})
         bucket["manual_revenue"] += item["value"]
         if not item["matched"]:
             bucket["unmatched_direct_sales"] += item["value"]
 
+    fixed_total = sum(item.value for item in EXPENSES if item.kind == "fixed")
+    recurring_total = sum(item.value for item in EXPENSES if item.kind == "recurring")
     return {
         "source": "manual",
         "updated_at": date.today().isoformat(),
         "expenses": expenses,
+        "fixed_costs": [item for item in expenses if item["kind"] == "fixed"],
+        "recurring_costs": [item for item in expenses if item["kind"] == "recurring"],
         "direct_sales": direct_sales,
-        "monthly": [{**row, "expenses": round(row["expenses"], 2), "manual_revenue": round(row["manual_revenue"], 2), "unmatched_direct_sales": round(row["unmatched_direct_sales"], 2)} for row in sorted(monthly.values(), key=lambda row: row["month"])],
+        "monthly": [{**row, "expenses": round(row["expenses"], 2), "fixed_costs": round(row["fixed_costs"], 2), "recurring_costs": round(row["recurring_costs"], 2), "manual_revenue": round(row["manual_revenue"], 2), "unmatched_direct_sales": round(row["unmatched_direct_sales"], 2)} for row in sorted(monthly.values(), key=lambda row: row["month"])],
         "summary": {
-            "expenses_total": _money(sum(item.value for item in EXPENSES)),
-            "fixed_expenses_total": _money(sum(item.value for item in EXPENSES)),
+            "expenses_total": _money(fixed_total + recurring_total),
+            "fixed_expenses_total": _money(fixed_total),
+            "recurring_expenses_total": _money(recurring_total),
             "variable_expenses_total": 0.0,
             "direct_sales_total": _money(sum(item.value for item in DIRECT_SALE_INSTALLMENTS)),
             "unmatched_direct_sales_total": round(sum(item["value"] for item in direct_sales if not item["matched"]), 2),

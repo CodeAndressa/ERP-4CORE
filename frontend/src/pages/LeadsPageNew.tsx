@@ -57,12 +57,12 @@ function normalizeStatus(raw: string): LeadStatus {
   const map: Record<string, LeadStatus> = {
     'Novo lead': 'novo',
     'novo': 'novo',
-    'Qualificação': 'qualificado',
+    'QualificaÃ§Ã£o': 'qualificado',
     'qualificado': 'qualificado',
-    'Diagnóstico': 'contato',
+    'DiagnÃ³stico': 'contato',
     'contato': 'contato',
     'Proposta': 'contato',
-    'Negociação': 'contato',
+    'NegociaÃ§Ã£o': 'contato',
     'perdido': 'perdido',
   };
   return map[raw] ?? 'novo';
@@ -81,7 +81,7 @@ function EmptyLeads({ filtered }: { filtered: boolean }) {
         {filtered ? 'Nenhum lead nesta categoria' : 'Nenhum lead cadastrado'}
       </p>
       <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-        {filtered ? 'Tente outro filtro.' : 'Os leads aparecerão aqui quando forem registrados.'}
+        {filtered ? 'Tente outro filtro.' : 'Os leads aparecerÃ£o aqui quando forem registrados.'}
       </p>
     </div>
   );
@@ -107,7 +107,7 @@ export function LeadsPageNew() {
           : [];
         const normalized: Lead[] = raw.map((item, i) => ({
           id:         String(item.id ?? i),
-          name:       (item.name as string) ?? (item.nome as string) ?? '—',
+          name:       (item.name as string) ?? (item.nome as string) ?? 'â€”',
           company:    (item.company as string) ?? (item.empresa as string) ?? undefined,
           status:     normalizeStatus((item.status as string) ?? (item.stage as string) ?? 'novo'),
           value:      (item.value as number) ?? (item.valor as number) ?? undefined,
@@ -154,7 +154,7 @@ export function LeadsPageNew() {
           <Search size={14} style={{ color: 'var(--erp-text-muted)' }} />
           <input
             type="text"
-            placeholder="Buscar lead…"
+            placeholder="Buscar leadâ€¦"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-inherit"
@@ -201,7 +201,7 @@ export function LeadsPageNew() {
               className="h-4 w-4 animate-spin rounded-full border-2"
               style={{ borderColor: 'var(--erp-border)', borderTopColor: 'var(--erp-violet)' }}
             />
-            <span className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Carregando leads…</span>
+            <span className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Carregando leadsâ€¦</span>
           </div>
         ) : filtered.length === 0 ? (
           <EmptyLeads filtered={activeFilter !== 'all' || search !== ''} />
@@ -243,7 +243,7 @@ export function LeadsPageNew() {
                     </td>
                     <td className="px-4 py-3">
                       <span style={{ color: 'var(--erp-text-muted)' }}>
-                        {lead.company ?? '—'}
+                        {lead.company ?? 'â€”'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -253,20 +253,20 @@ export function LeadsPageNew() {
                     </td>
                     <td className="px-4 py-3">
                       <span style={{ color: lead.value ? 'var(--erp-violet-light)' : 'var(--erp-text-dim)' }}>
-                        {lead.value ? fmt(lead.value) : '—'}
+                        {lead.value ? fmt(lead.value) : 'â€”'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         <OriginIcon origin={lead.origin} />
-                        <span style={{ color: 'var(--erp-text-muted)' }}>{lead.origin ?? '—'}</span>
+                        <span style={{ color: 'var(--erp-text-muted)' }}>{lead.origin ?? 'â€”'}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span style={{ color: 'var(--erp-text-dim)' }}>
                         {lead.created_at
                           ? new Date(lead.created_at).toLocaleDateString('pt-BR')
-                          : '—'}
+                          : 'â€”'}
                       </span>
                     </td>
                   </tr>

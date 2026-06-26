@@ -31,28 +31,28 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+          <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm" onClick={onClose} />
           <motion.div
-            className={`relative w-full ${sizes[size]} rounded-2xl border border-white/10 bg-[#0f0c2b] shadow-2xl`}
+            className={`relative w-full ${sizes[size]} rounded-[30px] border border-violet-100 bg-white`}
             initial={{ scale: 0.96, opacity: 0, y: 8 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 8 }}
             transition={{ type: 'spring', duration: 0.3 }}
           >
             {(title || description) && (
-              <div className="flex items-start justify-between border-b border-white/8 px-6 py-5">
+              <div className="flex items-start justify-between border-b border-violet-100 px-6 py-5">
                 <div>
-                  {title && <h2 className="text-base font-semibold text-white">{title}</h2>}
-                  {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
+                  {title && <h2 className="text-base font-semibold text-slate-950">{title}</h2>}
+                  {description && <p className="mt-1 text-sm text-slate-600">{description}</p>}
                 </div>
-                <button onClick={onClose} className="ml-4 rounded-lg p-1.5 text-slate-500 hover:bg-white/8 hover:text-slate-300 transition-colors">
+                <button onClick={onClose} className="ml-4 rounded-full p-2 text-slate-500 transition-colors hover:bg-violet-50 hover:text-violet-700">
                   <X size={16} />
                 </button>
               </div>
             )}
             <div className="p-6">{children}</div>
             {footer && (
-              <div className="flex justify-end gap-3 border-t border-white/8 px-6 py-4">
+              <div className="flex justify-end gap-3 border-t border-violet-100 px-6 py-4">
                 {footer}
               </div>
             )}

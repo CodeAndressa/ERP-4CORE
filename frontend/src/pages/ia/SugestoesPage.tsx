@@ -30,9 +30,9 @@ export default function SugestoesPage() {
   function load() {
     setLoading(true);
     setError(null);
-    api.post<{ analysis: Analysis }>('/ai/analyze', { scope: 'operacao', instructions: 'Liste as principais sugestões e prioridades para a operação agora.' })
+    api.post<{ analysis: Analysis }>('/ai/analyze', { scope: 'operacao', instructions: 'Liste as principais sugestÃµes e prioridades para a operaÃ§Ã£o agora.' })
       .then(({ data: d }) => setData(d.analysis))
-      .catch((e) => setError(e?.response?.data?.detail || 'Falha ao gerar sugestões'))
+      .catch((e) => setError(e?.response?.data?.detail || 'Falha ao gerar sugestÃµes'))
       .finally(() => setLoading(false));
   }
 
@@ -42,9 +42,9 @@ export default function SugestoesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Inteligência IA</p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Sugestões</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Recomendações geradas pela IA com base nos dados da plataforma</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>InteligÃªncia IA</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>SugestÃµes</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>RecomendaÃ§Ãµes geradas pela IA com base nos dados da plataforma</p>
         </div>
         <button
           onClick={load}

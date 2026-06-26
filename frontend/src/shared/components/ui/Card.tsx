@@ -13,15 +13,14 @@ export function Card({ children, glass = false, hover = false, padding = 'md', c
   return (
     <div
       className={[
-        'rounded-2xl shadow-card',
-        hover ? 'transition-all duration-200 cursor-pointer' : '',
+        'rounded-[22px] border border-violet-100 bg-white',
+        hover ? 'cursor-pointer transition-colors duration-200 hover:border-violet-200 hover:bg-[var(--erp-surface-2)]' : '',
         paddings[padding],
         className,
       ].join(' ')}
       style={{
-        background: glass ? 'rgba(255,255,255,0.04)' : 'var(--erp-surface)',
-        border: '1px solid var(--erp-border)',
-        backdropFilter: glass ? 'blur(20px)' : undefined,
+        background: glass ? 'rgba(255,255,255,0.88)' : 'var(--erp-surface)',
+        backdropFilter: glass ? 'blur(16px)' : undefined,
         ...style,
       }}
       {...rest}

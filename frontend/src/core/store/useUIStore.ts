@@ -18,7 +18,7 @@ interface UIState {
   toggleTheme: () => void;
 }
 
-const savedTheme = (localStorage.getItem('erp-theme') as Theme | null) ?? 'dark';
+const savedTheme: Theme = 'light';
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: false,
@@ -34,12 +34,10 @@ export const useUIStore = create<UIState>((set) => ({
   closeAIDrawer: () => set({ aiDrawerOpen: false }),
   openCommand: () => set({ commandOpen: true }),
   closeCommand: () => set({ commandOpen: false }),
-  toggleTheme: () =>
-    set((s) => {
-      const next: Theme = s.theme === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('erp-theme', next);
-      document.documentElement.classList.remove('dark', 'light');
-      document.documentElement.classList.add(next);
-      return { theme: next };
-    }),
+  toggleTheme: () => {
+    localStorage.setItem('erp-theme', 'light');
+    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('light');
+    set({ theme: 'light' });
+  },
 }));

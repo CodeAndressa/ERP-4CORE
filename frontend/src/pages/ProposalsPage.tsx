@@ -16,11 +16,11 @@ interface Proposal {
 }
 
 const SEED: Proposal[] = [
-  { id: 1, code: '026/2026', client: 'Grupo Atlas',          value: 28000, status: 'enviada',    nextAction: '27 jun — aguardando retorno'  },
-  { id: 2, code: '025/2026', client: 'Norte RH',             value: 16800, status: 'elaboracao', nextAction: '30 jun — enviar para cliente'  },
-  { id: 3, code: '024/2026', client: 'Vértice Logística',    value: 12500, status: 'aprovada',   nextAction: 'Início 01 jul'                  },
-  { id: 4, code: '023/2026', client: 'Agro Primavera',       value:  8900, status: 'enviada',    nextAction: '28 jun — follow-up'             },
-  { id: 5, code: '022/2026', client: 'Tech Soluções',        value: 19500, status: 'perdida',    nextAction: 'Encerrada'                      },
+  { id: 1, code: '026/2026', client: 'Grupo Atlas',          value: 28000, status: 'enviada',    nextAction: '27 jun â€” aguardando retorno'  },
+  { id: 2, code: '025/2026', client: 'Norte RH',             value: 16800, status: 'elaboracao', nextAction: '30 jun â€” enviar para cliente'  },
+  { id: 3, code: '024/2026', client: 'VÃ©rtice LogÃ­stica',    value: 12500, status: 'aprovada',   nextAction: 'InÃ­cio 01 jul'                  },
+  { id: 4, code: '023/2026', client: 'Agro Primavera',       value:  8900, status: 'enviada',    nextAction: '28 jun â€” follow-up'             },
+  { id: 5, code: '022/2026', client: 'Tech SoluÃ§Ãµes',        value: 19500, status: 'perdida',    nextAction: 'Encerrada'                      },
 ];
 
 const STATUS_TONE: Record<ProposalStatus, 'amber' | 'violet' | 'emerald' | 'slate'> = {
@@ -32,7 +32,7 @@ const STATUS_TONE: Record<ProposalStatus, 'amber' | 'violet' | 'emerald' | 'slat
 
 const STATUS_LABELS: Record<ProposalStatus, string> = {
   enviada:    'Enviada',
-  elaboracao: 'Em elaboração',
+  elaboracao: 'Em elaboraÃ§Ã£o',
   aprovada:   'Aprovada',
   perdida:    'Perdida',
 };
@@ -55,7 +55,7 @@ export default function ProposalsPage() {
 
   const TABS: { id: ProposalStatus | 'all'; label: string }[] = [
     { id: 'all',        label: 'Todas'        },
-    { id: 'elaboracao', label: 'Em elaboração' },
+    { id: 'elaboracao', label: 'Em elaboraÃ§Ã£o' },
     { id: 'enviada',    label: 'Enviadas'     },
     { id: 'aprovada',   label: 'Aprovadas'    },
     { id: 'perdida',    label: 'Perdidas'     },
@@ -94,9 +94,9 @@ export default function ProposalsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="Em negociação" value={money(pipeline)}  detail={`${active.length} propostas ativas`} tone="violet"  icon={<DollarSign size={16} />} />
-        <MetricCard label="Conversão"     value={`${convRate}%`}   detail="aprovadas / total"                  tone="emerald" icon={<CheckCircle size={16} />} />
-        <MetricCard label="Tempo médio"   value="12 dias"          detail="do envio ao fechamento"             tone="amber"   icon={<Clock size={16} />} />
+        <MetricCard label="Em negociaÃ§Ã£o" value={money(pipeline)}  detail={`${active.length} propostas ativas`} tone="violet"  icon={<DollarSign size={16} />} />
+        <MetricCard label="ConversÃ£o"     value={`${convRate}%`}   detail="aprovadas / total"                  tone="emerald" icon={<CheckCircle size={16} />} />
+        <MetricCard label="Tempo mÃ©dio"   value="12 dias"          detail="do envio ao fechamento"             tone="amber"   icon={<Clock size={16} />} />
       </div>
 
       {showForm && (
@@ -137,7 +137,7 @@ export default function ProposalsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                {['Proposta', 'Cliente', 'Valor', 'Status', 'Próxima ação'].map((h) => (
+                {['Proposta', 'Cliente', 'Valor', 'Status', 'PrÃ³xima aÃ§Ã£o'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
                     style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                 ))}

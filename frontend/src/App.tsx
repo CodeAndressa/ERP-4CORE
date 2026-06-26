@@ -43,6 +43,19 @@ import ComerciaisPage from './pages/relatorios/ComerciaisPage';
 // Comercial restante (Fase 2)
 import FollowupPage from './pages/comercial/FollowupPage';
 import AgendaPage from './pages/comercial/AgendaPage';
+import FunilPage from './pages/comercial/FunilPage';
+
+// Financeiro — novas páginas
+import ReceitasPage from './pages/financeiro/ReceitasPage';
+import FluxoCaixaPage from './pages/financeiro/FluxoCaixaPage';
+import DespesasPage from './pages/financeiro/DespesasPage';
+import ContasPagarPage from './pages/financeiro/ContasPagarPage';
+import OrcamentoPage from './pages/financeiro/OrcamentoPage';
+import ConciliacaoPage from './pages/financeiro/ConciliacaoPage';
+
+// Marketing — novas páginas
+import CampanhasPage from './pages/marketing/CampanhasPage';
+import PlanejamentoPage from './pages/marketing/PlanejamentoPage';
 
 function ComingSoon({ title, phase }: { title: string; phase?: number }) {
   return (
@@ -76,7 +89,7 @@ function App() {
           <Route path="leads"     element={<LeadsPageNew />} />
           <Route path="clientes"  element={<ClientsPage />} />
           <Route path="pipeline"  element={<PipelinePage />} />
-          <Route path="funil"     element={<ComingSoon title="Funil de Conversão" phase={2} />} />
+          <Route path="funil"     element={<FunilPage />} />
           <Route path="propostas" element={<ProposalsPage />} />
           <Route path="agenda"    element={<AgendaPage />} />
           <Route path="followup"  element={<FollowupPage />} />
@@ -87,12 +100,12 @@ function App() {
           <Route path="contas-receber" element={<ContasReceberPage />} />
           <Route path="mensalidades"   element={<MensalidadesPage />} />
           <Route path="projecoes"      element={<ProjecoesPage />} />
-          <Route path="receitas"       element={<ComingSoon title="Receitas" phase={3} />} />
-          <Route path="despesas"       element={<ComingSoon title="Despesas" phase={3} />} />
-          <Route path="fluxo-caixa"    element={<ComingSoon title="Fluxo de Caixa" phase={3} />} />
-          <Route path="contas-pagar"   element={<ComingSoon title="Contas a Pagar" phase={3} />} />
-          <Route path="orcamento"      element={<ComingSoon title="Orçamento" phase={3} />} />
-          <Route path="conciliacao"    element={<ComingSoon title="Conciliação" phase={3} />} />
+          <Route path="receitas"       element={<ReceitasPage />} />
+          <Route path="despesas"       element={<DespesasPage />} />
+          <Route path="fluxo-caixa"    element={<FluxoCaixaPage />} />
+          <Route path="contas-pagar"   element={<ContasPagarPage />} />
+          <Route path="orcamento"      element={<OrcamentoPage />} />
+          <Route path="conciliacao"    element={<ConciliacaoPage />} />
         </Route>
 
         {/* Marketing — Fase 4 */}
@@ -102,8 +115,8 @@ function App() {
           <Route path="posts"        element={<PostsPage />} />
           <Route path="ideias"       element={<IdeiasBancoPage />} />
           <Route path="metricas"     element={<MetricasMarketingPage />} />
-          <Route path="campanhas"    element={<ComingSoon title="Campanhas" phase={4} />} />
-          <Route path="planejamento" element={<ComingSoon title="Planejamento Mensal" phase={4} />} />
+          <Route path="campanhas"    element={<CampanhasPage />} />
+          <Route path="planejamento" element={<PlanejamentoPage />} />
         </Route>
 
         {/* IA — Fase 5 */}

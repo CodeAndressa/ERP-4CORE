@@ -1,20 +1,186 @@
 import { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { PageHeader, SectionCard, StatusBadge, primaryButton } from '../components/ErpUi';
+import {
+  CheckCircle, AlertCircle, Globe, DollarSign,
+  Camera, Brain, Mail, Save,
+} from 'lucide-react';
+import { Card } from '../shared/components/ui/Card';
 
-type IntegrationStatus = { site_analytics: boolean; financial: boolean; instagram: boolean; ai: boolean; email: boolean };
-const initialStatus: IntegrationStatus = { site_analytics: false, financial: false, instagram: false, ai: false, email: false };
+type IntegrationStatus = {
+  site_analytics: boolean;
+  financial: boolean;
+  instagram: boolean;
+  ai: boolean;
+  email: boolean;
+};
+
+const INTEGRATIONS = [
+  { key: 'site_analytics' as const, label: 'Métricas do Site',      desc: 'Supabase · acessos, conversões e leads',       icon: Globe      },
+  { key: 'financial'      as const, label: 'Financeiro',             desc: 'ASAAS · cobranças e pagamentos',               icon: DollarSign  },
+  { key: 'instagram'      as const, label: 'Instagram Business',     desc: 'Meta · métricas e conteúdo',                   icon: Camera      },
+  { key: 'ai'             as const, label: 'Assistente IA',          desc: 'Groq · recomendações e análises',              icon: Brain       },
+  { key: 'email'          as const, label: 'E-mail transacional',    desc: 'Resend · avisos e automações',                 icon: Mail        },
+];
 
 export default function SettingsPage() {
-  const [status, setStatus] = useState<IntegrationStatus>(initialStatus);
+  const [status, setStatus] = useState<IntegrationStatus>({
+    site_analytics: false, financial: false, instagram: false, ai: false, email: false,
+  });
   const [checked, setChecked] = useState(false);
-  useEffect(() => { api.get<IntegrationStatus>('/integrations/status').then(({ data }) => setStatus(data)).catch(() => undefined).finally(() => setChecked(true)); }, []);
-  const integrations = [
-    ['Métricas do site', 'Supabase · acessos, conversões e leads', status.site_analytics],
-    ['Financeiro', 'ASAAS · cobranças e pagamentos', status.financial],
-    ['Instagram Business', 'Meta · métricas e conteúdo', status.instagram],
-    ['Assistente IA', 'Groq · recomendações e análises', status.ai],
-    ['E-mail transacional', 'Resend · avisos e automações', status.email],
-  ];
-  return <div className="mx-auto max-w-7xl space-y-6"><PageHeader eyebrow="Administração" title="Configurações e fontes de dados" description="Conecte cada fonte uma vez. As telas do ERP passam a usar os dados reais assim que a integração estiver ativa." action={<button className={primaryButton}>Salvar alterações</button>} /><div className="grid gap-6 lg:grid-cols-2"><SectionCard title="Dados da empresa" subtitle="Informações exibidas em documentos e comunicações"><div className="grid gap-4 sm:grid-cols-2"><label className="text-sm text-slate-400">Nome da empresa<input defaultValue="4Core Consultoria Estratégica" className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5 text-sm text-white outline-none" /></label><label className="text-sm text-slate-400">E-mail financeiro<input defaultValue="financeiro@4core.com.br" className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950/40 px-3 py-2.5 text-sm text-white outline-none" /></label></div></SectionCard><SectionCard title="Status das integrações" subtitle={checked ? 'Leitura atual do ambiente do backend' : 'Verificando o ambiente do backend…'}><div className="space-y-4">{integrations.map(([name, description, enabled]) => <div className="flex items-center justify-between gap-4" key={name as string}><div><p className="font-medium text-white">{name}</p><p className="text-xs text-slate-400">{description}</p></div><StatusBadge tone={enabled ? 'emerald' : 'amber'}>{enabled ? 'Ativa' : 'Pendente'}</StatusBadge></div>)}</div><a href="/docs/real-data-configuration.md" className="mt-5 inline-block text-sm font-medium text-violet-200 hover:text-white">Ver guia de configuração →</a></SectionCard><SectionCard title="Equipe e acessos" subtitle="Usuários autorizados"><div className="space-y-3"><div className="flex justify-between rounded-2xl bg-slate-950/30 p-4"><div><p className="font-medium text-white">Sócia 4Core</p><p className="text-xs text-slate-400">socia@4core.com.br</p></div><StatusBadge tone="violet">Admin</StatusBadge></div><button className="text-sm font-medium text-violet-200">+ Convidar integrante</button></div></SectionCard><SectionCard title="Próximo passo" subtitle="Para ativar uma integração"><div className="space-y-3 text-sm text-slate-300"><p>1. Copie os valores no `.env` da raiz.</p><p>2. Reinicie o backend.</p><p>3. Atualize esta tela e confira o status.</p></div></SectionCard></div></div>;
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.get<IntegrationStatus>('/integrations/status')
+      .then(({ data }) => setStatus(data))
+      .catch(() => undefined)
+      .finally(() => setChecked(true));
+  }, []);
+
+  function handleSave() {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  const activeCount = Object.values(status).filter(Boolean).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Administração</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Configurações</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>{activeCount} de {INTEGRATIONS.length} integrações ativas</p>
+        </div>
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all"
+          style={{
+            background: saved ? 'rgba(52,211,153,0.12)' : 'var(--erp-violet)',
+            color: saved ? '#34d399' : '#fff',
+          }}
+        >
+          {saved ? <CheckCircle size={14} /> : <Save size={14} />}
+          {saved ? 'Salvo!' : 'Salvar alterações'}
+        </button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Company data */}
+        <Card padding="lg">
+          <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Dados da empresa</p>
+          <p className="text-xs mb-4" style={{ color: 'var(--erp-text-muted)' }}>Exibidos em documentos e comunicações</p>
+          <div className="space-y-3">
+            {[
+              { label: 'Nome da empresa', value: '4Core Consultoria Estratégica' },
+              { label: 'CNPJ', value: '00.000.000/0001-00' },
+              { label: 'E-mail financeiro', value: 'financeiro@4core.com.br' },
+              { label: 'Telefone', value: '+55 (11) 90000-0000' },
+            ].map((field) => (
+              <div key={field.label}>
+                <label className="text-xs font-medium block mb-1" style={{ color: 'var(--erp-text-muted)' }}>{field.label}</label>
+                <input
+                  defaultValue={field.value}
+                  className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                  style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+                />
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Integration status */}
+        <Card padding="lg">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Status das integrações</p>
+            <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
+              {checked ? 'Leitura atual do backend' : 'Verificando…'}
+            </span>
+          </div>
+          <div className="space-y-3">
+            {INTEGRATIONS.map(({ key, label, desc, icon: Icon }) => {
+              const active = status[key];
+              return (
+                <div
+                  key={key}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3"
+                  style={{
+                    background: active ? 'rgba(52,211,153,0.06)' : 'var(--erp-surface-2)',
+                    border: `1px solid ${active ? 'rgba(52,211,153,0.2)' : 'var(--erp-border)'}`,
+                  }}
+                >
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
+                    style={{ background: active ? 'rgba(52,211,153,0.12)' : 'var(--erp-surface)' }}>
+                    <Icon size={14} style={{ color: active ? '#34d399' : 'var(--erp-text-dim)' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium" style={{ color: 'var(--erp-text)' }}>{label}</p>
+                    <p className="text-xs truncate" style={{ color: 'var(--erp-text-muted)' }}>{desc}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {active
+                      ? <CheckCircle size={13} style={{ color: '#34d399' }} />
+                      : <AlertCircle size={13} style={{ color: '#fbbf24' }} />}
+                    <span className="text-xs font-medium" style={{ color: active ? '#34d399' : '#fbbf24' }}>
+                      {active ? 'Ativa' : 'Pendente'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        {/* Team */}
+        <Card padding="lg">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Equipe e acessos</p>
+            <button className="text-xs font-medium" style={{ color: 'var(--erp-violet-light)' }}>
+              + Convidar
+            </button>
+          </div>
+          <div className="space-y-2">
+            {[
+              { name: 'Sócia 4Core', email: 'socia@4core.com.br', role: 'Admin' },
+            ].map((user) => (
+              <div key={user.email} className="flex items-center gap-3 rounded-xl px-3 py-3"
+                style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)' }}>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full"
+                  style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)', fontWeight: 700, fontSize: 12 }}>
+                  {user.name[0]}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium" style={{ color: 'var(--erp-text)' }}>{user.name}</p>
+                  <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{user.email}</p>
+                </div>
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)' }}>
+                  {user.role}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Setup guide */}
+        <Card padding="lg">
+          <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Como ativar uma integração</p>
+          <div className="space-y-3">
+            {[
+              'Copie os valores da variável no painel da Vercel (Settings → Environment Variables)',
+              'Adicione a chave correspondente no `.env` local para desenvolvimento',
+              'Atualize esta tela e confirme o status no painel acima',
+            ].map((step, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full mt-0.5"
+                  style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)', fontSize: 10, fontWeight: 700 }}>
+                  {i + 1}
+                </div>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>{step}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
 }

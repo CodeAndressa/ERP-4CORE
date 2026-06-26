@@ -1,32 +1,201 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Globe, TrendingUp, Users, MousePointerClick, Smartphone, Monitor, Tablet, RefreshCw } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
 import { api } from '../services/api';
-import { MetricCard, PageHeader, SectionCard, StatusBadge } from '../components/ErpUi';
+import { Card } from '../shared/components/ui/Card';
+import { MetricCard } from '../shared/components/layout/MetricCard';
 
-type SiteData = {
-  configured: boolean;
+interface DailyPoint { date: string; visitors: number; pageviews: number; }
+interface TopPage { path: string; views: number; unique_visitors: number; }
+interface Source { source: string; visitors: number; percentage: number; }
+interface Device { device: string; visitors: number; percentage: number; }
+interface SiteData {
+  configured?: boolean;
   message?: string;
   synced_at?: string;
-  summary?: { unique_visitors: number; pageviews: number; conversions: number; leads: number; conversion_rate: number; bounce_rate: number };
-  daily?: { date: string; pageviews: number; visitors: number; conversions: number; leads: number }[];
-  top_pages?: { page: string; pageviews: number; visitors: number }[];
-  sources?: { source: string; visitors: number; conversions: number; conversion_rate: number }[];
-  devices?: { device: string; events: number }[];
+  summary: { visitors: number; pageviews: number; conversions: number; leads: number; conversion_rate?: number; bounce_rate?: number; };
+  daily?: DailyPoint[];
+  top_pages?: TopPage[];
+  sources?: Source[];
+  devices?: Device[];
+}
+
+const DEVICE_ICON = (d: string) => {
+  if (d.toLowerCase().includes('mobile'))  return <Smartphone size={12} />;
+  if (d.toLowerCase().includes('tablet'))  return <Tablet size={12} />;
+  return <Monitor size={12} />;
 };
-const formatter = new Intl.NumberFormat('pt-BR');
+
+const PERIOD_OPTIONS = [
+  { label: '7d',  value: 7  },
+  { label: '30d', value: 30 },
+  { label: '90d', value: 90 },
+];
+
+const SOURCE_COLORS = ['#7c3aed', '#a78bfa', '#c4b5fd', '#6d28d9', '#e5e7eb'];
 
 export default function SiteMetricsPage() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<SiteData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  useEffect(() => {
-    setLoading(true); setError('');
-    api.get<SiteData>(`/site/dashboard?days=${days}`).then(({ data: response }) => { setData(response); if (!response.configured) setError(response.message || 'A integração do site ainda não foi configurada.'); }).catch(() => setError('Não foi possível atualizar as métricas agora.')).finally(() => setLoading(false));
-  }, [days]);
-  const daily = data?.daily ?? [];
-  const maxTraffic = useMemo(() => Math.max(...daily.map(item => item.pageviews), 1), [daily]);
-  const maxSource = useMemo(() => Math.max(...(data?.sources ?? []).map(item => item.visitors), 1), [data?.sources]);
-  const summary = data?.summary;
-  return <div className="mx-auto max-w-7xl space-y-6"><PageHeader eyebrow="Site · 4core.site" title="Métricas digitais" description="Acompanhe o desempenho do site e transforme interesse em oportunidades comerciais." action={<div className="flex rounded-2xl border border-white/10 bg-slate-950/45 p-1">{[7,30,90].map(value => <button onClick={() => setDays(value)} key={value} className={`rounded-xl px-3 py-2 text-sm transition ${days === value ? 'bg-violet-500 text-white' : 'text-slate-400 hover:text-white'}`}>{value} dias</button>)}</div>} />{error ? <div className="rounded-2xl border border-amber-300/15 bg-amber-400/10 px-5 py-4 text-sm text-amber-100">{error}</div> : null}<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><MetricCard label="Visitantes únicos" value={summary ? formatter.format(summary.unique_visitors) : '—'} detail={`Últimos ${days} dias`} /><MetricCard label="Visualizações" value={summary ? formatter.format(summary.pageviews) : '—'} detail="Pageviews registrados" tone="emerald" /><MetricCard label="Conversões" value={summary ? formatter.format(summary.conversions) : '—'} detail={summary ? `${summary.conversion_rate}% de conversão` : 'WhatsApp, formulários e lead capture'} tone="amber" /><MetricCard label="Leads capturados" value={summary ? formatter.format(summary.leads) : '—'} detail={summary ? `${summary.bounce_rate}% de rejeição` : 'Leads vindos do site'} tone="rose" /></div><div className="grid gap-6 lg:grid-cols-5"><SectionCard className="lg:col-span-3" title="Tráfego e conversões" subtitle="Evolução diária no período selecionado">{loading ? <div className="flex h-64 items-center justify-center text-sm text-slate-400">Atualizando métricas…</div> : daily.length ? <><div className="flex h-56 items-end gap-1.5 border-b border-white/10 pb-2">{daily.map(item => <div className="group flex flex-1 flex-col justify-end" key={item.date}><div className="rounded-t-md bg-gradient-to-t from-violet-600 to-fuchsia-400" style={{ height: `${Math.max(item.pageviews / maxTraffic * 100, 3)}%` }} title={`${item.date}: ${item.pageviews} visualizações, ${item.conversions} conversões`} /><span className="mt-2 text-center text-[9px] text-slate-500">{item.date.slice(8)}</span></div>)}</div><div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-400"><span className="text-violet-200">● Visualizações por dia</span><span>Consulte os detalhes passando o cursor sobre cada barra.</span></div></> : <div className="flex h-64 items-center justify-center text-sm text-slate-400">Não há eventos no período selecionado.</div>}</SectionCard><SectionCard className="lg:col-span-2" title="Dispositivos" subtitle="Eventos por tipo de acesso"><div className="space-y-4">{data?.devices?.length ? data.devices.map(item => <div key={item.device}><div className="flex justify-between text-sm"><span className="capitalize text-slate-300">{item.device}</span><span className="text-white">{formatter.format(item.events)}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-violet-400" style={{ width: `${item.events / Math.max(...(data.devices ?? []).map(device => device.events), 1) * 100}%` }} /></div></div>) : <p className="text-sm text-slate-400">Sem dados de dispositivos.</p>}</div></SectionCard></div><div className="grid gap-6 lg:grid-cols-2"><SectionCard title="Canais de aquisição" subtitle="Fontes que trazem visitantes e conversões"><div className="space-y-4">{data?.sources?.length ? data.sources.map(item => <div key={item.source}><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-medium text-white">{item.source}</p><p className="text-xs text-slate-400">{item.conversions} conversões · {item.conversion_rate}%</p></div><span className="text-sm text-slate-200">{item.visitors} visitantes</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/5"><div className="h-full rounded-full bg-fuchsia-400" style={{ width: `${item.visitors / maxSource * 100}%` }} /></div></div>) : <p className="text-sm text-slate-400">Sem fontes registradas.</p>}</div></SectionCard><SectionCard title="Páginas com mais interesse" subtitle="Conteúdos mais acessados no site"><div className="space-y-3">{data?.top_pages?.length ? data.top_pages.map((item, index) => <div className="flex items-center gap-4 rounded-2xl bg-slate-950/30 px-4 py-3" key={item.page}><span className="w-5 text-sm font-semibold text-violet-300">{index + 1}</span><p className="flex-1 truncate text-sm text-slate-200">{item.page}</p><div className="text-right"><p className="text-sm font-medium text-white">{item.pageviews}</p><p className="text-[11px] text-slate-500">{item.visitors} visitantes</p></div></div>) : <p className="text-sm text-slate-400">Sem páginas registradas.</p>}</div></SectionCard></div><SectionCard title="Qualidade do dado" subtitle="Status da sincronização e leitura correta"><div className="flex flex-col justify-between gap-4 text-sm sm:flex-row sm:items-center"><div className="flex items-center gap-3"><StatusBadge tone={data?.configured ? 'emerald' : 'amber'}>{data?.configured ? 'Integração ativa' : 'Aguardando configuração'}</StatusBadge><span className="text-slate-400">{data?.synced_at ? `Atualizado em ${new Date(data.synced_at).toLocaleString('pt-BR')}` : 'Os dados são carregados de forma segura pelo backend.'}</span></div><span className="text-xs text-slate-500">Fonte: eventos e leads do 4core.site</span></div></SectionCard></div>;
-}
 
+  useEffect(() => {
+    setLoading(true);
+    api.get<SiteData>(`/site/dashboard?days=${days}`)
+      .then(({ data: d }) => setData(d))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, [days]);
+
+  const s = data?.summary;
+  const daily = data?.daily ?? [];
+  const chartData = daily.map((d) => ({ ...d, date: d.date.slice(5) }));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Analytics · Supabase</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Métricas do Site</h1>
+          {data?.synced_at && (
+            <p className="text-xs mt-1" style={{ color: 'var(--erp-text-dim)' }}>
+              Atualizado: {new Date(data.synced_at).toLocaleString('pt-BR')}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {loading && <RefreshCw size={13} className="animate-spin mr-2" style={{ color: 'var(--erp-text-dim)' }} />}
+          {PERIOD_OPTIONS.map((opt) => (
+            <button key={opt.value} onClick={() => setDays(opt.value)}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+              style={{
+                background: days === opt.value ? 'var(--erp-violet-dim)' : 'transparent',
+                color: days === opt.value ? 'var(--erp-violet-light)' : 'var(--erp-text-muted)',
+                border: days === opt.value ? '1px solid var(--erp-violet)44' : '1px solid transparent',
+              }}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {data && !data.configured && data.message && (
+        <div className="rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
+          {data.message}
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Visitantes"    value={loading ? '…' : String(s?.visitors ?? 0)}    detail={`últimos ${days} dias`}                                                            tone="violet"  icon={<Users size={16} />}             />
+        <MetricCard label="Pageviews"     value={loading ? '…' : String(s?.pageviews ?? 0)}   detail="páginas vistas"                                                                    tone="emerald" icon={<Globe size={16} />}             />
+        <MetricCard label="Conversões"    value={loading ? '…' : String(s?.conversions ?? 0)} detail={s?.conversion_rate != null ? `${s.conversion_rate.toFixed(1)}% taxa` : 'formulários'} tone="amber" icon={<MousePointerClick size={16} />} />
+        <MetricCard label="Leads gerados" value={loading ? '…' : String(s?.leads ?? 0)}       detail="via site"                                                                          tone="violet"  icon={<TrendingUp size={16} />}        />
+      </div>
+
+      {chartData.length > 0 && (
+        <Card padding="lg">
+          <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Tráfego diário</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+              <defs>
+                <linearGradient id="gVisitors" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gPageviews" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fill: 'var(--erp-text-dim)', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: 'var(--erp-text-dim)', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', borderRadius: 8, color: 'var(--erp-text)', fontSize: 12 }} />
+              <Area type="monotone" dataKey="pageviews" stroke="#a78bfa" strokeWidth={1.5} fill="url(#gPageviews)" name="Pageviews" />
+              <Area type="monotone" dataKey="visitors"  stroke="#7c3aed" strokeWidth={2}   fill="url(#gVisitors)"  name="Visitantes" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card padding="lg">
+            <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Páginas mais vistas</p>
+            {(data?.top_pages?.length ?? 0) > 0 ? (
+              <div className="space-y-2">
+                {data!.top_pages!.slice(0, 8).map((pg, i) => {
+                  const max = data!.top_pages![0].views;
+                  const pct = Math.round((pg.views / max) * 100);
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-mono truncate" style={{ color: 'var(--erp-text-muted)' }}>{pg.path}</span>
+                          <span className="text-xs font-semibold tabular-nums ml-3 flex-shrink-0" style={{ color: 'var(--erp-text)' }}>{pg.views}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full" style={{ background: 'var(--erp-surface-2)' }}>
+                          <div className="h-1.5 rounded-full" style={{ background: 'var(--erp-violet)', width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm" style={{ color: 'var(--erp-text-dim)' }}>Sem dados disponíveis</p>
+            )}
+          </Card>
+        </div>
+
+        <div className="space-y-4">
+          <Card padding="lg">
+            <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Origens</p>
+            {(data?.sources?.length ?? 0) > 0 ? (
+              <div className="space-y-2">
+                {data!.sources!.slice(0, 5).map((src, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
+                      <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{src.source}</span>
+                    </div>
+                    <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>
+                      {src.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Sem dados</p>
+            )}
+          </Card>
+
+          <Card padding="lg">
+            <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Dispositivos</p>
+            {(data?.devices?.length ?? 0) > 0 ? (
+              <div className="space-y-2">
+                {data!.devices!.map((dv, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2" style={{ color: 'var(--erp-text-muted)' }}>
+                      {DEVICE_ICON(dv.device)}
+                      <span className="text-xs">{dv.device}</span>
+                    </div>
+                    <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>
+                      {dv.percentage.toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Sem dados</p>
+            )}
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}

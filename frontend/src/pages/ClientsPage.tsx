@@ -1,4 +1,134 @@
 import { useEffect, useState } from 'react';
+import { Building2, Mail, Phone, Search, AlertTriangle, Users } from 'lucide-react';
 import { api } from '../services/api';
-import { PageHeader, SectionCard, StatusBadge } from '../components/ErpUi';
-type Client={id:string;name:string;email?:string;phone?:string;created_at?:string}; export default function ClientsPage(){const [clients,setClients]=useState<Client[]>([]);const [error,setError]=useState('');useEffect(()=>{api.get<{data:Client[]}>('/clients').then(r=>setClients(r.data.data)).catch(e=>setError(e.response?.data?.detail||'Não foi possível consultar os clientes do ASAAS.'))},[]);return <div className="mx-auto max-w-7xl space-y-6"><PageHeader eyebrow="Relacionamento · ASAAS" title="Base de clientes" description="Clientes sincronizados diretamente do ASAAS, prontos para evoluir com contratos, cobranças e histórico."/>{error&&<div className="rounded-2xl bg-rose-500/10 p-4 text-sm text-rose-100">{error}</div>}<div className="grid gap-4 md:grid-cols-3"><div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5"><p className="text-xs uppercase text-slate-400">Clientes cadastrados</p><p className="mt-3 text-3xl font-semibold text-white">{clients.length||'—'}</p></div><div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5"><p className="text-xs uppercase text-slate-400">Fonte</p><p className="mt-3 text-xl font-semibold text-violet-200">ASAAS</p></div><div className="rounded-[22px] border border-white/10 bg-white/[0.045] p-5"><p className="text-xs uppercase text-slate-400">Próxima evolução</p><p className="mt-3 text-sm text-slate-300">Contratos e histórico de cobrança</p></div></div><SectionCard title="Clientes" subtitle="Dados reais de cadastro e canais de contato"><div className="overflow-x-auto"><table className="w-full min-w-[700px] text-left text-sm"><thead className="border-b border-white/10 text-xs uppercase text-slate-500"><tr><th className="pb-3">Cliente</th><th className="pb-3">E-mail</th><th className="pb-3">Telefone</th><th className="pb-3">Cadastro</th><th className="pb-3">Status</th></tr></thead><tbody>{clients.length?clients.map(c=><tr className="border-b border-white/5" key={c.id}><td className="py-4 font-medium text-white">{c.name}</td><td className="py-4 text-slate-400">{c.email||'—'}</td><td className="py-4 text-slate-400">{c.phone||'—'}</td><td className="py-4 text-slate-400">{c.created_at||'—'}</td><td className="py-4"><StatusBadge tone="emerald">Sincronizado</StatusBadge></td></tr>):<tr><td colSpan={5} className="py-8 text-center text-slate-400">Nenhum cliente encontrado.</td></tr>}</tbody></table></div></SectionCard></div>}
+import { Card } from '../shared/components/ui/Card';
+import { MetricCard } from '../shared/components/layout/MetricCard';
+
+interface Client {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  created_at?: string;
+}
+
+export default function ClientsPage() {
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    api.get<{ data?: Client[] } | Client[]>('/clients')
+      .then(({ data }) => {
+        const list = Array.isArray(data) ? data : (data as any)?.data ?? [];
+        setClients(list);
+      })
+      .catch((e) => setError(e?.response?.data?.detail || 'Falha ao conectar ao ASAAS'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = clients.filter((c) => {
+    const q = search.toLowerCase();
+    return !q || c.name.toLowerCase().includes(q) || (c.email ?? '').toLowerCase().includes(q);
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial · ASAAS</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Clientes</h1>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+          style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', minWidth: 220 }}>
+          <Search size={13} style={{ color: 'var(--erp-text-muted)' }} />
+          <input
+            type="text" placeholder="Buscar cliente…" value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{ color: 'var(--erp-text)' }}
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <MetricCard label="Clientes"    value={loading ? '…' : String(clients.length)} detail="sincronizados · ASAAS" tone="violet" icon={<Users size={16} />} />
+        <MetricCard label="Fonte"       value="ASAAS" detail="dados em tempo real" tone="emerald" icon={<Building2 size={16} />} />
+        <MetricCard label="Exportação"  value="—" detail="Aguarda mapeamento" tone="amber" />
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+          <AlertTriangle size={14} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <Card padding="sm">
+        {loading ? (
+          <div className="space-y-2 p-4">
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
+                  {['Cliente', 'E-mail', 'Telefone', 'Cadastro', 'Origem'].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
+                      style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c, i) => (
+                  <tr key={c.id}
+                    style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--erp-border)' : undefined }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--erp-surface-2)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
+                          style={{ background: 'var(--erp-violet-dim)' }}>
+                          <Building2 size={12} style={{ color: 'var(--erp-violet-light)' }} />
+                        </div>
+                        <span className="font-medium" style={{ color: 'var(--erp-text)' }}>{c.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {c.email
+                        ? <div className="flex items-center gap-1.5"><Mail size={11} style={{ color: 'var(--erp-text-dim)' }} /><span style={{ color: 'var(--erp-text-muted)' }}>{c.email}</span></div>
+                        : <span style={{ color: 'var(--erp-text-dim)' }}>—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {c.phone
+                        ? <div className="flex items-center gap-1.5"><Phone size={11} style={{ color: 'var(--erp-text-dim)' }} /><span style={{ color: 'var(--erp-text-muted)' }}>{c.phone}</span></div>
+                        : <span style={{ color: 'var(--erp-text-dim)' }}>—</span>}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--erp-text-muted)' }}>
+                      {c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                        style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
+                        ASAAS
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr><td colSpan={5} className="py-12 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>
+                    Nenhum cliente encontrado
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}

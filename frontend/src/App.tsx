@@ -3,23 +3,47 @@ import { Zap } from 'lucide-react';
 import AppLayout from './components/AppLayout';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import MarketingPage from './pages/MarketingPage';
 import FinancialPage from './pages/FinancialPage';
 import ClientsPage from './pages/ClientsPage';
 import LeadsPage from './pages/LeadsPage';
 import LeadsPageNew from './pages/LeadsPageNew';
 import ProposalsPage from './pages/ProposalsPage';
 import KnowledgePage from './pages/KnowledgePage';
-import AiPage from './pages/AiPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import SiteMetricsPage from './pages/SiteMetricsPage';
 import ContractsPage from './pages/ContractsPage';
 import PipelinePage from './pages/PipelinePage';
+
+// Financeiro (Fase 3)
 import FinanceiroLayout from './pages/financeiro/FinanceiroPage';
 import ContasReceberPage from './pages/financeiro/ContasReceberPage';
 import MensalidadesPage from './pages/financeiro/MensalidadesPage';
 import ProjecoesPage from './pages/financeiro/ProjecoesPage';
+
+// Marketing (Fase 4)
+import MarketingLayout from './pages/marketing/MarketingLayout';
+import CalendarioPage from './pages/marketing/CalendarioPage';
+import PostsPage from './pages/marketing/PostsPage';
+import IdeiasBancoPage from './pages/marketing/IdeiasBancoPage';
+import MetricasMarketingPage from './pages/marketing/MetricasMarketingPage';
+
+// IA (Fase 5)
+import IALayout from './pages/ia/IALayout';
+import ChatPage from './pages/ia/ChatPage';
+import SugestoesPage from './pages/ia/SugestoesPage';
+import AnalisesPage from './pages/ia/AnalisesPage';
+import ResumosPage from './pages/ia/ResumosPage';
+
+// Relatórios (Fase 6)
+import RelatoriosLayout from './pages/relatorios/RelatoriosLayout';
+import RelatoriosOverview from './pages/relatorios/RelatoriosOverview';
+import FinanceirosPage from './pages/relatorios/FinanceirosPage';
+import ComerciaisPage from './pages/relatorios/ComerciaisPage';
+
+// Comercial restante (Fase 2)
+import FollowupPage from './pages/comercial/FollowupPage';
+import AgendaPage from './pages/comercial/AgendaPage';
 
 function ComingSoon({ title, phase }: { title: string; phase?: number }) {
   return (
@@ -55,8 +79,8 @@ function App() {
           <Route path="pipeline"  element={<PipelinePage />} />
           <Route path="funil"     element={<ComingSoon title="Funil de Conversão" phase={2} />} />
           <Route path="propostas" element={<ProposalsPage />} />
-          <Route path="agenda"    element={<ComingSoon title="Agenda Comercial" phase={2} />} />
-          <Route path="followup"  element={<ComingSoon title="Follow-up" phase={2} />} />
+          <Route path="agenda"    element={<AgendaPage />} />
+          <Route path="followup"  element={<FollowupPage />} />
         </Route>
 
         {/* Financeiro — Fase 3 */}
@@ -72,43 +96,42 @@ function App() {
           <Route path="conciliacao"    element={<ComingSoon title="Conciliação" phase={3} />} />
         </Route>
 
-        {/* Marketing */}
-        <Route path="marketing">
-          <Route index element={<MarketingPage />} />
-          <Route path="calendario"   element={<ComingSoon title="Calendário Editorial" phase={4} />} />
-          <Route path="posts"        element={<ComingSoon title="Posts" phase={4} />} />
+        {/* Marketing — Fase 4 */}
+        <Route path="marketing" element={<MarketingLayout />}>
+          <Route index element={<Navigate to="/marketing/calendario" replace />} />
+          <Route path="calendario"   element={<CalendarioPage />} />
+          <Route path="posts"        element={<PostsPage />} />
+          <Route path="ideias"       element={<IdeiasBancoPage />} />
+          <Route path="metricas"     element={<MetricasMarketingPage />} />
           <Route path="campanhas"    element={<ComingSoon title="Campanhas" phase={4} />} />
-          <Route path="ideias"       element={<ComingSoon title="Banco de Ideias" phase={4} />} />
-          <Route path="metricas"     element={<ComingSoon title="Métricas de Marketing" phase={4} />} />
-          <Route path="performance"  element={<ComingSoon title="Performance" phase={4} />} />
           <Route path="planejamento" element={<ComingSoon title="Planejamento Mensal" phase={4} />} />
         </Route>
 
-        {/* IA */}
-        <Route path="ia">
+        {/* IA — Fase 5 */}
+        <Route path="ia" element={<IALayout />}>
           <Route index element={<Navigate to="/ia/chat" replace />} />
-          <Route path="chat"      element={<AiPage />} />
-          <Route path="sugestoes" element={<ComingSoon title="Sugestões IA" phase={5} />} />
-          <Route path="analises"  element={<ComingSoon title="Análises IA" phase={5} />} />
-          <Route path="resumos"   element={<ComingSoon title="Resumos Automáticos" phase={5} />} />
+          <Route path="chat"      element={<ChatPage />} />
+          <Route path="sugestoes" element={<SugestoesPage />} />
+          <Route path="analises"  element={<AnalisesPage />} />
+          <Route path="resumos"   element={<ResumosPage />} />
         </Route>
 
-        {/* Relatórios */}
-        <Route path="relatorios">
-          <Route index element={<ReportsPage />} />
-          <Route path="financeiros" element={<ComingSoon title="Relatórios Financeiros" phase={6} />} />
-          <Route path="comerciais"  element={<ComingSoon title="Relatórios Comerciais" phase={6} />} />
+        {/* Relatórios — Fase 6 */}
+        <Route path="relatorios" element={<RelatoriosLayout />}>
+          <Route index element={<RelatoriosOverview />} />
+          <Route path="financeiros" element={<FinanceirosPage />} />
+          <Route path="comerciais"  element={<ComerciaisPage />} />
         </Route>
 
-        {/* Rotas legadas — mantidas para compatibilidade */}
+        {/* Rotas legadas */}
         <Route path="financial"  element={<FinancialPage />} />
         <Route path="clients"    element={<ClientsPage />} />
         <Route path="leads"      element={<LeadsPage />} />
         <Route path="proposals"  element={<ProposalsPage />} />
         <Route path="contracts"  element={<ContractsPage />} />
         <Route path="knowledge"  element={<KnowledgePage />} />
-        <Route path="ai"         element={<AiPage />} />
-        <Route path="reports"    element={<ReportsPage />} />
+        <Route path="ai"         element={<Navigate to="/ia/chat" replace />} />
+        <Route path="reports"    element={<Navigate to="/relatorios" replace />} />
         <Route path="settings"   element={<SettingsPage />} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

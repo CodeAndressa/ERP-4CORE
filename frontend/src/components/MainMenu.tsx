@@ -91,7 +91,7 @@ const GROUPS: MenuGroup[] = [
     label: 'Relatórios',
     defaultOpen: false,
     items: [
-      { label: 'Todos',       path: '/reports',                 icon: FolderOpen },
+      { label: 'Visão Geral', path: '/relatorios',              icon: FolderOpen },
       { label: 'Financeiros', path: '/relatorios/financeiros',  icon: TrendingUp },
       { label: 'Comerciais',  path: '/relatorios/comerciais',   icon: Target },
     ],

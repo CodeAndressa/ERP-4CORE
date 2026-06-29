@@ -69,11 +69,11 @@ export default function MainMenu() {
       className="relative flex flex-shrink-0 flex-col"
       style={{ minHeight: '100vh', background: 'var(--erp-sidebar-bg)', borderRight: '1px solid var(--erp-border)' }}
     >
-      <div className={`flex items-center px-3.5 py-4 ${sidebarCollapsed ? 'justify-center' : 'justify-start'}`} style={{ borderBottom: '1px solid var(--erp-border)' }}>
+      <div className="flex items-center justify-center px-3.5 py-5" style={{ borderBottom: '1px solid var(--erp-border)' }}>
         <img
           src={LOGO_SRC}
           alt="4Core"
-          className={sidebarCollapsed ? 'h-10 w-10 object-contain' : 'h-14 w-full max-w-[190px] object-contain object-left'}
+          className={sidebarCollapsed ? 'h-11 w-11 object-contain' : 'h-28 w-full max-w-[220px] object-contain'}
         />
       </div>
 

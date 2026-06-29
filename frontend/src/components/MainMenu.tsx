@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   LayoutDashboard,
   Users,
@@ -69,19 +69,12 @@ export default function MainMenu() {
       className="relative flex flex-shrink-0 flex-col"
       style={{ minHeight: '100vh', background: 'var(--erp-sidebar-bg)', borderRight: '1px solid var(--erp-border)' }}
     >
-      <div className={`flex items-center px-3.5 py-4 ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`} style={{ borderBottom: '1px solid var(--erp-border)' }}>
+      <div className={`flex items-center px-3.5 py-4 ${sidebarCollapsed ? 'justify-center' : 'justify-start'}`} style={{ borderBottom: '1px solid var(--erp-border)' }}>
         <img
           src={LOGO_SRC}
           alt="4Core"
-          className={sidebarCollapsed ? 'h-10 w-10 object-contain' : 'h-10 max-w-[150px] object-contain object-left'}
+          className={sidebarCollapsed ? 'h-10 w-10 object-contain' : 'h-14 w-full max-w-[190px] object-contain object-left'}
         />
-        <AnimatePresence>
-          {!sidebarCollapsed && (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="whitespace-nowrap text-[10px]" style={{ color: 'var(--erp-text-muted)' }}>
-              ERP Inteligente
-            </motion.p>
-          )}
-        </AnimatePresence>
       </div>
 
       <nav className={`flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${sidebarCollapsed ? 'space-y-1' : 'space-y-1.5'}`}>

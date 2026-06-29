@@ -2,10 +2,10 @@ import { Outlet } from 'react-router-dom';
 import { SubNav } from '../../shared/components/layout/SubNav';
 
 const TABS = [
-  { label: 'CalendÃ¡rio',   path: '/marketing/calendario'   },
+  { label: 'Calendário',   path: '/marketing/calendario'   },
   { label: 'Posts',        path: '/marketing/posts'        },
   { label: 'Ideias',       path: '/marketing/ideias'       },
-  { label: 'MÃ©tricas',     path: '/marketing/metricas'     },
+  { label: 'Métricas',     path: '/marketing/metricas'     },
   { label: 'Campanhas',    path: '/marketing/campanhas'    },
   { label: 'Planejamento', path: '/marketing/planejamento' },
 ];

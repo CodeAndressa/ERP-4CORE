@@ -11,7 +11,7 @@ function Bone({ className = '', style }: SkeletonProps) {
 
 export function SkeletonCard() {
   return (
-    <div className="space-y-3 rounded-[28px] border border-violet-100 bg-white p-5">
+    <div className="space-y-3 rounded-[22px] border border-violet-100 bg-white p-5">
       <Bone className="h-3 w-20" />
       <Bone className="h-7 w-32" />
       <Bone className="h-2.5 w-48" />
@@ -29,7 +29,7 @@ export function SkeletonMetricGrid({ cols = 4 }: { cols?: number }) {
 
 export function SkeletonTable({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="overflow-hidden rounded-[28px] border border-violet-100 bg-white">
+    <div className="overflow-hidden rounded-[22px] border border-violet-100 bg-white">
       <div className="border-b border-violet-100 px-5 py-3.5">
         <Bone className="h-3 w-24" />
       </div>
@@ -51,7 +51,7 @@ export function SkeletonTable({ rows = 5 }: { rows?: number }) {
 
 export function SkeletonChart() {
   return (
-    <div className="rounded-[28px] border border-violet-100 bg-white p-5">
+    <div className="rounded-[22px] border border-violet-100 bg-white p-5">
       <div className="mb-4 space-y-2">
         <Bone className="h-3 w-28" />
         <Bone className="h-2.5 w-40" />

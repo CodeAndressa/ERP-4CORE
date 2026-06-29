@@ -20,7 +20,6 @@ html.dark {
   --erp-header-bg: rgba(255, 255, 255, 0.94);
 
   --erp-card-hover-border: rgba(43, 22, 92, 0.28);
-  --erp-card-hover-shadow: none;
 
   --erp-violet: #2b165c;
   --erp-violet-light: #3f2479;
@@ -74,7 +73,6 @@ button {
   border: 1px solid var(--erp-border-strong) !important;
   border-radius: 14px !important;
   color: var(--erp-text) !important;
-  box-shadow: none !important;
 }
 
 input::placeholder,

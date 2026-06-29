@@ -12,14 +12,14 @@ interface Goal {
   done: boolean;
 }
 
-const PILLARS = ['EducaÃ§Ã£o', 'Cases', 'Autoridade', 'Engajamento', 'ProspecÃ§Ã£o'];
+const PILLARS = ['Educação', 'Cases', 'Autoridade', 'Engajamento', 'Prospecção'];
 
 const SEED_GOALS: Goal[] = [
-  { id: 1, pillar: 'EducaÃ§Ã£o',    goal: 'Publicar 2 artigos de educaÃ§Ã£o continuada DP', metric: 'Posts',      target: '2/mÃªs',  done: false },
-  { id: 2, pillar: 'Cases',       goal: 'Documentar 1 caso de sucesso de cliente',      metric: 'Cases',      target: '1/mÃªs',  done: false },
-  { id: 3, pillar: 'Autoridade',  goal: 'Participar de 1 evento / webinar como speaker', metric: 'Eventos',   target: '1/mÃªs',  done: false },
-  { id: 4, pillar: 'Engajamento', goal: 'Taxa de engajamento acima de 4% no Instagram', metric: 'Taxa %',     target: 'â‰¥ 4%',   done: false },
-  { id: 5, pillar: 'ProspecÃ§Ã£o',  goal: '10 novos leads via conteÃºdo orgÃ¢nico',          metric: 'Leads',      target: '10/mÃªs', done: false },
+  { id: 1, pillar: 'Educação',    goal: 'Publicar 2 artigos de educação continuada DP', metric: 'Posts',      target: '2/mês',  done: false },
+  { id: 2, pillar: 'Cases',       goal: 'Documentar 1 caso de sucesso de cliente',      metric: 'Cases',      target: '1/mês',  done: false },
+  { id: 3, pillar: 'Autoridade',  goal: 'Participar de 1 evento / webinar como speaker', metric: 'Eventos',   target: '1/mês',  done: false },
+  { id: 4, pillar: 'Engajamento', goal: 'Taxa de engajamento acima de 4% no Instagram', metric: 'Taxa %',     target: '≥ 4%',   done: false },
+  { id: 5, pillar: 'Prospecção',  goal: '10 novos leads via conteúdo orgânico',          metric: 'Leads',      target: '10/mês', done: false },
 ];
 
 export default function PlanejamentoPage() {
@@ -51,7 +51,7 @@ export default function PlanejamentoPage() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Planejamento Mensal</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Objetivos, pilares de conteÃºdo e metas do mÃªs</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Objetivos, pilares de conteúdo e metas do mês</p>
         </div>
         <button onClick={() => setShowForm((v) => !v)}
           className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium"
@@ -62,9 +62,9 @@ export default function PlanejamentoPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="MÃªs atual"    value="Julho 2026"            detail="perÃ­odo de planejamento"             tone="violet"  icon={<Calendar size={16} />}   />
-        <MetricCard label="Objetivos"    value={String(goals.length)}  detail={`${doneCount} concluÃ­dos`}           tone="emerald" icon={<Target size={16} />}     />
-        <MetricCard label="ConclusÃ£o"    value={goals.length > 0 ? `${Math.round((doneCount / goals.length) * 100)}%` : '0%'} detail="progresso do mÃªs" tone="amber" icon={<TrendingUp size={16} />} />
+        <MetricCard label="Mês atual"    value="Julho 2026"            detail="período de planejamento"             tone="violet"  icon={<Calendar size={16} />}   />
+        <MetricCard label="Objetivos"    value={String(goals.length)}  detail={`${doneCount} concluídos`}           tone="emerald" icon={<Target size={16} />}     />
+        <MetricCard label="Conclusão"    value={goals.length > 0 ? `${Math.round((doneCount / goals.length) * 100)}%` : '0%'} detail="progresso do mês" tone="amber" icon={<TrendingUp size={16} />} />
       </div>
 
       {showForm && (
@@ -99,7 +99,7 @@ export default function PlanejamentoPage() {
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>{pillar}</p>
               <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                {pillarGoals.filter((g) => g.done).length}/{pillarGoals.length} concluÃ­dos
+                {pillarGoals.filter((g) => g.done).length}/{pillarGoals.length} concluídos
               </span>
             </div>
             <div className="space-y-2">
@@ -126,7 +126,7 @@ export default function PlanejamentoPage() {
                     }}>{g.goal}</p>
                     {g.metric && (
                       <p className="text-xs mt-0.5" style={{ color: 'var(--erp-text-dim)' }}>
-                        {g.metric} Â· meta: {g.target}
+                        {g.metric} · meta: {g.target}
                       </p>
                     )}
                   </div>

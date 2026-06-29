@@ -31,9 +31,9 @@ export function Modal({ open, onClose, title, description, children, size = 'md'
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-sm" onClick={onClose} />
+          <div className="absolute inset-0 bg-violet-950/10 backdrop-blur-[2px]" onClick={onClose} />
           <motion.div
-            className={`relative w-full ${sizes[size]} rounded-[30px] border border-violet-100 bg-white`}
+            className={`relative w-full ${sizes[size]} rounded-[22px] border border-violet-100 bg-white`}
             initial={{ scale: 0.96, opacity: 0, y: 8 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 8 }}

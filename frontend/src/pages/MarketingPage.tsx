@@ -18,7 +18,7 @@ export default function MarketingPage() {
           ['Leads gerados', '18', 'Últimos 30 dias'],
           ['Conteúdos no mês', '12', '8 publicados'],
         ].map(([label, value, detail]) => (
-          <div key={label} className="rounded-[28px] border border-violet-100 bg-white p-5">
+          <div key={label} className="rounded-[22px] border border-violet-100 bg-white p-5">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
             <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
             <p className="mt-1 text-xs text-slate-500">{detail}</p>

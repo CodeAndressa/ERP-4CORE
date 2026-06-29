@@ -78,8 +78,8 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
 
   return (
     <motion.div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-      <div className="absolute inset-0 bg-slate-950/25 backdrop-blur-sm" onClick={onClose} />
-      <motion.div className="relative w-full max-w-lg overflow-hidden rounded-[28px] bg-white" style={{ border: '1px solid var(--erp-border-strong)' }} initial={{ y: -16, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: -12, scale: 0.97 }} transition={{ type: 'spring', duration: 0.25 }}>
+      <div className="absolute inset-0 bg-violet-950/10 backdrop-blur-[2px]" onClick={onClose} />
+      <motion.div className="relative w-full max-w-lg overflow-hidden rounded-[22px] bg-white" style={{ border: '1px solid var(--erp-border-strong)' }} initial={{ y: -16, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: -12, scale: 0.97 }} transition={{ type: 'spring', duration: 0.25 }}>
         <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: '1px solid var(--erp-border)' }}>
           <Search size={16} className="flex-shrink-0" style={{ color: 'var(--erp-text-muted)' }} />
           <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Buscar ${t.modulos.toLowerCase()}, ${t.acoes}...`} className="flex-1 bg-transparent text-sm outline-none" style={{ color: 'var(--erp-text)' }} />

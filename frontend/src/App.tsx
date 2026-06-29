@@ -30,7 +30,7 @@ import SugestoesPage from './pages/ia/SugestoesPage';
 import AnalisesPage from './pages/ia/AnalisesPage';
 import ResumosPage from './pages/ia/ResumosPage';
 
-// RelatÃ³rios (Fase 6)
+// Relatórios (Fase 6)
 import RelatoriosLayout from './pages/relatorios/RelatoriosLayout';
 import RelatoriosOverview from './pages/relatorios/RelatoriosOverview';
 import FinanceirosPage from './pages/relatorios/FinanceirosPage';
@@ -41,12 +41,12 @@ import FollowupPage from './pages/comercial/FollowupPage';
 import AgendaPage from './pages/comercial/AgendaPage';
 import FunilPage from './pages/comercial/FunilPage';
 
-// Financeiro â€” novas pÃ¡ginas
+// Financeiro — novas páginas
 import ReceitasPage from './pages/financeiro/ReceitasPage';
 import CustosFixosPage from './pages/financeiro/CustosFixosPage';
 import CustosRecorrentesPage from './pages/financeiro/CustosRecorrentesPage';
 
-// Marketing â€” novas pÃ¡ginas
+// Marketing — novas páginas
 import CampanhasPage from './pages/marketing/CampanhasPage';
 import PlanejamentoPage from './pages/marketing/PlanejamentoPage';
 
@@ -56,7 +56,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<AppLayout />}>
 
-        {/* VisÃ£o Geral */}
+        {/* Visão Geral */}
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"    element={<DashboardPage />} />
         <Route path="site-metrics" element={<SiteMetricsPage />} />
@@ -89,7 +89,7 @@ function App() {
           <Route path="conciliacao" element={<Navigate to="/financeiro/receita" replace />} />
         </Route>
 
-        {/* Marketing â€” Fase 4 */}
+        {/* Marketing — Fase 4 */}
         <Route path="marketing" element={<MarketingLayout />}>
           <Route index element={<Navigate to="/marketing/calendario" replace />} />
           <Route path="calendario"   element={<CalendarioPage />} />
@@ -100,7 +100,7 @@ function App() {
           <Route path="planejamento" element={<PlanejamentoPage />} />
         </Route>
 
-        {/* IA â€” Fase 5 */}
+        {/* IA — Fase 5 */}
         <Route path="ia" element={<IALayout />}>
           <Route index element={<Navigate to="/ia/chat" replace />} />
           <Route path="chat"      element={<ChatPage />} />
@@ -109,7 +109,7 @@ function App() {
           <Route path="resumos"   element={<ResumosPage />} />
         </Route>
 
-        {/* RelatÃ³rios â€” Fase 6 */}
+        {/* Relatórios — Fase 6 */}
         <Route path="relatorios" element={<RelatoriosLayout />}>
           <Route index element={<RelatoriosOverview />} />
           <Route path="financeiros" element={<FinanceirosPage />} />

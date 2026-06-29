@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { SubNav } from '../../shared/components/layout/SubNav';
 
 const TABS = [
-  { label: 'VisÃ£o Geral', path: '/relatorios'              },
+  { label: 'Visão Geral', path: '/relatorios'              },
   { label: 'Financeiros', path: '/relatorios/financeiros'  },
   { label: 'Comerciais',  path: '/relatorios/comerciais'   },
 ];

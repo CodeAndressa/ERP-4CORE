@@ -20,8 +20,8 @@ interface Campaign {
 }
 
 const SEED: Campaign[] = [
-  { id: 1, name: 'LanÃ§amento RH Digital',   channel: 'instagram', status: 'ativa',     budget: 3000,  spent: 1800, leads: 24, start: '01/06' },
-  { id: 2, name: 'NutriÃ§Ã£o de leads B2B',    channel: 'email',     status: 'ativa',     budget: 500,   spent: 220,  leads: 41, start: '15/06' },
+  { id: 1, name: 'Lançamento RH Digital',   channel: 'instagram', status: 'ativa',     budget: 3000,  spent: 1800, leads: 24, start: '01/06' },
+  { id: 2, name: 'Nutrição de leads B2B',    channel: 'email',     status: 'ativa',     budget: 500,   spent: 220,  leads: 41, start: '15/06' },
   { id: 3, name: 'Webinar DP Automatizado',  channel: 'linkedin',  status: 'planejada', budget: 1200,  spent: 0,    leads: 0,  start: '10/07' },
   { id: 4, name: 'Remarketing clientes',     channel: 'google',    status: 'encerrada', budget: 2000,  spent: 2000, leads: 18, start: '01/05', end: '31/05' },
 ];
@@ -54,7 +54,7 @@ export default function CampanhasPage() {
     setCampaigns((prev) => [...prev, {
       id: prev.length + 1, name: form.name, channel: form.channel,
       status: 'planejada', budget: Number(form.budget) || 0, spent: 0,
-      leads: 0, start: form.start || 'â€”',
+      leads: 0, start: form.start || '—',
     }]);
     setShowForm(false);
     setForm({ name: '', channel: 'instagram', budget: '', start: '' });
@@ -77,7 +77,7 @@ export default function CampanhasPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <MetricCard label="Ativas"         value={String(ativas.length)}  detail={`de ${campaigns.length} campanhas`} tone="emerald" icon={<Megaphone size={16} />}  />
-        <MetricCard label="Investimento"   value={money(totalBudget)}     detail="orÃ§amento das ativas"               tone="violet"  icon={<DollarSign size={16} />} />
+        <MetricCard label="Investimento"   value={money(totalBudget)}     detail="orçamento das ativas"               tone="violet"  icon={<DollarSign size={16} />} />
         <MetricCard label="Leads gerados"  value={String(totalLeads)}     detail="todas as campanhas"                  tone="amber"   icon={<Target size={16} />}     />
       </div>
 
@@ -102,7 +102,7 @@ export default function CampanhasPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--erp-text-muted)' }}>OrÃ§amento (R$)</label>
+              <label className="text-xs font-medium block mb-1" style={{ color: 'var(--erp-text-muted)' }}>Orçamento (R$)</label>
               <input type="number" placeholder="0" value={form.budget} onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
                 className="w-full rounded-xl px-3 py-2 text-sm outline-none"
                 style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
@@ -138,7 +138,7 @@ export default function CampanhasPage() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                {['Campanha', 'Canal', 'Status', 'OrÃ§amento', 'Gasto', 'Leads', 'PerÃ­odo'].map((h) => (
+                {['Campanha', 'Canal', 'Status', 'Orçamento', 'Gasto', 'Leads', 'Período'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
                     style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                 ))}
@@ -175,7 +175,7 @@ export default function CampanhasPage() {
                     </td>
                     <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: c.leads > 0 ? '#34d399' : 'var(--erp-text-dim)' }}>{c.leads}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                      {c.start}{c.end ? ` â€” ${c.end}` : ''}
+                      {c.start}{c.end ? ` — ${c.end}` : ''}
                     </td>
                   </tr>
                 );

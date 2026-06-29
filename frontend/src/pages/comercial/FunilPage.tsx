@@ -61,14 +61,14 @@ export default function FunilPage() {
     <div className="space-y-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial</p>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Funil de ConversÃ£o</h1>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Funil de Conversão</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Jornada do lead da entrada ao fechamento</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="Total pipeline"  value={loading ? 'â€¦' : money(totalPipeline)} detail={`${total} leads`}                tone="violet"  icon={<TrendingUp size={16} />} />
-        <MetricCard label="Taxa conversÃ£o"  value={loading ? 'â€¦' : `${convRate}%`}       detail="lead â†’ fechado"                 tone="emerald" icon={<Target size={16} />}    />
-        <MetricCard label="Fechamentos"     value={loading ? 'â€¦' : String(closedCount)}  detail={`de ${total} leads totais`}    tone="amber"   icon={<Users size={16} />}     />
+        <MetricCard label="Total pipeline"  value={loading ? '…' : money(totalPipeline)} detail={`${total} leads`}                tone="violet"  icon={<TrendingUp size={16} />} />
+        <MetricCard label="Taxa conversão"  value={loading ? '…' : `${convRate}%`}       detail="lead → fechado"                 tone="emerald" icon={<Target size={16} />}    />
+        <MetricCard label="Fechamentos"     value={loading ? '…' : String(closedCount)}  detail={`de ${total} leads totais`}    tone="amber"   icon={<Users size={16} />}     />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -172,9 +172,9 @@ export default function FunilPage() {
                         style={{ background: stage.bg, color: stage.color }}>{stage.label}</span>
                     </td>
                     <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: 'var(--erp-violet-light)' }}>
-                      {l.potential_value ? money(l.potential_value) : 'â€”'}
+                      {l.potential_value ? money(l.potential_value) : '—'}
                     </td>
-                    <td className="px-4 py-3 text-xs capitalize" style={{ color: 'var(--erp-text-muted)' }}>{l.source ?? 'â€”'}</td>
+                    <td className="px-4 py-3 text-xs capitalize" style={{ color: 'var(--erp-text-muted)' }}>{l.source ?? '—'}</td>
                   </tr>
                 );
               })}

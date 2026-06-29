@@ -52,21 +52,21 @@ export default function MetricasMarketingPage() {
     <div className="space-y-6">
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
-        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>MÃ©tricas de Marketing</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Dados dos Ãºltimos 60 dias</p>
+        <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Métricas de Marketing</h1>
+        <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Dados dos últimos 60 dias</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Alcance Total"  value="24.800" detail="+18% vs. mÃªs anterior" tone="violet"  icon={<TrendingUp size={16} />} trend={18}  sparkline={[22, 24, 21, 26, 28, 25, 29, 32]} />
-        <MetricCard label="Engajamento"    value="6,2%"   detail="mÃ©dia por publicaÃ§Ã£o"  tone="emerald" icon={<Heart    size={16} />} trend={4.2}  sparkline={[5, 5.8, 6, 5.5, 6.2, 6.8, 6.1, 6.4]} />
-        <MetricCard label="Leads gerados"  value="18"     detail="Ãºltimos 30 dias"        tone="amber"   icon={<Users   size={16} />} trend={12.5} />
-        <MetricCard label="ConteÃºdos"      value="12"     detail="8 publicados"           tone="cyan"    icon={<FileText size={16} />} />
+        <MetricCard label="Alcance Total"  value="24.800" detail="+18% vs. mês anterior" tone="violet"  icon={<TrendingUp size={16} />} trend={18}  sparkline={[22, 24, 21, 26, 28, 25, 29, 32]} />
+        <MetricCard label="Engajamento"    value="6,2%"   detail="média por publicação"  tone="emerald" icon={<Heart    size={16} />} trend={4.2}  sparkline={[5, 5.8, 6, 5.5, 6.2, 6.8, 6.1, 6.4]} />
+        <MetricCard label="Leads gerados"  value="18"     detail="últimos 30 dias"        tone="amber"   icon={<Users   size={16} />} trend={12.5} />
+        <MetricCard label="Conteúdos"      value="12"     detail="8 publicados"           tone="cyan"    icon={<FileText size={16} />} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Alcance semanal */}
         <Card className="lg:col-span-2" padding="lg">
-          <CardHeader title="Alcance Semanal" subtitle="ImpressÃµes e interaÃ§Ãµes" />
+          <CardHeader title="Alcance Semanal" subtitle="Impressões e interações" />
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={WEEKLY_REACH} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <defs>
@@ -91,7 +91,7 @@ export default function MetricasMarketingPage() {
 
         {/* Format breakdown */}
         <Card padding="lg">
-          <CardHeader title="Formatos" subtitle="DistribuiÃ§Ã£o de conteÃºdos" />
+          <CardHeader title="Formatos" subtitle="Distribuição de conteúdos" />
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie data={FORMAT_BREAKDOWN} dataKey="value" nameKey="name" cx="50%" cy="45%" innerRadius={45} outerRadius={70} paddingAngle={3}>
@@ -106,7 +106,7 @@ export default function MetricasMarketingPage() {
 
       {/* Engagement by channel */}
       <Card padding="lg">
-        <CardHeader title="Engajamento por Canal" subtitle="Taxa de engajamento % e nÃºmero de posts" />
+        <CardHeader title="Engajamento por Canal" subtitle="Taxa de engajamento % e número de posts" />
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={CHANNEL_ENGAGEMENT} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />

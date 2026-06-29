@@ -57,9 +57,9 @@ export default function ComerciaisPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>RelatÃ³rios</p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>RelatÃ³rio Comercial</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Pipeline, leads e propostas Â· dados reais</p>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Relatórios</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Relatório Comercial</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Pipeline, leads e propostas · dados reais</p>
         </div>
         <button
           onClick={handleExport}
@@ -76,14 +76,14 @@ export default function ComerciaisPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total de Leads"   value={loading ? 'â€¦' : String(leads.length)} detail="na base" tone="violet" icon={<Users size={16} />} />
-        <MetricCard label="Pipeline Total"   value={loading ? 'â€¦' : totalPipeline > 0 ? money(totalPipeline) : 'â€”'} detail="valor acumulado" tone="emerald" icon={<Kanban size={16} />} />
-        <MetricCard label="Qualificados"     value={loading ? 'â€¦' : String(byStatus['qualificado'] ?? 0)} detail="prontos para proposta" tone="amber" icon={<TrendingUp size={16} />} />
-        <MetricCard label="Propostas"        value="â€”" detail="Aguarda integraÃ§Ã£o" tone="cyan" icon={<FileText size={16} />} />
+        <MetricCard label="Total de Leads"   value={loading ? '…' : String(leads.length)} detail="na base" tone="violet" icon={<Users size={16} />} />
+        <MetricCard label="Pipeline Total"   value={loading ? '…' : totalPipeline > 0 ? money(totalPipeline) : '—'} detail="valor acumulado" tone="emerald" icon={<Kanban size={16} />} />
+        <MetricCard label="Qualificados"     value={loading ? '…' : String(byStatus['qualificado'] ?? 0)} detail="prontos para proposta" tone="amber" icon={<TrendingUp size={16} />} />
+        <MetricCard label="Propostas"        value="—" detail="Aguarda integração" tone="cyan" icon={<FileText size={16} />} />
       </div>
 
       <Card padding="lg">
-        <CardHeader title="DistribuiÃ§Ã£o por Status" subtitle={`${leads.length} leads cadastrados`} />
+        <CardHeader title="Distribuição por Status" subtitle={`${leads.length} leads cadastrados`} />
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {(['novo', 'contato', 'qualificado', 'perdido'] as const).map((s) => {
             const count = byStatus[s] ?? 0;
@@ -138,10 +138,10 @@ export default function ComerciaisPage() {
                           </span>
                         </td>
                         <td className="py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-violet-light)' }}>
-                          {l.value ? money(l.value) : 'â€”'}
+                          {l.value ? money(l.value) : '—'}
                         </td>
                         <td className="py-3 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>
-                          {l.created_at ? new Date(l.created_at).toLocaleDateString('pt-BR') : 'â€”'}
+                          {l.created_at ? new Date(l.created_at).toLocaleDateString('pt-BR') : '—'}
                         </td>
                       </tr>
                     );

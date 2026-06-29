@@ -3,8 +3,8 @@ import { SubNav } from '../../shared/components/layout/SubNav';
 
 const TABS = [
   { label: 'Chat & Insights', path: '/ia/chat'      },
-  { label: 'SugestÃµes',       path: '/ia/sugestoes'  },
-  { label: 'AnÃ¡lises',        path: '/ia/analises'   },
+  { label: 'Sugestões',       path: '/ia/sugestoes'  },
+  { label: 'Análises',        path: '/ia/analises'   },
   { label: 'Resumos',         path: '/ia/resumos'    },
 ];
 

@@ -31,12 +31,6 @@ export default {
         '3xl': '1.25rem',
         '4xl': '1.75rem',
       },
-      boxShadow: {
-        'glow-violet': 'none',
-        'glow-sm': 'none',
-        card: 'none',
-        drawer: 'none',
-      },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-out',
         'slide-up': 'slideUp 0.25s ease-out',

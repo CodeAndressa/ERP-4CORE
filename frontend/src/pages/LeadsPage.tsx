@@ -30,13 +30,13 @@ export default function LeadsPage() {
           ['Pipeline', String(leads.length), 'Oportunidades em andamento'],
           ['Follow-ups', '0', 'Aguardando dados comerciais'],
         ].map(([label, value, detail]) => (
-          <div key={label} className="rounded-[28px] border border-violet-100 bg-white p-5">
+          <div key={label} className="rounded-[22px] border border-violet-100 bg-white p-5">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
             <p className="mt-2 text-3xl font-semibold text-slate-950">{value}</p>
             <p className="mt-1 text-xs text-slate-500">{detail}</p>
           </div>
         ))}
-        <div className="rounded-[28px] border border-violet-100 bg-white p-5">
+        <div className="rounded-[22px] border border-violet-100 bg-white p-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Próxima ação</p>
           <Link to="/ai?scope=comercial" className="mt-3 block text-sm font-medium text-violet-700">Analisar prioridades com IA →</Link>
         </div>

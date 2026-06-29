@@ -21,12 +21,12 @@ interface Post {
 
 const SEED_POSTS: Post[] = [
   { id: 1, date: '2026-07-01', title: 'Checklist de conformidade trabalhista', channel: 'Instagram', status: 'publicado', format: 'Carrossel', responsible: 'Marketing' },
-  { id: 2, date: '2026-07-04', title: 'Case Grupo Atlas â€” ReduÃ§Ã£o de passivos', channel: 'LinkedIn', status: 'revisao', format: 'Artigo', responsible: 'Diretoria' },
+  { id: 2, date: '2026-07-04', title: 'Case Grupo Atlas — Redução de passivos', channel: 'LinkedIn', status: 'revisao', format: 'Artigo', responsible: 'Diretoria' },
   { id: 3, date: '2026-07-08', title: 'Guia definitivo sobre Portaria 671', channel: 'E-mail', status: 'agendado', format: 'Newsletter', responsible: 'Marketing' },
-  { id: 4, date: '2026-07-10', title: 'Bastidores da 4Core â€” como trabalhamos', channel: 'Stories', status: 'ideia', format: 'VÃ­deo', responsible: 'Marketing' },
-  { id: 5, date: '2026-07-15', title: 'Dicas de documentaÃ§Ã£o trabalhista', channel: 'Instagram', status: 'agendado', format: 'Reels', responsible: 'Marketing' },
-  { id: 6, date: '2026-07-18', title: 'Webinar: Compliance na prÃ¡tica', channel: 'LinkedIn', status: 'agendado', format: 'Evento', responsible: 'Diretoria' },
-  { id: 7, date: '2026-07-22', title: 'InfogrÃ¡fico: CalendÃ¡rio trabalhista 2026', channel: 'Instagram', status: 'ideia', format: 'EstÃ¡tico', responsible: 'Marketing' },
+  { id: 4, date: '2026-07-10', title: 'Bastidores da 4Core — como trabalhamos', channel: 'Stories', status: 'ideia', format: 'Vídeo', responsible: 'Marketing' },
+  { id: 5, date: '2026-07-15', title: 'Dicas de documentação trabalhista', channel: 'Instagram', status: 'agendado', format: 'Reels', responsible: 'Marketing' },
+  { id: 6, date: '2026-07-18', title: 'Webinar: Compliance na prática', channel: 'LinkedIn', status: 'agendado', format: 'Evento', responsible: 'Diretoria' },
+  { id: 7, date: '2026-07-22', title: 'Infográfico: Calendário trabalhista 2026', channel: 'Instagram', status: 'ideia', format: 'Estático', responsible: 'Marketing' },
   { id: 8, date: '2026-07-25', title: 'Resultados do primeiro semestre', channel: 'E-mail', status: 'ideia', format: 'Newsletter', responsible: 'Diretoria' },
 ];
 
@@ -40,7 +40,7 @@ const STATUS_TONE: Record<PostStatus, 'emerald' | 'violet' | 'amber' | 'slate'> 
 const STATUS_LABELS: Record<PostStatus, string> = {
   publicado: 'Publicado',
   agendado:  'Agendado',
-  revisao:   'Em revisÃ£o',
+  revisao:   'Em revisão',
   ideia:     'Ideia',
 };
 
@@ -53,7 +53,7 @@ const CHANNEL_ICONS: Record<string, React.ReactNode> = {
 };
 
 const CHANNELS = ['Instagram', 'LinkedIn', 'E-mail', 'Stories', 'YouTube'];
-const FORMATS  = ['Carrossel', 'Reels', 'Artigo', 'Newsletter', 'Evento', 'EstÃ¡tico', 'VÃ­deo'];
+const FORMATS  = ['Carrossel', 'Reels', 'Artigo', 'Newsletter', 'Evento', 'Estático', 'Vídeo'];
 
 function weekLabel(iso: string) {
   const d = new Date(iso + 'T12:00:00');
@@ -106,7 +106,7 @@ export default function CalendarioPage() {
     { id: 'all',      label: 'Todos' },
     { id: 'publicado',label: 'Publicados' },
     { id: 'agendado', label: 'Agendados' },
-    { id: 'revisao',  label: 'Em revisÃ£o' },
+    { id: 'revisao',  label: 'Em revisão' },
     { id: 'ideia',    label: 'Ideias' },
   ];
 
@@ -116,7 +116,7 @@ export default function CalendarioPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>CalendÃ¡rio Editorial</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Calendário Editorial</h1>
         </div>
         <button
           onClick={() => setShowForm((v) => !v)}
@@ -124,22 +124,22 @@ export default function CalendarioPage() {
           style={{ background: 'var(--erp-violet)', color: '#fff' }}
         >
           {showForm ? <X size={14} /> : <Plus size={14} />}
-          {showForm ? 'Cancelar' : 'Nova publicaÃ§Ã£o'}
+          {showForm ? 'Cancelar' : 'Nova publicação'}
         </button>
       </div>
 
       {/* Metric cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Publicados"  value={String(counts.publicado)} detail="este mÃªs" tone="emerald" icon={<CheckCircle size={16} />} />
+        <MetricCard label="Publicados"  value={String(counts.publicado)} detail="este mês" tone="emerald" icon={<CheckCircle size={16} />} />
         <MetricCard label="Agendados"   value={String(counts.agendado)}  detail="a publicar" tone="violet" icon={<CalendarDays size={16} />} />
-        <MetricCard label="Em revisÃ£o"  value={String(counts.revisao)}   detail="pendentes" tone="amber"  icon={<Clock size={16} />} />
+        <MetricCard label="Em revisão"  value={String(counts.revisao)}   detail="pendentes" tone="amber"  icon={<Clock size={16} />} />
         <MetricCard label="Ideias"      value={String(counts.ideia)}     detail="no banco" tone="cyan"   icon={<Lightbulb size={16} />} />
       </div>
 
       {/* New post form */}
       {showForm && (
         <Card padding="lg">
-          <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Nova publicaÃ§Ã£o</p>
+          <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Nova publicação</p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={{ color: 'var(--erp-text-muted)' }}>Data</label>
@@ -152,10 +152,10 @@ export default function CalendarioPage() {
               />
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-1 lg:col-span-2">
-              <label className="text-xs font-medium" style={{ color: 'var(--erp-text-muted)' }}>TÃ­tulo</label>
+              <label className="text-xs font-medium" style={{ color: 'var(--erp-text-muted)' }}>Título</label>
               <input
                 type="text"
-                placeholder="TÃ­tulo da publicaÃ§Ã£o"
+                placeholder="Título da publicação"
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                 className="rounded-xl px-3 py-2 text-sm outline-none"
@@ -235,7 +235,7 @@ export default function CalendarioPage() {
       {weeks.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16">
           <Calendar size={32} style={{ color: 'var(--erp-text-dim)' }} />
-          <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma publicaÃ§Ã£o neste filtro</p>
+          <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma publicação neste filtro</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -272,7 +272,7 @@ export default function CalendarioPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--erp-text)' }}>{post.title}</p>
                       <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                        {post.channel} Â· {post.format} Â· {post.responsible}
+                        {post.channel} · {post.format} · {post.responsible}
                       </p>
                     </div>
 

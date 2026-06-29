@@ -58,8 +58,8 @@ export default function SiteMetricsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Analytics Â· Supabase</p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>MÃ©tricas do Site</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Analytics · Supabase</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Métricas do Site</h1>
           {data?.synced_at && (
             <p className="text-xs mt-1" style={{ color: 'var(--erp-text-dim)' }}>
               Atualizado: {new Date(data.synced_at).toLocaleString('pt-BR')}
@@ -90,15 +90,15 @@ export default function SiteMetricsPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Visitantes"    value={loading ? 'â€¦' : String(s?.visitors ?? 0)}    detail={`Ãºltimos ${days} dias`}                                                            tone="violet"  icon={<Users size={16} />}             />
-        <MetricCard label="Pageviews"     value={loading ? 'â€¦' : String(s?.pageviews ?? 0)}   detail="pÃ¡ginas vistas"                                                                    tone="emerald" icon={<Globe size={16} />}             />
-        <MetricCard label="ConversÃµes"    value={loading ? 'â€¦' : String(s?.conversions ?? 0)} detail={s?.conversion_rate != null ? `${s.conversion_rate.toFixed(1)}% taxa` : 'formulÃ¡rios'} tone="amber" icon={<MousePointerClick size={16} />} />
-        <MetricCard label="Leads gerados" value={loading ? 'â€¦' : String(s?.leads ?? 0)}       detail="via site"                                                                          tone="violet"  icon={<TrendingUp size={16} />}        />
+        <MetricCard label="Visitantes"    value={loading ? '…' : String(s?.visitors ?? 0)}    detail={`últimos ${days} dias`}                                                            tone="violet"  icon={<Users size={16} />}             />
+        <MetricCard label="Pageviews"     value={loading ? '…' : String(s?.pageviews ?? 0)}   detail="páginas vistas"                                                                    tone="emerald" icon={<Globe size={16} />}             />
+        <MetricCard label="Conversões"    value={loading ? '…' : String(s?.conversions ?? 0)} detail={s?.conversion_rate != null ? `${s.conversion_rate.toFixed(1)}% taxa` : 'formulários'} tone="amber" icon={<MousePointerClick size={16} />} />
+        <MetricCard label="Leads gerados" value={loading ? '…' : String(s?.leads ?? 0)}       detail="via site"                                                                          tone="violet"  icon={<TrendingUp size={16} />}        />
       </div>
 
       {chartData.length > 0 && (
         <Card padding="lg">
-          <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>TrÃ¡fego diÃ¡rio</p>
+          <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Tráfego diário</p>
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
               <defs>
@@ -125,7 +125,7 @@ export default function SiteMetricsPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Card padding="lg">
-            <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>PÃ¡ginas mais vistas</p>
+            <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Páginas mais vistas</p>
             {(data?.top_pages?.length ?? 0) > 0 ? (
               <div className="space-y-2">
                 {data!.top_pages!.slice(0, 8).map((pg, i) => {
@@ -147,7 +147,7 @@ export default function SiteMetricsPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm" style={{ color: 'var(--erp-text-dim)' }}>Sem dados disponÃ­veis</p>
+              <p className="text-sm" style={{ color: 'var(--erp-text-dim)' }}>Sem dados disponíveis</p>
             )}
           </Card>
         </div>

@@ -116,7 +116,7 @@ export function AIDrawer() {
       {aiDrawerOpen && (
         <>
           <motion.div
-            className="fixed inset-0 z-40 bg-slate-950/30 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-violet-950/10 backdrop-blur-[2px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

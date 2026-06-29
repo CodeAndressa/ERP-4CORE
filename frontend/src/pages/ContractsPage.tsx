@@ -33,7 +33,7 @@ interface Order {
 const money = (v?: number) =>
   v != null
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v)
-    : 'â€”';
+    : '—';
 
 type Tab = 'contratos' | 'pedidos';
 
@@ -132,9 +132,9 @@ export default function ContractsPage() {
             {[
               { label: 'Cliente',     key: 'client_name', type: 'text',   placeholder: 'Nome do cliente' },
               { label: 'Valor (R$)',  key: 'value',       type: 'number', placeholder: '0'               },
-              { label: 'InÃ­cio',      key: 'start_date',  type: 'date',   placeholder: ''                },
+              { label: 'Início',      key: 'start_date',  type: 'date',   placeholder: ''                },
               { label: 'Fim',         key: 'end_date',    type: 'date',   placeholder: ''                },
-              { label: 'DescriÃ§Ã£o',   key: 'description', type: 'text',   placeholder: 'Opcional'        },
+              { label: 'Descrição',   key: 'description', type: 'text',   placeholder: 'Opcional'        },
             ].map((f) => (
               <div key={f.key}>
                 <label className="text-xs font-medium block mb-1" style={{ color: 'var(--erp-text-muted)' }}>{f.label}</label>
@@ -160,7 +160,7 @@ export default function ContractsPage() {
               { label: 'Cliente',    key: 'client_name', type: 'text',   placeholder: 'Nome do cliente' },
               { label: 'Valor (R$)', key: 'value',       type: 'number', placeholder: '0'               },
               { label: 'Data',       key: 'closed_at',   type: 'date',   placeholder: ''                },
-              { label: 'DescriÃ§Ã£o',  key: 'description', type: 'text',   placeholder: 'Opcional'        },
+              { label: 'Descrição',  key: 'description', type: 'text',   placeholder: 'Opcional'        },
             ].map((f) => (
               <div key={f.key}>
                 <label className="text-xs font-medium block mb-1" style={{ color: 'var(--erp-text-muted)' }}>{f.label}</label>
@@ -197,7 +197,7 @@ export default function ContractsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                    {['Cliente', 'Valor', 'InÃ­cio', 'Fim', 'Status'].map((h) => (
+                    {['Cliente', 'Valor', 'Início', 'Fim', 'Status'].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
                         style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                     ))}
@@ -209,13 +209,13 @@ export default function ContractsPage() {
                       style={{ borderBottom: i < contracts.length - 1 ? '1px solid var(--erp-border)' : undefined }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--erp-surface-2)'; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                      <td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{c.client_name ?? c.client ?? 'â€”'}</td>
+                      <td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{c.client_name ?? c.client ?? '—'}</td>
                       <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: 'var(--erp-violet-light)' }}>{money(c.value)}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                        {c.start_date ? <span className="flex items-center gap-1"><Calendar size={10} />{c.start_date}</span> : 'â€”'}
+                        {c.start_date ? <span className="flex items-center gap-1"><Calendar size={10} />{c.start_date}</span> : '—'}
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                        {c.end_date ? <span className="flex items-center gap-1"><Calendar size={10} />{c.end_date}</span> : 'â€”'}
+                        {c.end_date ? <span className="flex items-center gap-1"><Calendar size={10} />{c.end_date}</span> : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <Badge tone={c.status?.toLowerCase() === 'ativo' ? 'emerald' : c.status?.toLowerCase() === 'encerrado' ? 'slate' : 'amber'} dot>
@@ -247,7 +247,7 @@ export default function ContractsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                    {['Cliente', 'Valor', 'Data', 'DescriÃ§Ã£o', 'Status'].map((h) => (
+                    {['Cliente', 'Valor', 'Data', 'Descrição', 'Status'].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
                         style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                     ))}
@@ -259,12 +259,12 @@ export default function ContractsPage() {
                       style={{ borderBottom: i < orders.length - 1 ? '1px solid var(--erp-border)' : undefined }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--erp-surface-2)'; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                      <td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{o.client_name ?? o.client ?? 'â€”'}</td>
+                      <td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{o.client_name ?? o.client ?? '—'}</td>
                       <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: 'var(--erp-violet-light)' }}>{money(o.total ?? o.value)}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{o.closed_at ?? o.date ?? o.created_at ?? 'â€”'}</td>
-                      <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--erp-text-muted)' }}>{o.description ?? o.items ?? 'â€”'}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{o.closed_at ?? o.date ?? o.created_at ?? '—'}</td>
+                      <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--erp-text-muted)' }}>{o.description ?? o.items ?? '—'}</td>
                       <td className="px-4 py-3">
-                        <Badge tone={['entregue','concluido','concluÃ­do'].includes((o.status ?? '').toLowerCase()) ? 'emerald' : ['cancelado'].includes((o.status ?? '').toLowerCase()) ? 'slate' : 'amber'} dot>
+                        <Badge tone={['entregue','concluido','concluído'].includes((o.status ?? '').toLowerCase()) ? 'emerald' : ['cancelado'].includes((o.status ?? '').toLowerCase()) ? 'slate' : 'amber'} dot>
                           {o.status ?? 'Pendente'}
                         </Badge>
                       </td>

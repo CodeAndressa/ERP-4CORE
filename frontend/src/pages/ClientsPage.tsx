@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Building2, CheckCircle, FileText, Mail, Phone, Search, Upload, Users } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle, FileText, Mail, Phone, Search, Trash2, Upload, Users } from 'lucide-react';
 import { api } from '../services/api';
 import { Card } from '../shared/components/ui/Card';
 import { MetricCard } from '../shared/components/layout/MetricCard';
@@ -34,6 +34,7 @@ export default function ClientsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [search, setSearch] = useState('');
@@ -115,6 +116,24 @@ export default function ClientsPage() {
     }
   }
 
+  async function removeClient(client: Client) {
+    const confirmation = window.prompt(`Para remover ${client.name} do ASAAS, digite REMOVER`);
+    if (confirmation !== 'REMOVER') return;
+
+    setRemoving(client.id);
+    setError('');
+    setSuccess('');
+    try {
+      await api.delete(`/clients/${client.id}`);
+      setClients((prev) => prev.filter((item) => item.id !== client.id));
+      setSuccess(`${client.name} removido do ASAAS.`);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Erro ao remover cliente no ASAAS');
+    } finally {
+      setRemoving(null);
+    }
+  }
+
   const clientsWithContracts = clients.filter((client) => {
     const byId = contractsByClient.get(clientKey(client)) ?? [];
     const byName = contractsByClient.get(legacyClientKey(client.name)) ?? [];
@@ -155,7 +174,7 @@ export default function ClientsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                  {['Cliente', 'E-mail', 'Telefone', 'Cadastro', 'Contrato', 'Origem'].map((h) => (
+                  {['Cliente', 'E-mail', 'Telefone', 'Cadastro', 'Contrato', 'Origem', 'Ações'].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
@@ -186,10 +205,21 @@ export default function ClientsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3"><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">ASAAS</span></td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => removeClient(client)}
+                          disabled={removing === client.id}
+                          className="inline-flex items-center gap-1 rounded-full border border-rose-100 px-3 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
+                          title="Remover cliente no ASAAS"
+                        >
+                          <Trash2 size={11} />
+                          {removing === client.id ? 'Removendo...' : 'Remover'}
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
-                {filtered.length === 0 && <tr><td colSpan={6} className="py-12 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum cliente encontrado</td></tr>}
+                {filtered.length === 0 && <tr><td colSpan={7} className="py-12 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum cliente encontrado</td></tr>}
               </tbody>
             </table>
           </div>

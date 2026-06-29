@@ -23,6 +23,10 @@ def _cache_key(path: str, params: dict[str, Any] | None) -> tuple[str, tuple[tup
     return (path.lstrip('/'), tuple(sorted((params or {}).items())))
 
 
+def _clear_cache() -> None:
+    _CACHE.clear()
+
+
 class AsaasService:
     def __init__(self, force_refresh: bool = False):
         if not settings.asaas_api_key:
@@ -30,6 +34,14 @@ class AsaasService:
         self.base_url = settings.asaas_base_url.rstrip('/') + '/'
         self.headers = {'access_token': settings.asaas_api_key}
         self.force_refresh = force_refresh
+
+    async def _delete(self, path: str) -> dict[str, Any]:
+        async with httpx.AsyncClient(base_url=self.base_url, headers=self.headers, timeout=25.0) as client:
+            response = await client.delete(path.lstrip('/'))
+            if response.status_code >= 400:
+                raise AsaasUnavailable(f'ASAAS retornou {response.status_code}: {response.text[:200]}')
+            _clear_cache()
+            return response.json() if response.content else {'deleted': True}
 
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         key = _cache_key(path, params)
@@ -93,6 +105,11 @@ class AsaasService:
                 for item in payments[:20]
             ],
         }
+
+    async def delete_customer(self, customer_id: str) -> dict[str, Any]:
+        if not customer_id or '/' in customer_id:
+            raise AsaasUnavailable('Cliente ASAAS inv?lido.')
+        return await self._delete(f'customers/{customer_id}')
 
     async def customers(self, limit: int = 100) -> list[dict[str, Any]]:
         result = await self._get('customers', {'limit': limit, 'offset': 0, 'sort': 'name', 'order': 'asc'})

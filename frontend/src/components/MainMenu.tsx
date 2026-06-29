@@ -14,6 +14,8 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useUIStore } from '../core/store/useUIStore';
 
+const LOGO_SRC = '/Logo%20com%20Tipografia%204Core%20-%20Principal%20Transparente.png';
+
 interface AreaItem {
   label: string;
   path: string;
@@ -68,15 +70,16 @@ export default function MainMenu() {
       style={{ minHeight: '100vh', background: 'var(--erp-sidebar-bg)', borderRight: '1px solid var(--erp-border)' }}
     >
       <div className={`flex items-center px-3.5 py-4 ${sidebarCollapsed ? 'justify-center' : 'gap-3'}`} style={{ borderBottom: '1px solid var(--erp-border)' }}>
-        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-violet-600">
-          <span className="text-xs font-bold text-white">4C</span>
-        </div>
+        <img
+          src={LOGO_SRC}
+          alt="4Core"
+          className={sidebarCollapsed ? 'h-10 w-10 object-contain' : 'h-10 max-w-[150px] object-contain object-left'}
+        />
         <AnimatePresence>
           {!sidebarCollapsed && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
-              <p className="whitespace-nowrap text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>4Core</p>
-              <p className="whitespace-nowrap text-[10px]" style={{ color: 'var(--erp-text-muted)' }}>ERP Inteligente</p>
-            </motion.div>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="whitespace-nowrap text-[10px]" style={{ color: 'var(--erp-text-muted)' }}>
+              ERP Inteligente
+            </motion.p>
           )}
         </AnimatePresence>
       </div>

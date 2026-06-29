@@ -68,9 +68,9 @@ const FALLBACK_POSTS: Post[] = [
   { id: 'm1', title: 'Checklist de conformidade trabalhista', channel: 'Instagram', status: 'publicado', format: 'Carrossel', date: '2026-07-01' },
   { id: 'm2', title: 'Case Grupo Atlas', channel: 'LinkedIn', status: 'revisao', format: 'Artigo', date: '2026-07-04' },
   { id: 'm3', title: 'Guia Portaria 671', channel: 'E-mail', status: 'agendado', format: 'Newsletter', date: '2026-07-08' },
-  { id: 'm4', title: 'Bastidores da 4Core', channel: 'Stories', status: 'ideia', format: 'V?deo', date: '2026-07-10' },
-  { id: 'm5', title: 'Dicas de documenta??o trabalhista', channel: 'Instagram', status: 'agendado', format: 'Reels', date: '2026-07-15' },
-  { id: 'm6', title: 'Webinar: Compliance na pr?tica', channel: 'LinkedIn', status: 'agendado', format: 'Evento', date: '2026-07-18' },
+  { id: 'm4', title: 'Bastidores da 4Core', channel: 'Stories', status: 'ideia', format: 'Vídeo', date: '2026-07-10' },
+  { id: 'm5', title: 'Dicas de documentação trabalhista', channel: 'Instagram', status: 'agendado', format: 'Reels', date: '2026-07-15' },
+  { id: 'm6', title: 'Webinar: Compliance na prática', channel: 'LinkedIn', status: 'agendado', format: 'Evento', date: '2026-07-18' },
 ];
 
 const STATUS_LABELS: Record<string, string> = {

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signIn } from '../services/api';
 
+const LOGO_SRC = '/Logo%20com%20Tipografia%204Core%20-%20Principal%20Transparente.png';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +28,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#f8f7fb] px-4 py-10 text-slate-950">
       <div className="w-full max-w-md rounded-[22px] border border-violet-100 bg-white px-8 py-10">
-        <p className="text-sm font-semibold uppercase tracking-[0.28em] text-violet-600">4Core</p>
+        <img src={LOGO_SRC} alt="4Core" className="h-12 w-auto object-contain object-left" />
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">Acesso à plataforma</h1>
         <p className="mb-8 mt-3 text-sm text-slate-600">Entre para acompanhar a operação, os clientes e a saúde financeira da empresa.</p>
         <form className="space-y-5" onSubmit={handleSubmit}>

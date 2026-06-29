@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Bell, Sparkles, LogOut, Command } from 'lucide-react';
+import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, RefreshCw, ScrollText, Settings2, Target, Users } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
 import { AIDrawer } from '../shared/components/ai/AIDrawer';
@@ -22,6 +22,106 @@ const t = {
   acoes: 'a\u00e7\u00f5es',
   resultados: 'Nenhum resultado',
 };
+
+
+type HeaderTab = { label: string; path: string; icon: JSX.Element };
+
+const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
+  {
+    match: ['/dashboard', '/site-metrics'],
+    tabs: [
+      { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={14} /> },
+      { label: 'Métricas do Site', path: '/site-metrics', icon: <BarChart3 size={14} /> },
+    ],
+  },
+  {
+    match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'],
+    tabs: [
+      { label: 'Leads', path: '/comercial/leads', icon: <Users size={14} /> },
+      { label: 'Clientes', path: '/comercial/clientes', icon: <Building2 size={14} /> },
+      { label: 'Pipeline', path: '/comercial/pipeline', icon: <Kanban size={14} /> },
+      { label: 'Funil', path: '/comercial/funil', icon: <Target size={14} /> },
+      { label: 'Propostas', path: '/comercial/propostas', icon: <FileText size={14} /> },
+      { label: 'Contratos', path: '/comercial/contratos', icon: <ScrollText size={14} /> },
+      { label: 'Agenda', path: '/comercial/agenda', icon: <Calendar size={14} /> },
+      { label: 'Follow-up', path: '/comercial/followup', icon: <Bell size={14} /> },
+    ],
+  },
+  {
+    match: ['/financeiro', '/financial'],
+    tabs: [
+      { label: 'Visão Geral', path: '/financeiro', icon: <DollarSign size={14} /> },
+      { label: 'Receita', path: '/financeiro/receita', icon: <BarChart3 size={14} /> },
+      { label: 'Custos Fixos', path: '/financeiro/custos-fixos', icon: <FileText size={14} /> },
+      { label: 'Custos Recorrentes', path: '/financeiro/custos-recorrentes', icon: <RefreshCw size={14} /> },
+    ],
+  },
+  {
+    match: ['/marketing'],
+    tabs: [
+      { label: 'Calendário', path: '/marketing/calendario', icon: <CalendarDays size={14} /> },
+      { label: 'Posts', path: '/marketing/posts', icon: <FileText size={14} /> },
+      { label: 'Ideias', path: '/marketing/ideias', icon: <Lightbulb size={14} /> },
+      { label: 'Métricas', path: '/marketing/metricas', icon: <BarChart3 size={14} /> },
+      { label: 'Campanhas', path: '/marketing/campanhas', icon: <Target size={14} /> },
+      { label: 'Planejamento', path: '/marketing/planejamento', icon: <Megaphone size={14} /> },
+    ],
+  },
+  {
+    match: ['/ia', '/ai'],
+    tabs: [
+      { label: 'Chat & Insights', path: '/ia/chat', icon: <MessageSquare size={14} /> },
+      { label: 'Sugestões', path: '/ia/sugestoes', icon: <Sparkles size={14} /> },
+      { label: 'Análises', path: '/ia/analises', icon: <Brain size={14} /> },
+      { label: 'Resumos', path: '/ia/resumos', icon: <Gauge size={14} /> },
+    ],
+  },
+  {
+    match: ['/relatorios', '/reports'],
+    tabs: [
+      { label: 'Visão Geral', path: '/relatorios', icon: <FolderOpen size={14} /> },
+      { label: 'Financeiros', path: '/relatorios/financeiros', icon: <DollarSign size={14} /> },
+      { label: 'Comerciais', path: '/relatorios/comerciais', icon: <Target size={14} /> },
+    ],
+  },
+  {
+    match: ['/settings', '/knowledge'],
+    tabs: [
+      { label: 'Configurações', path: '/settings', icon: <Settings2 size={14} /> },
+      { label: 'Conhecimento', path: '/knowledge', icon: <BookOpen size={14} /> },
+    ],
+  },
+];
+
+function getHeaderTabs(pathname: string) {
+  return HEADER_TABS.find((group) => group.match.some((path) => pathname === path || pathname.startsWith(`${path}/`)))?.tabs ?? [];
+}
+
+function HeaderAreaNav({ pathname }: { pathname: string }) {
+  const tabs = getHeaderTabs(pathname);
+  if (!tabs.length) return <div />;
+
+  return (
+    <nav className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Navegação da área">
+      <div className="inline-flex min-w-max items-center gap-1 rounded-full border border-violet-100 bg-white p-1">
+        {tabs.map((tab) => {
+          const active = pathname === tab.path || (tab.path !== '/financeiro' && tab.path !== '/relatorios' && pathname.startsWith(`${tab.path}/`));
+          return (
+            <NavLink
+              key={tab.path}
+              to={tab.path}
+              className="inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-medium transition-colors"
+              style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}
+            >
+              {tab.icon}
+              {tab.label}
+            </NavLink>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
 
 const COMMANDS = [
   { group: t.modulos, label: 'Dashboard', path: '/dashboard', keys: 'dashboard visao geral' },
@@ -155,8 +255,9 @@ export default function AppLayout() {
     <div className="flex min-h-screen" style={{ background: 'var(--erp-bg)', color: 'var(--erp-text)' }}>
       <MainMenu />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-end gap-4 px-5 py-2 backdrop-blur-2xl" style={{ background: 'var(--erp-header-bg)', borderBottom: '1px solid var(--erp-border)' }}>
-          <div className="flex items-center gap-2">
+        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-4 px-5 py-2 backdrop-blur-2xl" style={{ background: 'var(--erp-header-bg)', borderBottom: '1px solid var(--erp-border)' }}>
+          <HeaderAreaNav pathname={pathname} />
+          <div className="flex shrink-0 items-center gap-2">
             <button onClick={openCommand} className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs transition sm:flex" style={{ border: '1px solid var(--erp-border)', background: '#fff', color: 'var(--erp-text-muted)' }}><Search size={13} /><span>Buscar</span><kbd className="ml-1 rounded-full px-1.5 py-0.5 text-[10px]" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)' }}>Ctrl K</kbd></button>
             <button onClick={() => openAIDrawer(title)} className="flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 transition hover:bg-violet-50"><Sparkles size={13} /><span className="hidden sm:inline">Analisar com IA</span></button>
             <button className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white transition-colors" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }}><Bell size={16} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-violet-500" /></button>

@@ -69,19 +69,18 @@ export default function MainMenu() {
       className="relative flex flex-shrink-0 flex-col"
       style={{ minHeight: '100vh', background: 'var(--erp-sidebar-bg)', borderRight: '1px solid var(--erp-border)' }}
     >
-      <div className="flex items-center justify-center px-3.5 py-2.5" style={{ borderBottom: '1px solid var(--erp-border)' }}>
-        <img
-          src={LOGO_SRC}
-          alt="4Core"
-          className={sidebarCollapsed ? 'h-10 w-10 object-contain' : 'h-16 w-full max-w-[190px] object-contain'}
-        />
-      </div>
-
       <nav className={`flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${sidebarCollapsed ? 'space-y-1' : 'space-y-1.5'}`}>
         {AREAS.map((area) => <AreaButton key={area.path} area={area} collapsed={sidebarCollapsed} />)}
       </nav>
 
-      <div className="p-2" style={{ borderTop: '1px solid var(--erp-border)' }}>
+      <div className="space-y-2 p-2" style={{ borderTop: '1px solid var(--erp-border)' }}>
+        <div className="flex items-center justify-center px-1 py-2">
+          <img
+            src={LOGO_SRC}
+            alt="4Core"
+            className={sidebarCollapsed ? 'h-8 w-8 object-contain' : 'h-12 w-full max-w-[160px] object-contain'}
+          />
+        </div>
         <button
           onClick={toggleSidebar}
           title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}

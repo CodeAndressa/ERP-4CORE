@@ -3,7 +3,6 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, RefreshCw, ShieldCheck, WalletCards } from 'lucide-react';
 import { api } from '../../services/api';
-import { SubNav } from '../../shared/components/layout/SubNav';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
 import { currency, monthLabel, type ManualFinancial } from './manualFinance';
@@ -37,12 +36,6 @@ export type AsaasData = {
 
 export const money = (value: number) => currency(value);
 
-const TABS = [
-  { label: 'Receita', path: '/financeiro/receita' },
-  { label: 'Custos Fixos', path: '/financeiro/custos-fixos' },
-  { label: 'Custos Recorrentes', path: '/financeiro/custos-recorrentes' },
-];
-
 const PERIODS = [
   { label: '90d', value: 90 },
   { label: '180d', value: 180 },
@@ -60,14 +53,7 @@ export function FinanceiroLayout() {
   const { pathname } = useLocation();
   const isIndex = pathname === '/financeiro';
 
-  return (
-    <div className="space-y-0">
-      <SubNav tabs={TABS} />
-      <div className="pt-6">
-        {isIndex ? <FinanceiroCockpit /> : <Outlet />}
-      </div>
-    </div>
-  );
+  return isIndex ? <FinanceiroCockpit /> : <Outlet />;
 }
 
 function chartTooltip({ active, payload, label }: any) {

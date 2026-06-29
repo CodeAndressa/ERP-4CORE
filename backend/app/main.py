@@ -45,12 +45,10 @@ async def require_authentication(request: Request, call_next):
     return await call_next(request)
 
 
-Base.metadata.create_all(bind=engine)
-ensure_runtime_schema(engine)
-
-
 @app.on_event('startup')
-def bootstrap_first_admin():
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+    ensure_runtime_schema(engine)
     db = SessionLocal()
     try:
         ensure_bootstrap_admin(db)

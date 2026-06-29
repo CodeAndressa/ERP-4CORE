@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Building2, Mail, Phone, Search, AlertTriangle, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Building2, CheckCircle, FileText, Mail, Phone, Search, Upload, Users } from 'lucide-react';
 import { api } from '../services/api';
 import { Card } from '../shared/components/ui/Card';
 import { MetricCard } from '../shared/components/layout/MetricCard';
@@ -12,118 +12,171 @@ interface Client {
   created_at?: string;
 }
 
+interface Contract {
+  id: number | string;
+  client_name: string;
+  title?: string;
+  file_name?: string;
+  created_at?: string;
+}
+
+function sameClient(a?: string, b?: string) {
+  return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+}
+
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [search, setSearch] = useState('');
 
+  function loadContracts() {
+    return api.get<Contract[] | { data?: Contract[] }>('/contracts')
+      .then(({ data }) => setContracts(Array.isArray(data) ? data : data.data ?? []));
+  }
+
   useEffect(() => {
-    api.get<{ data?: Client[] } | Client[]>('/clients')
-      .then(({ data }) => {
-        const list = Array.isArray(data) ? data : (data as any)?.data ?? [];
-        setClients(list);
+    Promise.allSettled([
+      api.get<{ data?: Client[] } | Client[]>('/clients'),
+      loadContracts(),
+    ])
+      .then(([clientResult]) => {
+        if (clientResult.status === 'fulfilled') {
+          const payload = clientResult.value.data;
+          setClients(Array.isArray(payload) ? payload : payload.data ?? []);
+        } else {
+          setError(clientResult.reason?.response?.data?.detail || 'Falha ao carregar clientes');
+        }
       })
-      .catch((e) => setError(e?.response?.data?.detail || 'Falha ao conectar ao ASAAS'))
       .finally(() => setLoading(false));
   }, []);
+
+  const contractsByClient = useMemo(() => {
+    const map = new Map<string, Contract[]>();
+    contracts.forEach((contract) => {
+      const key = contract.client_name.trim().toLowerCase();
+      map.set(key, [...(map.get(key) ?? []), contract]);
+    });
+    return map;
+  }, [contracts]);
 
   const filtered = clients.filter((c) => {
     const q = search.toLowerCase();
     return !q || c.name.toLowerCase().includes(q) || (c.email ?? '').toLowerCase().includes(q);
   });
 
+  async function uploadContract(client: Client, file?: File) {
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setError('Envie apenas contratos em PDF.');
+      return;
+    }
+
+    setUploading(client.id);
+    setError('');
+    setSuccess('');
+    const form = new FormData();
+    form.append('client_name', client.name);
+    form.append('title', `Contrato - ${client.name}`);
+    form.append('status', 'ativo');
+    form.append('file', file);
+
+    try {
+      await api.post('/contracts', form);
+      await loadContracts();
+      setSuccess(`Contrato vinculado a ${client.name}.`);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Erro ao vincular contrato ao cliente');
+    } finally {
+      setUploading(null);
+    }
+  }
+
+  async function openContractFile(contractId: number | string) {
+    try {
+      const { data } = await api.get(`/contracts/${contractId}/file`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'N?o foi poss?vel abrir o contrato');
+    }
+  }
+
+  const clientsWithContracts = clients.filter((client) => contracts.some((contract) => sameClient(contract.client_name, client.name))).length;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial · ASAAS</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-violet-light)' }}>Comercial ? ASAAS</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Clientes</h1>
         </div>
-        <div className="flex items-center gap-2 rounded-xl px-3 py-2"
-          style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', minWidth: 220 }}>
+        <div className="flex min-w-[220px] items-center gap-2 rounded-full px-3 py-2" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}>
           <Search size={13} style={{ color: 'var(--erp-text-muted)' }} />
-          <input
-            type="text" placeholder="Buscar cliente…" value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-sm outline-none"
-            style={{ color: 'var(--erp-text)' }}
-          />
+          <input type="text" placeholder="Buscar cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-transparent text-sm outline-none" style={{ color: 'var(--erp-text)' }} />
         </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="Clientes"    value={loading ? '…' : String(clients.length)} detail="sincronizados · ASAAS" tone="violet" icon={<Users size={16} />} />
-        <MetricCard label="Fonte"       value="ASAAS" detail="dados em tempo real" tone="emerald" icon={<Building2 size={16} />} />
-        <MetricCard label="Exportação"  value="—" detail="Aguarda mapeamento" tone="amber" />
+        <MetricCard label="Clientes" value={loading ? '...' : String(clients.length)} detail="sincronizados ? ASAAS" tone="violet" icon={<Users size={16} />} />
+        <MetricCard label="Com contrato" value={loading ? '...' : String(clientsWithContracts)} detail="PDF vinculado" tone="emerald" icon={<FileText size={16} />} />
+        <MetricCard label="Fonte" value="ASAAS" detail="dados em tempo real" tone="cyan" icon={<Building2 size={16} />} />
       </div>
 
-      {error && (
-        <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
-          <AlertTriangle size={14} />
-          <span>{error}</span>
+      {(error || success) && (
+        <div className="flex items-center gap-3 rounded-[22px] px-4 py-3 text-sm" style={{ background: error ? '#fff1f2' : '#ecfdf5', border: `1px solid ${error ? '#fecdd3' : '#bbf7d0'}`, color: error ? '#be123c' : '#047857' }}>
+          {error ? <AlertTriangle size={14} /> : <CheckCircle size={14} />}
+          <span>{error || success}</span>
         </div>
       )}
 
       <Card padding="sm">
         {loading ? (
-          <div className="space-y-2 p-4">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}
-          </div>
+          <div className="space-y-2 p-4">{[1, 2, 3, 4].map((i) => <div key={i} className="h-12 animate-pulse rounded-full" style={{ background: 'var(--erp-surface-2)' }} />)}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                  {['Cliente', 'E-mail', 'Telefone', 'Cadastro', 'Origem'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
-                      style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
+                  {['Cliente', 'E-mail', 'Telefone', 'Cadastro', 'Contrato', 'Origem'].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c, i) => (
-                  <tr key={c.id}
-                    style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--erp-border)' : undefined }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--erp-surface-2)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
-                          style={{ background: 'var(--erp-violet-dim)' }}>
-                          <Building2 size={12} style={{ color: 'var(--erp-violet-light)' }} />
+                {filtered.map((client, i) => {
+                  const linked = contractsByClient.get(client.name.trim().toLowerCase()) ?? [];
+                  const latest = linked[0];
+                  return (
+                    <tr key={client.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--erp-border)' : undefined }}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--erp-violet-dim)' }}><Building2 size={13} style={{ color: 'var(--erp-violet-light)' }} /></div>
+                          <span className="font-medium" style={{ color: 'var(--erp-text)' }}>{client.name}</span>
                         </div>
-                        <span className="font-medium" style={{ color: 'var(--erp-text)' }}>{c.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {c.email
-                        ? <div className="flex items-center gap-1.5"><Mail size={11} style={{ color: 'var(--erp-text-dim)' }} /><span style={{ color: 'var(--erp-text-muted)' }}>{c.email}</span></div>
-                        : <span style={{ color: 'var(--erp-text-dim)' }}>—</span>}
-                    </td>
-                    <td className="px-4 py-3">
-                      {c.phone
-                        ? <div className="flex items-center gap-1.5"><Phone size={11} style={{ color: 'var(--erp-text-dim)' }} /><span style={{ color: 'var(--erp-text-muted)' }}>{c.phone}</span></div>
-                        : <span style={{ color: 'var(--erp-text-dim)' }}>—</span>}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                      {c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                        style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
-                        ASAAS
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                {filtered.length === 0 && (
-                  <tr><td colSpan={5} className="py-12 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>
-                    Nenhum cliente encontrado
-                  </td></tr>
-                )}
+                      </td>
+                      <td className="px-4 py-3">{client.email ? <div className="flex items-center gap-1.5"><Mail size={11} style={{ color: 'var(--erp-text-dim)' }} /><span style={{ color: 'var(--erp-text-muted)' }}>{client.email}</span></div> : <span style={{ color: 'var(--erp-text-dim)' }}>-</span>}</td>
+                      <td className="px-4 py-3">{client.phone ? <div className="flex items-center gap-1.5"><Phone size={11} style={{ color: 'var(--erp-text-dim)' }} /><span style={{ color: 'var(--erp-text-muted)' }}>{client.phone}</span></div> : <span style={{ color: 'var(--erp-text-dim)' }}>-</span>}</td>
+                      <td className="px-4 py-3 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{client.created_at ? new Date(client.created_at).toLocaleDateString('pt-BR') : '-'}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {latest?.file_name && <button onClick={() => openContractFile(latest.id)} className="rounded-full border border-violet-100 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-50">Ver PDF</button>}
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: 'var(--erp-violet)' }}>
+                            <Upload size={12} />
+                            {uploading === client.id ? 'Enviando...' : linked.length ? 'Substituir' : 'Anexar PDF'}
+                            <input type="file" accept="application/pdf,.pdf" className="hidden" disabled={uploading === client.id} onChange={(event) => uploadContract(client, event.target.files?.[0])} />
+                          </label>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3"><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">ASAAS</span></td>
+                    </tr>
+                  );
+                })}
+                {filtered.length === 0 && <tr><td colSpan={6} className="py-12 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum cliente encontrado</td></tr>}
               </tbody>
             </table>
           </div>

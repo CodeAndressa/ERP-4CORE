@@ -35,3 +35,5 @@ build/
 Thumbs.db
 
 *.tsbuildinfo
+# Uploads locais
+backend/uploads/

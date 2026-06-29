@@ -12,11 +12,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-@router.post("/register", response_model=UserOut)
-def register_user(user: UserCreate, db: Session = Depends(get_db)):
+def _create_user(user: UserCreate, db: Session) -> User:
     existing = db.query(User).filter(User.email == user.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+        raise HTTPException(status_code=400, detail="E-mail j? cadastrado")
 
     db_user = User(
         full_name=user.full_name,
@@ -29,11 +28,30 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 
+@router.post("/register", response_model=UserOut)
+def register_first_user(user: UserCreate, db: Session = Depends(get_db)):
+    if db.query(User).count() > 0:
+        raise HTTPException(status_code=403, detail="Cadastro inicial j? realizado. Crie usu?rios em Sistema.")
+    return _create_user(user, db)
+
+
+@router.get("/users", response_model=list[UserOut])
+def list_users(db: Session = Depends(get_db)):
+    return db.query(User).order_by(User.created_at.desc()).all()
+
+
+@router.post("/users", response_model=UserOut)
+def create_user(user: UserCreate, db: Session = Depends(get_db)):
+    return _create_user(user, db)
+
+
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
+        raise HTTPException(status_code=401, detail="Credenciais inv?lidas")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Usu?rio inativo")
 
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
@@ -51,11 +69,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         email: str = payload.get("sub")
     except JWTError:
-        raise HTTPException(status_code=401, detail="Token inválido")
+        raise HTTPException(status_code=401, detail="Token inv?lido")
 
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        raise HTTPException(status_code=404, detail="Usu?rio n?o encontrado")
     return user
 
 

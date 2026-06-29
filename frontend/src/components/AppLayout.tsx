@@ -5,7 +5,6 @@ import { Search, Bell, Sparkles, LogOut, Command } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
 import { AIDrawer } from '../shared/components/ai/AIDrawer';
-import { Breadcrumb } from '../shared/components/layout/Breadcrumb';
 import { useUIStore } from '../core/store/useUIStore';
 import { useAuthStore } from '../core/store/useAuthStore';
 
@@ -156,8 +155,7 @@ export default function AppLayout() {
     <div className="flex min-h-screen" style={{ background: 'var(--erp-bg)', color: 'var(--erp-text)' }}>
       <MainMenu />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-4 px-5 py-2 backdrop-blur-2xl" style={{ background: 'var(--erp-header-bg)', borderBottom: '1px solid var(--erp-border)' }}>
-          <div className="flex min-w-0 items-center gap-3"><div className="hidden h-8 w-1 rounded-full sm:block" style={{ background: 'var(--erp-violet)' }} /><div className="min-w-0 truncate"><Breadcrumb /></div></div>
+        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-end gap-4 px-5 py-2 backdrop-blur-2xl" style={{ background: 'var(--erp-header-bg)', borderBottom: '1px solid var(--erp-border)' }}>
           <div className="flex items-center gap-2">
             <button onClick={openCommand} className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs transition sm:flex" style={{ border: '1px solid var(--erp-border)', background: '#fff', color: 'var(--erp-text-muted)' }}><Search size={13} /><span>Buscar</span><kbd className="ml-1 rounded-full px-1.5 py-0.5 text-[10px]" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)' }}>Ctrl K</kbd></button>
             <button onClick={() => openAIDrawer(title)} className="flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 transition hover:bg-violet-50"><Sparkles size={13} /><span className="hidden sm:inline">Analisar com IA</span></button>

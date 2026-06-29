@@ -207,15 +207,17 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-violet-100 pb-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
-          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-600">{'Visão executiva'}</p>
-          <h1 className="shrink-0 text-xl font-bold text-slate-950">Dashboard</h1>
-          <p className="min-w-0 truncate text-sm text-slate-600">Resumo geral de financeiro, comercial, site e marketing.</p>
+      <div className="flex flex-col gap-3 border-b border-violet-100 pb-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="h-10 w-1 rounded-full bg-violet-600" />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold text-slate-950">Painel Executivo</h1>
+            <p className="mt-0.5 text-sm text-slate-500">Financeiro, comercial, site e marketing em uma leitura única.</p>
+          </div>
         </div>
         <button onClick={() => loadAll(true)} className="flex items-center gap-1.5 rounded-full border border-violet-100 bg-white px-3 py-2 text-xs text-slate-600 transition hover:border-violet-200 hover:text-violet-700">
           <RefreshCw size={12} className={asaasLoading || siteLoading || secondaryLoading ? 'animate-spin' : ''} />
-          Atualizar tudo
+          Atualizar
         </button>
       </div>
 

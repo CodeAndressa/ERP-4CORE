@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../core/store/useAuthStore';
+import { API_BASE_URL } from '../services/api';
 
 const LOGO_SRC = '/Logo%20com%20Tipografia%204Core%20-%20Principal%20Transparente.png';
 
@@ -19,8 +20,15 @@ export default function LoginPage() {
     try {
       await login(email, password);
       navigate('/dashboard');
-    } catch {
-      setError('Não foi possível entrar. Confira seus dados e se a API está em execução.');
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      if (detail) {
+        setError(String(detail));
+      } else if (err?.code === 'ERR_NETWORK') {
+        setError(`Não foi possível conectar à API em ${API_BASE_URL}. Verifique VITE_API_BASE_URL e se o backend está publicado.`);
+      } else {
+        setError('Não foi possível entrar. Confira seus dados e se a API está em execução.');
+      }
     } finally {
       setLoading(false);
     }

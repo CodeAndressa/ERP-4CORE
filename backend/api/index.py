@@ -1,16 +1,35 @@
-import sys, os, traceback
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys
+import os
+import json
 
-_err = None
-try:
-    from app.server import app
-except Exception:
-    _err = traceback.format_exc()
 
-if _err:
-    from fastapi import FastAPI
-    app = FastAPI()
+# Pure ASGI app — zero dependencies beyond stdlib
+async def app(scope, receive, send):
+    if scope["type"] != "http":
+        return
 
-    @app.get("/{path:path}")
-    async def _show_error(path: str):
-        return {"import_error": _err}
+    path = scope.get("path", "/")
+    info = {
+        "path": path,
+        "python": sys.version,
+        "cwd": os.getcwd(),
+    }
+
+    # Try importing fastapi
+    try:
+        import fastapi
+        info["fastapi"] = fastapi.__version__
+    except Exception as e:
+        info["fastapi_error"] = str(e)
+
+    # Try importing app.server
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        import app.server
+        info["app_server"] = "ok"
+    except Exception as e:
+        info["app_server_error"] = str(e)[:500]
+
+    body = json.dumps(info).encode()
+    await send({"type": "http.response.start", "status": 200, "headers": [[b"content-type", b"application/json"]]})
+    await send({"type": "http.response.body", "body": body})

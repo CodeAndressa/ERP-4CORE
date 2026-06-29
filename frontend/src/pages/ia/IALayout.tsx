@@ -1,11 +1,12 @@
 import { Outlet } from 'react-router-dom';
+import { Brain, Gauge, MessageSquare, Sparkles } from 'lucide-react';
 import { SubNav } from '../../shared/components/layout/SubNav';
 
 const TABS = [
-  { label: 'Chat & Insights', path: '/ia/chat'      },
-  { label: 'Sugestões',       path: '/ia/sugestoes'  },
-  { label: 'Análises',        path: '/ia/analises'   },
-  { label: 'Resumos',         path: '/ia/resumos'    },
+  { label: 'Chat & Insights', path: '/ia/chat', icon: <MessageSquare size={14} /> },
+  { label: 'Sugest?es', path: '/ia/sugestoes', icon: <Sparkles size={14} /> },
+  { label: 'An?lises', path: '/ia/analises', icon: <Brain size={14} /> },
+  { label: 'Resumos', path: '/ia/resumos', icon: <Gauge size={14} /> },
 ];
 
 export default function IALayout() {

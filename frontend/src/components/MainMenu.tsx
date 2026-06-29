@@ -22,12 +22,12 @@ interface AreaItem {
 }
 
 const AREAS: AreaItem[] = [
-  { label: 'Vis?o Geral', path: '/dashboard', icon: LayoutDashboard, match: ['/dashboard', '/site-metrics'] },
+  { label: 'Visão Geral', path: '/dashboard', icon: LayoutDashboard, match: ['/dashboard', '/site-metrics'] },
   { label: 'Comercial', path: '/comercial', icon: Users, match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'] },
   { label: 'Financeiro', path: '/financeiro', icon: DollarSign, match: ['/financeiro', '/financial'] },
   { label: 'Marketing', path: '/marketing', icon: Megaphone, match: ['/marketing'] },
   { label: 'IA', path: '/ia', icon: Brain, match: ['/ia', '/ai'] },
-  { label: 'Relat?rios', path: '/relatorios', icon: FolderOpen, match: ['/relatorios', '/reports'] },
+  { label: 'Relatórios', path: '/relatorios', icon: FolderOpen, match: ['/relatorios', '/reports'] },
   { label: 'Sistema', path: '/settings', icon: Settings2, match: ['/settings', '/knowledge'] },
 ];
 

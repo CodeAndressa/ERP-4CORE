@@ -3,10 +3,10 @@ import { BarChart2, CalendarDays, FileEdit, Lightbulb, Megaphone, Target } from 
 import { SubNav } from '../../shared/components/layout/SubNav';
 
 const TABS = [
-  { label: 'Calend?rio', path: '/marketing/calendario', icon: <CalendarDays size={14} /> },
+  { label: 'Calendário', path: '/marketing/calendario', icon: <CalendarDays size={14} /> },
   { label: 'Posts', path: '/marketing/posts', icon: <FileEdit size={14} /> },
   { label: 'Ideias', path: '/marketing/ideias', icon: <Lightbulb size={14} /> },
-  { label: 'M?tricas', path: '/marketing/metricas', icon: <BarChart2 size={14} /> },
+  { label: 'Métricas', path: '/marketing/metricas', icon: <BarChart2 size={14} /> },
   { label: 'Campanhas', path: '/marketing/campanhas', icon: <Target size={14} /> },
   { label: 'Planejamento', path: '/marketing/planejamento', icon: <Megaphone size={14} /> },
 ];

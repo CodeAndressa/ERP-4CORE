@@ -3,7 +3,7 @@ import { BookOpen, Settings2 } from 'lucide-react';
 import { SubNav } from '../../shared/components/layout/SubNav';
 
 const TABS = [
-  { label: 'Configura??es', path: '/settings', icon: <Settings2 size={14} /> },
+  { label: 'Configurações', path: '/settings', icon: <Settings2 size={14} /> },
   { label: 'Conhecimento', path: '/knowledge', icon: <BookOpen size={14} /> },
 ];
 

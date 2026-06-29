@@ -4,7 +4,7 @@ import { SubNav } from '../../shared/components/layout/SubNav';
 
 const TABS = [
   { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={14} /> },
-  { label: 'M?tricas do Site', path: '/site-metrics', icon: <BarChart3 size={14} /> },
+  { label: 'Métricas do Site', path: '/site-metrics', icon: <BarChart3 size={14} /> },
 ];
 
 export default function VisaoGeralLayout() {

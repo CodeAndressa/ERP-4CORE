@@ -1,19 +1,32 @@
-import sys
-import os
-import traceback
+from fastapi import FastAPI
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+app = FastAPI()
 
-_import_error = None
-try:
-    from app.main import app  # noqa: F401
-except Exception as _e:
-    _import_error = traceback.format_exc()
+@app.get("/{path:path}")
+async def probe(path: str):
+    import sys, os
+    info = {
+        "python": sys.version,
+        "cwd": os.getcwd(),
+        "path": sys.path[:5],
+    }
+    # Try importing each dependency step by step
+    results = {}
+    for mod in ["sqlalchemy", "psycopg2", "passlib", "jose", "pydantic_settings", "fastapi"]:
+        try:
+            __import__(mod)
+            results[mod] = "ok"
+        except Exception as e:
+            results[mod] = str(e)
+    info["imports"] = results
 
-if _import_error:
-    from fastapi import FastAPI
-    app = FastAPI()
+    # Try importing app modules
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    for mod in ["app.core.config", "app.database.session", "app.core.security", "app.main"]:
+        try:
+            __import__(mod)
+            results[mod] = "ok"
+        except Exception as e:
+            results[mod] = str(e)
 
-    @app.get("/{path:path}")
-    async def error_handler(path: str):
-        return {"error": "Import failed", "traceback": _import_error}
+    return info

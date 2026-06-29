@@ -14,6 +14,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const url = String(error?.config?.url ?? '');
+    if (status === 401 && !url.includes('/auth/login')) {
+      localStorage.removeItem('4core.access_token');
+      if (window.location.pathname !== '/login') window.location.assign('/login');
+    }
+    return Promise.reject(error);
+  },
+);
+
 export async function signIn(email: string, password: string) {
   const body = new URLSearchParams({ username: email, password });
   const { data } = await api.post('/auth/login', body, {

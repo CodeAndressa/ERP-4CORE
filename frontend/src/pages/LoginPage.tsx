@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signIn } from '../services/api';
+import { useAuthStore } from '../core/store/useAuthStore';
 
 const LOGO_SRC = '/Logo%20com%20Tipografia%204Core%20-%20Principal%20Transparente.png';
 
@@ -10,13 +10,14 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await signIn(email, password);
+      await login(email, password);
       navigate('/dashboard');
     } catch {
       setError('Não foi possível entrar. Confira seus dados e se a API está em execução.');

@@ -1,14 +1,38 @@
 # ERP 4Core
 
-Plataforma interna AI-powered para gestão financeira, comercial, clientes, marketing, conhecimento institucional e recomendações com IA.
+Plataforma interna para gest?o financeira, comercial, clientes, marketing, conhecimento institucional e recomenda??es com IA.
 
 ## Stack
-- **Backend:** Python + FastAPI + SQLAlchemy + SQLite
-- **Frontend:** React + TypeScript + Vite + TailwindCSS
-- **Integrações:** ASAAS (financeiro), Supabase (métricas de site)
 
-## Módulos
-- Dashboard executivo (dados reais ASAAS + Supabase)
-- Financeiro (A Receber, Mensalidades, Projeções)
-- CRM de Leads + Pipeline Kanban
-- Marketing, Base de Conhecimento, IA (em desenvolvimento)
+- Backend: Python, FastAPI, SQLAlchemy e SQLite
+- Frontend: React, TypeScript, Vite e Tailwind CSS
+- Integra??es: ASAAS, Supabase, IA e futura Meta/Instagram
+
+## Deploy
+
+Frontend na Vercel:
+
+- `VITE_API_BASE_URL`: URL p?blica do backend, sem barra final
+- `VITE_PUBLIC_URL`: URL p?blica do frontend
+
+Backend:
+
+- `APP_ENV=production`
+- `SECRET_KEY`: chave longa e aleat?ria, diferente de `change-me`
+- `CORS_ORIGINS`: URL p?blica do frontend, por exemplo `https://app.4core.site`
+- `DATABASE_URL`: banco de produ??o
+- `ASAAS_API_KEY`: chave do ASAAS, somente no backend
+- `SITE_SUPABASE_URL` e `SITE_SUPABASE_SERVICE_ROLE_KEY`: somente no backend
+- `GROQ_API_KEY`: somente no backend, se a IA estiver ativa
+
+## Seguran?a
+
+As rotas internas do frontend exigem token de acesso e as APIs do backend, exceto `/health`, `/auth/login` e `/auth/register`, exigem JWT v?lido. Sess?es expiradas s?o limpas automaticamente no frontend.
+
+## M?dulos
+
+- Dashboard executivo com financeiro, comercial, site e marketing
+- Financeiro com Receita, Custos Fixos e Custos Recorrentes
+- Comercial com leads, clientes, pipeline, propostas, contratos, agenda e follow-up
+- Marketing com calend?rio, posts, ideias, m?tricas e campanhas
+- IA, relat?rios, configura??es e base de conhecimento

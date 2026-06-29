@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import { api, signIn } from '../../services/api';
 
 interface User {
-  id: string;
+  id: number;
   email: string;
-  name: string;
+  full_name: string;
+  is_active: boolean;
 }
 
 interface AuthState {
@@ -38,15 +39,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     localStorage.removeItem('4core.access_token');
-    set({ token: null, user: null });
+    set({ token: null, user: null, initialized: true });
   },
 
   fetchMe: async () => {
+    const token = localStorage.getItem('4core.access_token');
+    if (!token) {
+      set({ token: null, user: null, initialized: true });
+      return;
+    }
+
     try {
       const { data } = await api.get<User>('/auth/me');
-      set({ user: data, initialized: true });
+      set({ token, user: data, initialized: true });
     } catch {
-      set({ initialized: true });
+      localStorage.removeItem('4core.access_token');
+      set({ token: null, user: null, initialized: true });
     }
   },
 }));

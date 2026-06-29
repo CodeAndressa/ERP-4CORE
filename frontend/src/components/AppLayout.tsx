@@ -235,9 +235,18 @@ function pageTitle(pathname: string): string {
 
 export default function AppLayout() {
   const { commandOpen, openCommand, closeCommand, openAIDrawer } = useUIStore();
-  const { logout } = useAuthStore();
+  const { token, initialized, fetchMe, logout } = useAuthStore();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const title = pageTitle(pathname);
+
+  useEffect(() => {
+    if (!initialized) fetchMe();
+  }, [initialized, fetchMe]);
+
+  useEffect(() => {
+    if (initialized && !token) navigate('/login', { replace: true });
+  }, [initialized, token, navigate]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -250,6 +259,14 @@ export default function AppLayout() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [commandOpen]);
+
+  if (!initialized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f8f7fb] text-sm text-slate-500">
+        Carregando acesso...
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--erp-bg)', color: 'var(--erp-text)' }}>

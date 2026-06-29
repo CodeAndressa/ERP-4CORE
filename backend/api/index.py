@@ -1,7 +1,7 @@
-from fastapi import FastAPI
+import sys
+import os
 
-app = FastAPI()
+# Ensure the backend root is in sys.path so `from app.xxx import` works
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "source": "minimal"}
+from app.server import app  # noqa: F401  — Vercel ASGI handler

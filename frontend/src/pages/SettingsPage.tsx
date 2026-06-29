@@ -20,12 +20,12 @@ type User = {
 };
 
 const INTEGRATIONS = [
-  { key: 'site_analytics' as const, label: 'M?tricas do Site', desc: 'Supabase ? acessos, convers?es e leads', icon: Globe },
-  { key: 'financial' as const, label: 'Financeiro', desc: 'ASAAS ? cobran?as e pagamentos', icon: DollarSign },
-  { key: 'instagram' as const, label: 'Instagram Business', desc: 'Meta ? m?tricas e conte?do', icon: Camera },
-  { key: 'ai' as const, label: 'Assistente IA', desc: 'Groq ? recomenda??es e an?lises', icon: Brain },
-  { key: 'email' as const, label: 'E-mail transacional', desc: 'Resend ? avisos e automa??es', icon: Mail },
-  { key: 'contract_storage' as const, label: 'Contratos PDF', desc: 'Supabase Storage ? arquivos vinculados a clientes', icon: Shield },
+  { key: 'site_analytics' as const, label: 'Métricas do Site', desc: 'Supabase · acessos, conversões e leads', icon: Globe },
+  { key: 'financial' as const, label: 'Financeiro', desc: 'ASAAS · cobranças e pagamentos', icon: DollarSign },
+  { key: 'instagram' as const, label: 'Instagram Business', desc: 'Meta · métricas e conteúdo', icon: Camera },
+  { key: 'ai' as const, label: 'Assistente IA', desc: 'Groq · recomendações e análises', icon: Brain },
+  { key: 'email' as const, label: 'E-mail transacional', desc: 'Resend · avisos e automações', icon: Mail },
+  { key: 'contract_storage' as const, label: 'Contratos PDF', desc: 'Supabase Storage · arquivos vinculados a clientes', icon: Shield },
 ];
 
 export default function SettingsPage() {
@@ -74,7 +74,7 @@ export default function SettingsPage() {
       setForm({ full_name: '', email: '', password: '' });
       setUserMessage('Usuário criado com sucesso.');
     } catch (e: any) {
-      setUserError(e?.response?.data?.detail || 'Erro ao criar usu?rio.');
+      setUserError(e?.response?.data?.detail || 'Erro ao criar usuário.');
     } finally {
       setCreatingUser(false);
     }
@@ -86,23 +86,23 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-violet-light)' }}>Administra??o</p>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Configura??es</h1>
-          <p className="mt-1 text-sm" style={{ color: 'var(--erp-text-muted)' }}>{activeCount} de {INTEGRATIONS.length} integra??es ativas</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-violet-light)' }}>Administração</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Configurações</h1>
+          <p className="mt-1 text-sm" style={{ color: 'var(--erp-text-muted)' }}>{activeCount} de {INTEGRATIONS.length} integrações ativas</p>
         </div>
         <button onClick={handleSave} className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all" style={{ background: saved ? '#ecfdf5' : 'var(--erp-violet)', color: saved ? '#047857' : '#fff' }}>
           {saved ? <CheckCircle size={14} /> : <Save size={14} />}
-          {saved ? 'Salvo!' : 'Salvar altera??es'}
+          {saved ? 'Salvo!' : 'Salvar alterações'}
         </button>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card padding="lg">
           <p className="mb-4 text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Dados da empresa</p>
-          <p className="mb-4 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Exibidos em documentos e comunica??es</p>
+          <p className="mb-4 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Exibidos em documentos e comunicações</p>
           <div className="space-y-3">
             {[
-              { label: 'Nome da empresa', value: '4Core Consultoria Estrat?gica' },
+              { label: 'Nome da empresa', value: '4Core Consultoria Estratégica' },
               { label: 'CNPJ', value: '00.000.000/0001-00' },
               { label: 'E-mail financeiro', value: 'financeiro@4core.com.br' },
               { label: 'Telefone', value: '+55 (11) 90000-0000' },
@@ -117,7 +117,7 @@ export default function SettingsPage() {
 
         <Card padding="lg">
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Status das integra??es</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Status das integrações</p>
             <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{checked ? 'Leitura atual do backend' : 'Verificando...'}</span>
           </div>
           <div className="space-y-3">
@@ -148,7 +148,7 @@ export default function SettingsPage() {
             <input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@empresa.com" type="email" className="rounded-full px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
             <input value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} placeholder="Senha inicial" type="password" className="rounded-full px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
           </div>
-          <button onClick={createUser} disabled={creatingUser} className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--erp-violet)' }}><UserPlus size={14} />{creatingUser ? 'Criando...' : 'Criar usu?rio'}</button>
+          <button onClick={createUser} disabled={creatingUser} className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--erp-violet)' }}><UserPlus size={14} />{creatingUser ? 'Criando...' : 'Criar usuário'}</button>
           {(userError || userMessage) && <p className="mt-3 text-sm" style={{ color: userError ? '#be123c' : '#047857' }}>{userError || userMessage}</p>}
 
           <div className="mt-5 space-y-2">
@@ -159,15 +159,15 @@ export default function SettingsPage() {
                 <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: user.is_active ? '#ecfdf5' : 'var(--erp-surface)', color: user.is_active ? '#047857' : 'var(--erp-text-muted)' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
               </div>
             ))}
-            {users.length === 0 && <div className="flex items-center gap-2 rounded-[22px] border border-dashed border-violet-100 px-3 py-4 text-sm" style={{ color: 'var(--erp-text-muted)' }}><Users size={14} />Nenhum usu?rio encontrado</div>}
+            {users.length === 0 && <div className="flex items-center gap-2 rounded-[22px] border border-dashed border-violet-100 px-3 py-4 text-sm" style={{ color: 'var(--erp-text-muted)' }}><Users size={14} />Nenhum usuário encontrado</div>}
           </div>
         </Card>
 
         <Card padding="lg">
-          <p className="mb-3 text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Como ativar uma integra??o</p>
+          <p className="mb-3 text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Como ativar uma integração</p>
           <div className="space-y-3">
             {[
-              'Copie os valores da vari?vel no painel da Vercel em Settings ? Environment Variables',
+              'Copie os valores da variável no painel da Vercel em Settings → Environment Variables',
               'Adicione a chave correspondente no .env local para desenvolvimento',
               'Atualize esta tela e confirme o status no painel acima',
             ].map((step, i) => (

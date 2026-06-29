@@ -1,6 +1,7 @@
-import sys
-import os
+from fastapi import FastAPI
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+app = FastAPI()
 
-from app.main import app  # noqa: F401 — Vercel ASGI handler
+@app.get("/health")
+def health():
+    return {"status": "ok", "source": "minimal"}

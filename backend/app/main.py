@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.database.session import engine, Base, SessionLocal
+from app.database.schema import ensure_runtime_schema
 from app.models.contracts import Contract, Order
 from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, knowledge, ai, site_analytics, integrations, contracts
 from app.services.bootstrap_service import ensure_bootstrap_admin
@@ -45,6 +46,7 @@ async def require_authentication(request: Request, call_next):
 
 
 Base.metadata.create_all(bind=engine)
+ensure_runtime_schema(engine)
 
 
 @app.on_event('startup')

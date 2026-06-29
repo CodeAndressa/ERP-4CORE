@@ -30,6 +30,7 @@ def contracts(db: Session = Depends(get_db)):
 def create_contract(
     client_name: str = Form(...),
     title: str = Form('Contrato'),
+    asaas_customer_id: str | None = Form(None),
     value: float | None = Form(None),
     start_date: date | None = Form(None),
     end_date: date | None = Form(None),
@@ -46,6 +47,7 @@ def create_contract(
 
     item = Contract(
         client_name=client_name,
+        asaas_customer_id=asaas_customer_id,
         title=title or 'Contrato',
         status=status or 'ativo',
         value=value,

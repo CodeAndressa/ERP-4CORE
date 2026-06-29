@@ -15,13 +15,18 @@ interface Client {
 interface Contract {
   id: number | string;
   client_name: string;
+  asaas_customer_id?: string;
   title?: string;
   file_name?: string;
   created_at?: string;
 }
 
-function sameClient(a?: string, b?: string) {
-  return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+function clientKey(client: Client) {
+  return `asaas:${client.id}`;
+}
+
+function legacyClientKey(name?: string) {
+  return `name:${(name ?? '').trim().toLowerCase()}`;
 }
 
 export default function ClientsPage() {
@@ -57,8 +62,11 @@ export default function ClientsPage() {
   const contractsByClient = useMemo(() => {
     const map = new Map<string, Contract[]>();
     contracts.forEach((contract) => {
-      const key = contract.client_name.trim().toLowerCase();
-      map.set(key, [...(map.get(key) ?? []), contract]);
+      const keys = [
+        contract.asaas_customer_id ? `asaas:${contract.asaas_customer_id}` : '',
+        legacyClientKey(contract.client_name),
+      ].filter(Boolean);
+      keys.forEach((key) => map.set(key, [...(map.get(key) ?? []), contract]));
     });
     return map;
   }, [contracts]);
@@ -80,6 +88,7 @@ export default function ClientsPage() {
     setSuccess('');
     const form = new FormData();
     form.append('client_name', client.name);
+    form.append('asaas_customer_id', client.id);
     form.append('title', `Contrato - ${client.name}`);
     form.append('status', 'ativo');
     form.append('file', file);
@@ -102,17 +111,21 @@ export default function ClientsPage() {
       window.open(url, '_blank', 'noopener,noreferrer');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'N?o foi poss?vel abrir o contrato');
+      setError(e?.response?.data?.detail || 'Não foi possível abrir o contrato');
     }
   }
 
-  const clientsWithContracts = clients.filter((client) => contracts.some((contract) => sameClient(contract.client_name, client.name))).length;
+  const clientsWithContracts = clients.filter((client) => {
+    const byId = contractsByClient.get(clientKey(client)) ?? [];
+    const byName = contractsByClient.get(legacyClientKey(client.name)) ?? [];
+    return byId.length > 0 || byName.length > 0;
+  }).length;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-violet-light)' }}>Comercial ? ASAAS</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-violet-light)' }}>Comercial · ASAAS</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Clientes</h1>
         </div>
         <div className="flex min-w-[220px] items-center gap-2 rounded-full px-3 py-2" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}>
@@ -122,7 +135,7 @@ export default function ClientsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="Clientes" value={loading ? '...' : String(clients.length)} detail="sincronizados ? ASAAS" tone="violet" icon={<Users size={16} />} />
+        <MetricCard label="Clientes" value={loading ? '...' : String(clients.length)} detail="sincronizados · ASAAS" tone="violet" icon={<Users size={16} />} />
         <MetricCard label="Com contrato" value={loading ? '...' : String(clientsWithContracts)} detail="PDF vinculado" tone="emerald" icon={<FileText size={16} />} />
         <MetricCard label="Fonte" value="ASAAS" detail="dados em tempo real" tone="cyan" icon={<Building2 size={16} />} />
       </div>
@@ -149,7 +162,7 @@ export default function ClientsPage() {
               </thead>
               <tbody>
                 {filtered.map((client, i) => {
-                  const linked = contractsByClient.get(client.name.trim().toLowerCase()) ?? [];
+                  const linked = contractsByClient.get(clientKey(client)) ?? contractsByClient.get(legacyClientKey(client.name)) ?? [];
                   const latest = linked[0];
                   return (
                     <tr key={client.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--erp-border)' : undefined }}>

@@ -8,6 +8,7 @@ import { Badge } from '../shared/components/ui/Badge';
 interface Contract {
   id?: number | string;
   client_name?: string;
+  asaas_customer_id?: string;
   client?: string;
   title?: string;
   value?: number;
@@ -23,6 +24,7 @@ interface Contract {
 interface Order {
   id?: number | string;
   client_name?: string;
+  asaas_customer_id?: string;
   client?: string;
   total?: number;
   value?: number;
@@ -119,7 +121,7 @@ export default function ContractsPage() {
       window.open(url, '_blank', 'noopener,noreferrer');
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e: any) {
-      setErrorC(e?.response?.data?.detail || 'N?o foi poss?vel abrir o contrato');
+      setErrorC(e?.response?.data?.detail || 'Não foi possível abrir o contrato');
     }
   }
 
@@ -165,7 +167,7 @@ export default function ContractsPage() {
               { label: 'Cliente', key: 'client_name', type: 'text', placeholder: 'Nome do cliente' },
               { label: 'T?tulo', key: 'title', type: 'text', placeholder: 'Contrato principal' },
               { label: 'Valor (R$)', key: 'value', type: 'number', placeholder: '0' },
-              { label: 'In?cio', key: 'start_date', type: 'date', placeholder: '' },
+              { label: 'Início', key: 'start_date', type: 'date', placeholder: '' },
               { label: 'Fim', key: 'end_date', type: 'date', placeholder: '' },
               { label: 'Observa??es', key: 'notes', type: 'text', placeholder: 'Opcional' },
             ].map((f) => (
@@ -212,7 +214,7 @@ export default function ContractsPage() {
           {loadingC ? <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-full" style={{ background: 'var(--erp-surface-2)' }} />)}</div> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr style={{ borderBottom: '1px solid var(--erp-border)' }}>{['Cliente', 'Contrato', 'Valor', 'In?cio', 'Fim', 'Arquivo', 'Status'].map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>)}</tr></thead>
+                <thead><tr style={{ borderBottom: '1px solid var(--erp-border)' }}>{['Cliente', 'Contrato', 'Valor', 'Início', 'Fim', 'Arquivo', 'Vínculo', 'Status'].map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>)}</tr></thead>
                 <tbody>
                   {contracts.map((c, i) => (
                     <tr key={String(c.id ?? i)} style={{ borderBottom: i < contracts.length - 1 ? '1px solid var(--erp-border)' : undefined }}>
@@ -222,10 +224,10 @@ export default function ContractsPage() {
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{c.start_date ? <span className="flex items-center gap-1"><Calendar size={10} />{c.start_date}</span> : '-'}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{c.end_date ? <span className="flex items-center gap-1"><Calendar size={10} />{c.end_date}</span> : '-'}</td>
                       <td className="px-4 py-3">{c.file_name ? <button onClick={() => openContractFile(c.id)} className="inline-flex items-center gap-1 rounded-full border border-violet-100 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-50"><ExternalLink size={11} />Abrir PDF</button> : <span className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Sem arquivo</span>}</td>
-                      <td className="px-4 py-3"><Badge tone={c.status?.toLowerCase() === 'ativo' ? 'emerald' : c.status?.toLowerCase() === 'encerrado' ? 'slate' : 'amber'} dot>{c.status ?? 'N/A'}</Badge></td>
+                      <td className="px-4 py-3"><span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c.asaas_customer_id ? 'ASAAS' : 'Manual'}</span></td><td className="px-4 py-3"><Badge tone={c.status?.toLowerCase() === 'ativo' ? 'emerald' : c.status?.toLowerCase() === 'encerrado' ? 'slate' : 'amber'} dot>{c.status ?? 'N/A'}</Badge></td>
                     </tr>
                   ))}
-                  {contracts.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum contrato cadastrado</td></tr>}
+                  {contracts.length === 0 && <tr><td colSpan={8} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum contrato cadastrado</td></tr>}
                 </tbody>
               </table>
             </div>

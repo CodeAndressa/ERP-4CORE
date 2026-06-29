@@ -37,3 +37,7 @@ Thumbs.db
 *.tsbuildinfo
 # Uploads locais
 backend/uploads/
+
+.vercel
+.agents/
+.claude/skills/

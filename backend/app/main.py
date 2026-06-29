@@ -3,9 +3,10 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
-from app.database.session import engine, Base
+from app.database.session import engine, Base, SessionLocal
 from app.models.contracts import Contract, Order
 from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, knowledge, ai, site_analytics, integrations, contracts
+from app.services.bootstrap_service import ensure_bootstrap_admin
 
 
 def _cors_origins() -> list[str]:
@@ -44,6 +45,16 @@ async def require_authentication(request: Request, call_next):
 
 
 Base.metadata.create_all(bind=engine)
+
+
+@app.on_event('startup')
+def bootstrap_first_admin():
+    db = SessionLocal()
+    try:
+        ensure_bootstrap_admin(db)
+    finally:
+        db.close()
+
 for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router]:
     app.include_router(router)
 

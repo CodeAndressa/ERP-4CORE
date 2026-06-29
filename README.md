@@ -23,11 +23,13 @@ Backend:
 - `DATABASE_URL`: banco de produ??o
 - `ASAAS_API_KEY`: chave do ASAAS, somente no backend
 - `SITE_SUPABASE_URL` e `SITE_SUPABASE_SERVICE_ROLE_KEY`: somente no backend
+- `CONTRACT_STORAGE_BUCKET`: bucket do Supabase Storage para PDFs de contratos, padr?o `contracts`
+- `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD`: criam o primeiro usu?rio quando o banco ainda est? vazio
 - `GROQ_API_KEY`: somente no backend, se a IA estiver ativa
 
 ## Seguran?a
 
-As rotas internas do frontend exigem token de acesso e as APIs do backend, exceto `/health`, `/auth/login` e `/auth/register`, exigem JWT v?lido. Sess?es expiradas s?o limpas automaticamente no frontend.
+As rotas internas do frontend exigem token de acesso e as APIs do backend, exceto `/health`, `/auth/login` e `/auth/register`, exigem JWT válido. Sessões expiradas são limpas automaticamente no frontend.
 
 ## M?dulos
 

@@ -14,4 +14,5 @@ def integration_status():
         "instagram": bool(settings.meta_access_token and settings.instagram_business_account_id),
         "ai": bool(settings.groq_api_key),
         "email": bool(settings.resend_api_key and settings.email_from),
+        "contract_storage": bool(settings.site_supabase_url and settings.site_supabase_service_role_key and settings.contract_storage_bucket),
     }

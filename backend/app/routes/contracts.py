@@ -1,15 +1,14 @@
 from datetime import date
-from pathlib import Path
-from uuid import uuid4
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
 from app.database.session import get_db
 from app.models.contracts import Contract, Order
+from app.services.contract_storage_service import contract_file_response, store_contract_file
 
 router = APIRouter(tags=["contracts"])
-upload_dir = Path(__file__).resolve().parents[2] / "uploads" / "contracts"
 
 
 class OrderCreate(BaseModel):
@@ -41,17 +40,9 @@ def create_contract(
 ):
     name = path = None
     if file and file.filename:
-        suffix = Path(file.filename).suffix.lower()
-        if suffix != '.pdf':
-            raise HTTPException(400, 'Envie apenas arquivos PDF.')
-        content = file.file.read()
-        if len(content) > 10 * 1024 * 1024:
-            raise HTTPException(400, 'M?ximo de 10 MB.')
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        target = upload_dir / f'{uuid4().hex}{suffix}'
-        target.write_bytes(content)
-        name = file.filename
-        path = str(target)
+        stored = store_contract_file(file, client_name)
+        name = stored.file_name
+        path = stored.file_path
 
     item = Contract(
         client_name=client_name,
@@ -73,9 +64,9 @@ def create_contract(
 @router.get('/contracts/{id}/file')
 def contract_file(id: int, db: Session = Depends(get_db)):
     item = db.get(Contract, id)
-    if not item or not item.file_path or not Path(item.file_path).exists():
-        raise HTTPException(404, 'Arquivo n?o encontrado.')
-    return FileResponse(item.file_path, filename=item.file_name, media_type='application/pdf')
+    if not item or not item.file_path:
+        raise HTTPException(404, 'Arquivo não encontrado.')
+    return contract_file_response(item.file_path, item.file_name)
 
 
 @router.get('/orders')

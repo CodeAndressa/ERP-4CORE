@@ -51,7 +51,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Credenciais inv?lidas")
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Usu?rio inativo")
+        raise HTTPException(status_code=403, detail="Usuário inativo")
 
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
@@ -69,11 +69,11 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         email: str = payload.get("sub")
     except JWTError:
-        raise HTTPException(status_code=401, detail="Token inv?lido")
+        raise HTTPException(status_code=401, detail="Token inválido")
 
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Usu?rio n?o encontrado")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
     return user
 
 

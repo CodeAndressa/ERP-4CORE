@@ -9,6 +9,7 @@ type IntegrationStatus = {
   instagram: boolean;
   ai: boolean;
   email: boolean;
+  contract_storage?: boolean;
 };
 
 type User = {
@@ -24,10 +25,11 @@ const INTEGRATIONS = [
   { key: 'instagram' as const, label: 'Instagram Business', desc: 'Meta ? m?tricas e conte?do', icon: Camera },
   { key: 'ai' as const, label: 'Assistente IA', desc: 'Groq ? recomenda??es e an?lises', icon: Brain },
   { key: 'email' as const, label: 'E-mail transacional', desc: 'Resend ? avisos e automa??es', icon: Mail },
+  { key: 'contract_storage' as const, label: 'Contratos PDF', desc: 'Supabase Storage ? arquivos vinculados a clientes', icon: Shield },
 ];
 
 export default function SettingsPage() {
-  const [status, setStatus] = useState<IntegrationStatus>({ site_analytics: false, financial: false, instagram: false, ai: false, email: false });
+  const [status, setStatus] = useState<IntegrationStatus>({ site_analytics: false, financial: false, instagram: false, ai: false, email: false, contract_storage: false });
   const [users, setUsers] = useState<User[]>([]);
   const [checked, setChecked] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -70,7 +72,7 @@ export default function SettingsPage() {
       const { data } = await api.post<User>('/auth/users', form);
       setUsers((prev) => [data, ...prev]);
       setForm({ full_name: '', email: '', password: '' });
-      setUserMessage('Usu?rio criado com sucesso.');
+      setUserMessage('Usuário criado com sucesso.');
     } catch (e: any) {
       setUserError(e?.response?.data?.detail || 'Erro ao criar usu?rio.');
     } finally {
@@ -135,7 +137,7 @@ export default function SettingsPage() {
         <Card padding="lg">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Usu?rios do sistema</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Usuários do sistema</p>
               <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Crie acessos internos para a plataforma</p>
             </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-50 text-violet-700"><Shield size={15} /></div>

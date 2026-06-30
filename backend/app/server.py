@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from app.database.session import engine, Base, SessionLocal
 from app.database.schema import ensure_runtime_schema
+from app.models.commercial import Lead, Proposal
 from app.models.contracts import Contract, Order
 from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, knowledge, ai, site_analytics, integrations, contracts
 from app.services.bootstrap_service import ensure_bootstrap_admin
@@ -35,12 +36,12 @@ async def require_authentication(request: Request, call_next):
     authorization = request.headers.get('authorization', '')
     scheme, _, token = authorization.partition(' ')
     if scheme.lower() != 'bearer' or not token:
-        return JSONResponse({'detail': 'Autenticação necessária'}, status_code=401)
+        return JSONResponse({'detail': 'Autenticacao necessaria'}, status_code=401)
 
     try:
         jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     except JWTError:
-        return JSONResponse({'detail': 'Sessão expirada. Faça login novamente.'}, status_code=401)
+        return JSONResponse({'detail': 'Sessao expirada. Faca login novamente.'}, status_code=401)
 
     return await call_next(request)
 
@@ -62,3 +63,4 @@ for router in [auth.router, dashboard.router, financial.router, leads.router, cl
 @app.get('/health')
 def health_check():
     return {'status': 'ok'}
+

@@ -55,7 +55,7 @@ function App() {
         </Route>
 
         <Route path="comercial" element={<ComercialLayout />}>
-          <Route index element={<Navigate to="/comercial/pipeline" replace />} />
+          <Route index element={<Navigate to="/comercial/funil" replace />} />
           <Route path="leads" element={<LeadsPageNew />} />
           <Route path="clientes" element={<ClientsPage />} />
           <Route path="pipeline" element={<PipelinePage />} />

@@ -111,3 +111,79 @@ textarea::placeholder {
 .focus\:ring-violet-100:focus { --tw-ring-color: rgba(43, 22, 92, 0.12) !important; }
 .focus\:border-violet-400:focus,
 .focus\:border-violet-500\/60:focus { border-color: rgba(43, 22, 92, 0.45) !important; }
+
+/* Mobile ERP ergonomics */
+@media (max-width: 640px) {
+  html, body, #root {
+    min-height: 100dvh;
+  }
+
+  body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  h1 {
+    font-size: 1.35rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .overflow-x-auto > table {
+    min-width: 0 !important;
+  }
+
+  .overflow-x-auto > table thead {
+    display: none;
+  }
+
+  .overflow-x-auto > table,
+  .overflow-x-auto > table tbody,
+  .overflow-x-auto > table tr,
+  .overflow-x-auto > table td {
+    display: block;
+    width: 100%;
+  }
+
+  .overflow-x-auto > table tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .overflow-x-auto > table tr {
+    border: 1px solid var(--erp-border) !important;
+    border-radius: 1rem;
+    background: var(--erp-surface);
+    overflow: hidden;
+  }
+
+  .overflow-x-auto > table td {
+    border: 0 !important;
+    padding: 0.65rem 0.85rem !important;
+    text-align: left !important;
+  }
+
+  .overflow-x-auto > table td + td {
+    border-top: 1px solid var(--erp-border) !important;
+  }
+
+  .overflow-x-auto > table td:empty {
+    display: none;
+  }
+
+  .overflow-x-auto {
+    overflow-x: visible !important;
+  }
+}

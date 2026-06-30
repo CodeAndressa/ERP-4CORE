@@ -66,7 +66,7 @@ export default function MainMenu() {
       initial={false}
       animate={{ width: sidebarCollapsed ? 64 : 240 }}
       transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-      className="relative flex flex-shrink-0 flex-col"
+      className="relative hidden flex-shrink-0 flex-col lg:flex"
       style={{ minHeight: '100vh', background: 'var(--erp-sidebar-bg)', borderRight: '1px solid var(--erp-border)' }}
     >
       <nav className={`flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${sidebarCollapsed ? 'space-y-1' : 'space-y-1.5'}`}>

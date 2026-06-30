@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, RefreshCw, ScrollText, Settings2, Target, Users } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
@@ -37,11 +37,11 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
   {
     match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'],
     tabs: [
-      { label: 'Leads', path: '/comercial/leads', icon: <Users size={14} /> },
-      { label: 'Clientes', path: '/comercial/clientes', icon: <Building2 size={14} /> },
-      { label: 'Pipeline', path: '/comercial/pipeline', icon: <Kanban size={14} /> },
       { label: 'Funil', path: '/comercial/funil', icon: <Target size={14} /> },
+      { label: 'Leads', path: '/comercial/leads', icon: <Users size={14} /> },
+      { label: 'Pipeline', path: '/comercial/pipeline', icon: <Kanban size={14} /> },
       { label: 'Propostas', path: '/comercial/propostas', icon: <FileText size={14} /> },
+      { label: 'Clientes', path: '/comercial/clientes', icon: <Building2 size={14} /> },
       { label: 'Contratos', path: '/comercial/contratos', icon: <ScrollText size={14} /> },
       { label: 'Agenda', path: '/comercial/agenda', icon: <Calendar size={14} /> },
       { label: 'Follow-up', path: '/comercial/followup', icon: <Bell size={14} /> },
@@ -93,6 +93,33 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
   },
 ];
 
+const MOBILE_AREAS = [
+  { label: 'Visão', path: '/dashboard', icon: <LayoutDashboard size={17} /> },
+  { label: 'Comerc.', path: '/comercial/funil', icon: <Users size={17} /> },
+  { label: 'Fin.', path: '/financeiro', icon: <DollarSign size={17} /> },
+  { label: 'Mkt', path: '/marketing/calendario', icon: <Megaphone size={17} /> },
+  { label: 'IA', path: '/ia/chat', icon: <Brain size={17} /> },
+  { label: 'Relat.', path: '/relatorios', icon: <FolderOpen size={17} /> },
+  { label: 'Sist.', path: '/settings', icon: <Settings2 size={17} /> },
+];
+
+function MobileBottomNav({ pathname }: { pathname: string }) {
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 px-1 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-1.5 backdrop-blur-xl lg:hidden" style={{ borderColor: 'var(--erp-border)' }} aria-label="Navegação principal">
+      <div className="grid grid-cols-7 gap-0.5">
+        {MOBILE_AREAS.map((item) => {
+          const active = pathname === item.path || pathname.startsWith(`${item.path.split('/').slice(0, 2).join('/')}/`);
+          return (
+            <NavLink key={item.path} to={item.path} className="flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[9px] font-semibold" style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}>
+              {item.icon}
+              <span className="leading-none">{item.label}</span>
+            </NavLink>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
 function getHeaderTabs(pathname: string) {
   return HEADER_TABS.find((group) => group.match.some((path) => pathname === path || pathname.startsWith(`${path}/`)))?.tabs ?? [];
 }
@@ -110,7 +137,7 @@ function HeaderAreaNav({ pathname }: { pathname: string }) {
             <NavLink
               key={tab.path}
               to={tab.path}
-              className="inline-flex h-8 items-center gap-2 rounded-full px-3 text-xs font-medium transition-colors"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors sm:h-8 sm:gap-2"
               style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}
             >
               {tab.icon}
@@ -268,21 +295,26 @@ export default function AppLayout() {
     );
   }
 
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--erp-bg)', color: 'var(--erp-text)' }}>
       <MainMenu />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-4 px-5 py-2 backdrop-blur-2xl" style={{ background: 'var(--erp-header-bg)', borderBottom: '1px solid var(--erp-border)' }}>
+        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-2 px-3 py-2 backdrop-blur-2xl sm:gap-4 sm:px-5" style={{ background: 'var(--erp-header-bg)', borderBottom: '1px solid var(--erp-border)' }}>
           <HeaderAreaNav pathname={pathname} />
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button onClick={openCommand} className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs transition sm:flex" style={{ border: '1px solid var(--erp-border)', background: '#fff', color: 'var(--erp-text-muted)' }}><Search size={13} /><span>Buscar</span><kbd className="ml-1 rounded-full px-1.5 py-0.5 text-[10px]" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)' }}>Ctrl K</kbd></button>
-            <button onClick={() => openAIDrawer(title)} className="flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 transition hover:bg-violet-50"><Sparkles size={13} /><span className="hidden sm:inline">Analisar com IA</span></button>
+            <button onClick={() => openAIDrawer(title)} className="hidden items-center gap-1.5 rounded-full border border-violet-500/25 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 transition hover:bg-violet-50 sm:flex"><Sparkles size={13} /><span className="hidden sm:inline">Analisar com IA</span></button>
             <button className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white transition-colors" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }}><Bell size={16} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-violet-500" /></button>
             <button onClick={logout} className="flex h-8 w-8 items-center justify-center rounded-full bg-white transition-colors hover:text-violet-600" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }} title="Sair"><LogOut size={15} /></button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto"><div className="p-6 lg:p-8"><Outlet /></div></main>
+        <main className="flex-1 overflow-auto"><div className="px-3 pb-28 pt-4 sm:p-6 lg:p-8"><Outlet /></div></main>
       </div>
+      <MobileBottomNav pathname={pathname} />
       <AIDrawer />
       <AnimatePresence>{commandOpen && <CommandPalette onClose={closeCommand} />}</AnimatePresence>
       <Toaster position="bottom-right" toastOptions={{ style: { background: '#fff', color: 'var(--erp-text)', border: '1px solid var(--erp-border)', borderRadius: '18px', fontSize: '13px' } }} />

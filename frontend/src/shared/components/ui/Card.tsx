@@ -7,13 +7,13 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
   padding?: 'sm' | 'md' | 'lg';
 }
 
-const paddings = { sm: 'p-4', md: 'p-5', lg: 'p-6' };
+const paddings = { sm: 'p-3 sm:p-4', md: 'p-4 sm:p-5', lg: 'p-4 sm:p-6' };
 
 export function Card({ children, glass = false, hover = false, padding = 'md', className = '', style, ...rest }: CardProps) {
   return (
     <div
       className={[
-        'rounded-[22px] border border-violet-100 bg-white',
+        'rounded-2xl border border-violet-100 bg-white sm:rounded-[22px]',
         hover ? 'cursor-pointer transition-colors duration-200 hover:border-violet-200 hover:bg-[var(--erp-surface-2)]' : '',
         paddings[padding],
         className,

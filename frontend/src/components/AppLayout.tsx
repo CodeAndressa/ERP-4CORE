@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, RefreshCw, ScrollText, Settings2, Target, Users } from 'lucide-react';
+import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, ScrollText, Settings2, Target, Users } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
 import { AIDrawer } from '../shared/components/ai/AIDrawer';
@@ -52,8 +52,7 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
     tabs: [
       { label: 'Visão Geral', path: '/financeiro', icon: <DollarSign size={14} /> },
       { label: 'Receita', path: '/financeiro/receita', icon: <BarChart3 size={14} /> },
-      { label: 'Custos Fixos', path: '/financeiro/custos-fixos', icon: <FileText size={14} /> },
-      { label: 'Custos Recorrentes', path: '/financeiro/custos-recorrentes', icon: <RefreshCw size={14} /> },
+      { label: 'Custos', path: '/financeiro/custos', icon: <FileText size={14} /> },
     ],
   },
   {
@@ -129,16 +128,20 @@ function HeaderAreaNav({ pathname }: { pathname: string }) {
   if (!tabs.length) return <div />;
 
   return (
-    <nav className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Navegação da área">
-      <div className="inline-flex min-w-max items-center gap-1 rounded-full border border-violet-100 bg-white p-1">
+    <nav className="min-w-0 flex-1 overflow-x-auto px-0.5 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Navegação da área">
+      <div className="inline-flex min-w-max items-center gap-1 rounded-2xl border bg-white/90 p-1 shadow-[0_10px_28px_rgba(43,22,92,0.08)] backdrop-blur-xl" style={{ borderColor: 'var(--erp-border)' }}>
         {tabs.map((tab) => {
           const active = pathname === tab.path || (tab.path !== '/financeiro' && tab.path !== '/relatorios' && pathname.startsWith(`${tab.path}/`));
           return (
             <NavLink
               key={tab.path}
               to={tab.path}
-              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors sm:h-8 sm:gap-2"
-              style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold transition-all sm:h-8 sm:gap-2"
+              style={{
+                background: active ? 'linear-gradient(135deg, #2b165c 0%, #3f2479 100%)' : 'transparent',
+                color: active ? '#fff' : 'var(--erp-text-muted)',
+                boxShadow: active ? '0 8px 18px rgba(43,22,92,0.20)' : 'none',
+              }}
             >
               {tab.icon}
               {tab.label}
@@ -149,7 +152,6 @@ function HeaderAreaNav({ pathname }: { pathname: string }) {
     </nav>
   );
 }
-
 const COMMANDS = [
   { group: t.modulos, label: 'Dashboard', path: '/dashboard', keys: 'dashboard visao geral' },
   { group: 'Comercial', label: 'Leads', path: '/comercial/leads', keys: 'leads oportunidades comercial' },
@@ -158,8 +160,7 @@ const COMMANDS = [
   { group: 'Comercial', label: 'Propostas', path: '/comercial/propostas', keys: `propostas ${t.orcamentos}` },
   { group: 'Financeiro', label: t.visao, path: '/financeiro', keys: 'financeiro controle caixa' },
   { group: 'Financeiro', label: 'Receita', path: '/financeiro/receita', keys: 'receita entradas asaas' },
-  { group: 'Financeiro', label: 'Custos Fixos', path: '/financeiro/custos-fixos', keys: 'custos fixos despesas' },
-  { group: 'Financeiro', label: 'Custos Recorrentes', path: '/financeiro/custos-recorrentes', keys: 'custos recorrentes mensalidades' },
+  { group: 'Financeiro', label: 'Custos', path: '/financeiro/custos', keys: 'custos fixos recorrentes despesas mensalidades contas pagar' },
   { group: 'Marketing', label: t.calendario, path: '/marketing/calendario', keys: 'calendario editorial posts' },
   { group: 'Marketing', label: 'Campanhas', path: '/marketing/campanhas', keys: 'campanhas marketing' },
   { group: 'Marketing', label: t.metricas, path: '/marketing/metricas', keys: 'performance metricas analytics' },
@@ -240,8 +241,9 @@ function pageTitle(pathname: string): string {
     '/comercial/agenda': 'Agenda',
     '/financeiro': 'Financeiro',
     '/financeiro/receita': 'Receita',
-    '/financeiro/custos-fixos': 'Custos Fixos',
-    '/financeiro/custos-recorrentes': 'Custos Recorrentes',
+    '/financeiro/custos': 'Custos',
+    '/financeiro/custos-fixos': 'Custos',
+    '/financeiro/custos-recorrentes': 'Custos',
     '/marketing/calendario': t.calendario,
     '/marketing/campanhas': 'Campanhas',
     '/marketing/metricas': t.metricas,

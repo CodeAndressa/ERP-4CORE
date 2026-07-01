@@ -5,7 +5,9 @@ import { AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, RefreshCw, Shiel
 import { api } from '../../services/api';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
-import { currency, monthLabel, type ManualFinancial } from './manualFinance';
+import { currency, monthLabel, readDeletedDirectSaleIds, readLocalDirectSales, type DirectSale, type ManualFinancial } from './manualFinance';
+import FinancePeriodFilter from './FinancePeriodFilter';
+import { DEFAULT_PERIOD, buildOverviewUrl, isInFinancePeriod, type FinancePeriod } from './financePeriod';
 
 export type AsaasData = {
   received_value: number;
@@ -36,11 +38,6 @@ export type AsaasData = {
 
 export const money = (value: number) => currency(value);
 
-const PERIODS = [
-  { label: '90d', value: 90 },
-  { label: '180d', value: 180 },
-  { label: '365d', value: 365 },
-];
 
 let _sharedData: AsaasData | null = null;
 let _sharedLoading = true;
@@ -72,12 +69,14 @@ function FinanceiroCockpit() {
   const [data, setData] = useState<AsaasData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [days, setDays] = useState(180);
+  const [period, setPeriod] = useState<FinancePeriod>(DEFAULT_PERIOD);
+  const [localDirectSales, setLocalDirectSales] = useState<DirectSale[]>([]);
+  const [deletedDirectSaleIds, setDeletedDirectSaleIds] = useState<string[]>([]);
 
   const load = useCallback((forceRefresh = false) => {
     setLoading(true);
     setError(null);
-    api.get<AsaasData>(`/financial/overview?days=${days}${forceRefresh ? '&refresh=true' : ''}`)
+    api.get<AsaasData>(buildOverviewUrl(period, forceRefresh))
       .then(({ data: response }) => {
         setData(response);
         _sharedData = response;
@@ -85,14 +84,19 @@ function FinanceiroCockpit() {
       })
       .catch((err) => setError(err?.response?.data?.detail || 'Falha ao conectar dados financeiros'))
       .finally(() => setLoading(false));
-  }, [days]);
+  }, [period]);
 
   useEffect(() => { load(false); }, [load]);
+  useEffect(() => {
+    setLocalDirectSales(readLocalDirectSales());
+    setDeletedDirectSaleIds(readDeletedDirectSaleIds());
+  }, []);
 
   const manual = data?.manual_financial;
   const received = data?.received_value ?? 0;
   const pending = data?.pending_value ?? 0;
-  const directSales = manual?.summary.unmatched_direct_sales_total ?? 0;
+  const effectiveDirectSales = [...((manual?.direct_sales ?? []).filter((item) => !deletedDirectSaleIds.includes(item.id))), ...localDirectSales.filter((item) => isInFinancePeriod(item.date, period))];
+  const directSales = effectiveDirectSales.filter((item) => !item.matched).reduce((sum, item) => sum + item.value, 0);
   const fixedCosts = manual?.summary.fixed_expenses_total ?? 0;
   const recurringCosts = manual?.summary.recurring_expenses_total ?? 0;
   const totalCosts = fixedCosts + recurringCosts;
@@ -111,9 +115,14 @@ function FinanceiroCockpit() {
   });
   (manual?.monthly ?? []).forEach((item) => {
     const row = monthly.get(item.month) ?? { month: item.month, asaas: 0, direct: 0, fixed: 0, recurring: 0 };
-    row.direct = item.unmatched_direct_sales;
     row.fixed = item.fixed_costs;
     row.recurring = item.recurring_costs;
+    monthly.set(item.month, row);
+  });
+
+  effectiveDirectSales.filter((item) => !item.matched).forEach((item) => {
+    const row = monthly.get(item.month) ?? { month: item.month, asaas: 0, direct: 0, fixed: 0, recurring: 0 };
+    row.direct += item.value;
     monthly.set(item.month, row);
   });
 
@@ -127,31 +136,13 @@ function FinanceiroCockpit() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-violet-100 pb-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
-          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--erp-violet-light)' }}>Cockpit financeiro</p>
-          <h1 className="shrink-0 text-xl font-bold" style={{ color: 'var(--erp-text)' }}>Controle Premium</h1>
-          <p className="min-w-0 truncate text-sm" style={{ color: 'var(--erp-text-muted)' }}>Receita ASAAS, venda direta e custos manuais em uma leitura executiva</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex overflow-hidden rounded-xl" style={{ border: '1px solid var(--erp-border)' }}>
-            {PERIODS.map((period) => (
-              <button
-                key={period.value}
-                onClick={() => setDays(period.value)}
-                className="px-3 py-1.5 text-xs font-medium transition-colors"
-                style={{ background: days === period.value ? 'var(--erp-violet)' : 'var(--erp-surface)', color: days === period.value ? '#fff' : 'var(--erp-text-muted)' }}
-              >
-                {period.label}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => load(true)} className="flex h-8 w-8 items-center justify-center rounded-full" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface)', color: 'var(--erp-text-muted)' }}>
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
+      <div className="relative z-[900] flex flex-col gap-3 rounded-2xl border bg-white/80 px-3 py-3 shadow-[0_8px_24px_rgba(43,22,92,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-end" style={{ borderColor: 'var(--erp-border)' }}>
+        <FinancePeriodFilter value={period} onApply={setPeriod} />
+        <button onClick={() => load(true)} className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-xs font-bold transition-colors" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface)', color: 'var(--erp-text)' }}>
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          Atualizar
+        </button>
       </div>
-
       {error && (
         <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
           <AlertTriangle size={14} />

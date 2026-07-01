@@ -77,3 +77,22 @@ export function formatDate(iso?: string) {
 export function localCostKey(kind: CostKind) {
   return `4core.finance.${kind}.manual_entries`;
 }
+
+export const LOCAL_DIRECT_SALES_KEY = '4core.finance.direct_sales.manual_entries';
+export const DELETED_DIRECT_SALES_KEY = '4core.finance.direct_sales.deleted_ids';
+
+export function readLocalDirectSales(): DirectSale[] {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_DIRECT_SALES_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+export function readDeletedDirectSaleIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(DELETED_DIRECT_SALES_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}

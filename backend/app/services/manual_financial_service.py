@@ -114,12 +114,14 @@ def _expense_payload(item: ManualExpense) -> dict[str, Any]:
     }
 
 
-def manual_financial_snapshot(asaas_payments: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def manual_financial_snapshot(asaas_payments: list[dict[str, Any]] | None = None, start_date: str | None = None, end_date: str | None = None) -> dict[str, Any]:
     payments = asaas_payments or []
-    expenses = [_expense_payload(item) for item in EXPENSES]
+    expenses = [_expense_payload(item) for item in EXPENSES if (not start_date or item.date >= start_date) and (not end_date or item.date <= end_date)]
 
     direct_sales = []
     for item in DIRECT_SALE_INSTALLMENTS:
+        if (start_date and item.date < start_date) or (end_date and item.date > end_date):
+            continue
         match = _match_installment(item, payments)
         direct_sales.append(
             {
@@ -147,8 +149,8 @@ def manual_financial_snapshot(asaas_payments: list[dict[str, Any]] | None = None
         if not item["matched"]:
             bucket["unmatched_direct_sales"] += item["value"]
 
-    fixed_total = sum(item.value for item in EXPENSES if item.kind == "fixed")
-    recurring_total = sum(item.value for item in EXPENSES if item.kind == "recurring")
+    fixed_total = sum(Decimal(str(item["value"])) for item in expenses if item["kind"] == "fixed")
+    recurring_total = sum(Decimal(str(item["value"])) for item in expenses if item["kind"] == "recurring")
     return {
         "source": "manual",
         "updated_at": date.today().isoformat(),
@@ -162,7 +164,7 @@ def manual_financial_snapshot(asaas_payments: list[dict[str, Any]] | None = None
             "fixed_expenses_total": _money(fixed_total),
             "recurring_expenses_total": _money(recurring_total),
             "variable_expenses_total": 0.0,
-            "direct_sales_total": _money(sum(item.value for item in DIRECT_SALE_INSTALLMENTS)),
+            "direct_sales_total": round(sum(item["value"] for item in direct_sales), 2),
             "unmatched_direct_sales_total": round(sum(item["value"] for item in direct_sales if not item["matched"]), 2),
             "matched_direct_sales_count": sum(1 for item in direct_sales if item["matched"]),
             "direct_sales_count": len(direct_sales),

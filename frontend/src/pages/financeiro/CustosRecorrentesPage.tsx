@@ -1,6 +1,5 @@
-﻿import CostControlPage from './CostControlPage';
+import { Navigate } from 'react-router-dom';
 
 export default function CustosRecorrentesPage() {
-  return <CostControlPage kind="recurring" />;
+  return <Navigate to="/financeiro/custos" replace />;
 }
-

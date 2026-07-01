@@ -68,15 +68,16 @@ function App() {
 
         <Route path="financeiro" element={<FinanceiroLayout />}>
           <Route path="receita" element={<ReceitasPage />} />
-          <Route path="custos-fixos" element={<CustosFixosPage />} />
+          <Route path="custos" element={<CustosFixosPage />} />
+          <Route path="custos-fixos" element={<Navigate to="/financeiro/custos" replace />} />
           <Route path="custos-recorrentes" element={<CustosRecorrentesPage />} />
           <Route path="receitas" element={<Navigate to="/financeiro/receita" replace />} />
-          <Route path="despesas" element={<Navigate to="/financeiro/custos-fixos" replace />} />
+          <Route path="despesas" element={<Navigate to="/financeiro/custos" replace />} />
           <Route path="fluxo-caixa" element={<Navigate to="/financeiro" replace />} />
           <Route path="contas-receber" element={<Navigate to="/financeiro/receita" replace />} />
-          <Route path="mensalidades" element={<Navigate to="/financeiro/custos-recorrentes" replace />} />
+          <Route path="mensalidades" element={<Navigate to="/financeiro/custos" replace />} />
           <Route path="projecoes" element={<Navigate to="/financeiro" replace />} />
-          <Route path="contas-pagar" element={<Navigate to="/financeiro/custos-fixos" replace />} />
+          <Route path="contas-pagar" element={<Navigate to="/financeiro/custos" replace />} />
           <Route path="orcamento" element={<Navigate to="/financeiro" replace />} />
           <Route path="conciliacao" element={<Navigate to="/financeiro/receita" replace />} />
         </Route>

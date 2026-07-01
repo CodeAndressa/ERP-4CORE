@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from collections import Counter
 from datetime import date, datetime, timedelta
@@ -124,17 +124,43 @@ class AsaasService:
             for item in result.get('data', [])
         ]
 
-    async def insights(self, days: int = 180) -> dict[str, Any]:
+    async def insights(self, days: int = 180, start_date: str | None = None, end_date: str | None = None) -> dict[str, Any]:
         base = await self.overview()
         raw = (await self.payments()).get('data', [])
         received_states = {'RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'}
 
-        cutoff = (date.today() - timedelta(days=days)).isoformat()
-        filtered = [
-            item for item in raw
-            if (item.get('dueDate') or '') >= cutoff or (item.get('paymentDate') or '') >= cutoff
-        ]
+        start = start_date or (date.today() - timedelta(days=days)).isoformat()
+        end = end_date or date.today().isoformat()
 
+        def event_date(item: dict[str, Any]) -> str:
+            status = item.get('status', 'PENDING')
+            return (item.get('paymentDate') if status in received_states else item.get('dueDate')) or ''
+
+        filtered = [item for item in raw if start <= event_date(item) <= end]
+        value = lambda items: round(sum(float(item.get('value') or 0) for item in items), 2)
+        open_states = {'PENDING', 'AWAITING_RISK_ANALYSIS', 'AWAITING_CHARGEBACK_REVERSAL'}
+        overdue_states = {'OVERDUE'}
+        received = [item for item in filtered if item.get('status') in received_states]
+        pending = [item for item in filtered if item.get('status') in open_states]
+        overdue = [item for item in filtered if item.get('status') in overdue_states]
+        base['received_value'] = value(received)
+        base['pending_value'] = value(pending)
+        base['overdue_value'] = value(overdue)
+        base['received_count'] = len(received)
+        base['pending_count'] = len(pending)
+        base['overdue_count'] = len(overdue)
+        base['payments'] = [
+            {
+                'id': item.get('id'),
+                'customer': item.get('customerName') or 'Cliente',
+                'description': item.get('description') or 'Cobrança ASAAS',
+                'value': item.get('value', 0),
+                'status': item.get('status'),
+                'due_date': item.get('dueDate'),
+                'payment_date': item.get('paymentDate'),
+            }
+            for item in filtered[:20]
+        ]
         daily: dict[str, dict[str, float]] = {}
         billing: dict[str, float] = {}
         for item in filtered:
@@ -153,7 +179,7 @@ class AsaasService:
         base['recurring_value'] = round(sum(float(item.get('value') or 0) for item in active_subscriptions), 2)
         base['recurring_count'] = len(active_subscriptions)
         base['subscriptions'] = active_subscriptions
-        base['manual_financial'] = manual_financial_snapshot(raw)
+        base['manual_financial'] = manual_financial_snapshot(raw, start_date=start, end_date=end)
         base['summary'] = {
             'total_received': base['received_value'],
             'total_pending': base['pending_value'],

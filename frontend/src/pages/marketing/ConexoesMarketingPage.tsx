@@ -147,8 +147,12 @@ export default function ConexoesMarketingPage() {
       </div>
 
       {message && (
-        <div className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}>
+        <div className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium"
+          style={{
+            background: message.startsWith('✅') ? '#d1fae5' : '#fef2f2',
+            border: `1px solid ${message.startsWith('✅') ? '#6ee7b7' : '#fca5a5'}`,
+            color: message.startsWith('✅') ? '#065f46' : '#991b1b',
+          }}>
           <ShieldAlert size={15} className="mt-0.5 shrink-0" />
           <span>{message}</span>
         </div>
@@ -168,6 +172,23 @@ export default function ConexoesMarketingPage() {
                 <CardHeader title="Instagram" subtitle="Instagram Business Account · Meta Graph API" />
               </div>
             </div>
+
+            {/* Aviso se META_APP_SECRET não está configurado */}
+            {fbStatus && !fbStatus.configured && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs font-medium"
+                style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b' }}>
+                <ShieldAlert size={13} className="mt-0.5 shrink-0" />
+                <span>
+                  <strong>Variáveis faltando na Vercel.</strong> Adicione em{' '}
+                  <a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
+                    vercel.com/dashboard
+                  </a>{' '}
+                  → Settings → Environment Variables:{' '}
+                  <code>META_APP_SECRET</code>, <code>META_PAGE_ID</code>, <code>META_PAGE_ACCESS_TOKEN</code>,{' '}
+                  <code>INSTAGRAM_BUSINESS_ACCOUNT_ID</code>. Após adicionar, clique em Redeploy.
+                </span>
+              </div>
+            )}
 
             {/* Aviso sobre o fluxo OAuth */}
             <div className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs"

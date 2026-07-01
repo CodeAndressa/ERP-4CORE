@@ -35,6 +35,14 @@ class MetaMarketingService:
         if not settings.meta_app_id or not settings.meta_app_secret:
             raise HTTPException(400, "Configure META_APP_ID e META_APP_SECRET no backend.")
 
+    async def _page_token_async(self, page_id: str | None, page_access_token: str | None) -> tuple[str, str]:
+        from app.services.token_store import aget as ts_aget
+        target_page_id = page_id or await ts_aget("meta_page_id") or settings.meta_page_id
+        token = page_access_token or await ts_aget("meta_page_access_token") or settings.meta_page_access_token or settings.meta_access_token
+        if not target_page_id or not token:
+            raise HTTPException(400, "Configure META_PAGE_ID e META_PAGE_ACCESS_TOKEN.")
+        return target_page_id, token
+
     def _page_token(self, page_id: str | None, page_access_token: str | None) -> tuple[str, str]:
         from app.services.token_store import get as ts_get
         target_page_id = page_id or ts_get("meta_page_id") or settings.meta_page_id
@@ -96,13 +104,12 @@ class MetaMarketingService:
         token_payload = await self.exchange_code(code, redirect_uri)
         user_token = token_payload.get("access_token", "")
         pages = await self.list_pages(user_token)
-        # Salvar automaticamente o token long-lived para o token_store
-        await self._auto_save_page_token(user_token, pages)
-        return {"user_access_token": user_token, "pages": pages}
+        saved = await self._auto_save_page_token(user_token, pages)
+        return {"user_access_token": user_token, "pages": pages, "auto_saved": saved}
 
-    async def _auto_save_page_token(self, user_token: str, pages: list) -> None:
-        """Troca user token por long-lived page token e persiste em .meta_tokens.json."""
-        from app.services.token_store import save as ts_save
+    async def _auto_save_page_token(self, user_token: str, pages: list) -> bool:
+        """Troca user token por long-lived page token e persiste (Supabase ou arquivo)."""
+        from app.services.token_store import asave as ts_save
         try:
             # 1. Trocar user token curto por long-lived
             async with httpx.AsyncClient(timeout=20) as client:
@@ -153,23 +160,26 @@ class MetaMarketingService:
             global _ig_account_id_cache
             if ig_id:
                 _ig_account_id_cache = ig_id
+            return True
         except Exception:
             # Fallback: salvar o token de curto prazo da página (expira em ~1-2h)
             try:
-                from app.services.token_store import save as ts_save_fb
+                from app.services.token_store import asave as ts_save_fb
                 target_page = next(
                     (p for p in pages if p.get("id") == settings.meta_page_id),
                     pages[0] if pages else None,
                 )
                 if target_page and target_page.get("access_token"):
                     ig_id = target_page.get("instagram_business_account", {}).get("id", "") or settings.instagram_business_account_id
-                    ts_save_fb({
+                    await ts_save_fb({
                         "meta_page_id": target_page["id"],
                         "meta_page_access_token": target_page["access_token"],
                         "instagram_business_account_id": ig_id,
                     })
+                    return True
             except Exception:
                 pass
+            return False
 
     # ─── Facebook Page ─────────────────────────────────────────────────────────
 
@@ -268,15 +278,15 @@ class MetaMarketingService:
 
     async def get_instagram_account_id(self) -> str:
         global _ig_account_id_cache
-        from app.services.token_store import get as ts_get
+        from app.services.token_store import aget as ts_aget
         if settings.instagram_business_account_id:
             return settings.instagram_business_account_id
-        stored_ig = ts_get("instagram_business_account_id")
+        stored_ig = await ts_aget("instagram_business_account_id")
         if stored_ig:
             return stored_ig
         if _ig_account_id_cache:
             return _ig_account_id_cache
-        target_page_id, token = self._page_token(None, None)
+        target_page_id, token = await self._page_token_async(None, None)
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(
                 f"{self.base_url}/{target_page_id}",
@@ -300,7 +310,7 @@ class MetaMarketingService:
 
     async def instagram_profile(self) -> dict[str, Any]:
         ig_id = await self.get_instagram_account_id()
-        _, token = self._page_token(None, None)
+        _, token = await self._page_token_async(None, None)
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(
                 f"{self.base_url}/{ig_id}",
@@ -315,7 +325,7 @@ class MetaMarketingService:
 
     async def instagram_media(self) -> list[dict[str, Any]]:
         ig_id = await self.get_instagram_account_id()
-        _, token = self._page_token(None, None)
+        _, token = await self._page_token_async(None, None)
         async with httpx.AsyncClient(timeout=20) as client:
             r = await client.get(
                 f"{self.base_url}/{ig_id}/media",
@@ -335,7 +345,7 @@ class MetaMarketingService:
 
     async def instagram_account_insights(self) -> dict[str, Any]:
         ig_id = await self.get_instagram_account_id()
-        _, token = self._page_token(None, None)
+        _, token = await self._page_token_async(None, None)
         now = datetime.now(timezone.utc)
         since = now - timedelta(days=57)
 
@@ -412,7 +422,7 @@ class MetaMarketingService:
     async def instagram_follower_growth(self) -> dict[str, Any]:
         """Daily follower count history (requires instagram_manage_insights)."""
         ig_id = await self.get_instagram_account_id()
-        _, token = self._page_token(None, None)
+        _, token = await self._page_token_async(None, None)
         now = datetime.now(timezone.utc)
 
         async with httpx.AsyncClient(timeout=15) as client:
@@ -453,7 +463,7 @@ class MetaMarketingService:
     async def instagram_messages(self) -> dict[str, Any]:
         """Instagram DM conversations (requires instagram_manage_messages + Meta App Review)."""
         ig_id = await self.get_instagram_account_id()
-        _, token = self._page_token(None, None)
+        _, token = await self._page_token_async(None, None)
 
         async with httpx.AsyncClient(timeout=15) as client:
             r = await client.get(

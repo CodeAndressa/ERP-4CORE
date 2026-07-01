@@ -14,15 +14,22 @@ svc = MetaMarketingService
 # ─── Status & OAuth ───────────────────────────────────────────────────────────
 
 @router.get("/meta/status")
-def meta_status():
+async def meta_status():
     from app.core.config import settings
+    from app.services.token_store import aget as ts_aget
+    # Checar token_store (Supabase ou arquivo) além das env vars
+    stored_page_id = await ts_aget("meta_page_id")
+    stored_token = await ts_aget("meta_page_access_token")
+    page_id = stored_page_id or settings.meta_page_id
+    token = stored_token or settings.meta_page_access_token or settings.meta_access_token
     return {
         "configured": bool(settings.meta_app_id and settings.meta_app_secret),
         "app_id": settings.meta_app_id,
         "redirect_uri": settings.meta_redirect_uri,
-        "page_connected": bool(settings.meta_page_id and (settings.meta_page_access_token or settings.meta_access_token)),
-        "page_id": settings.meta_page_id,
-        "token": mask_token(settings.meta_page_access_token or settings.meta_access_token),
+        "page_connected": bool(page_id and token),
+        "page_id": page_id,
+        "token": mask_token(token),
+        "token_source": "supabase/file" if stored_token else "env",
         "graph_version": settings.meta_graph_version,
         "required_env": ["META_APP_ID", "META_APP_SECRET", "META_REDIRECT_URI", "META_PAGE_ID", "META_PAGE_ACCESS_TOKEN"],
     }

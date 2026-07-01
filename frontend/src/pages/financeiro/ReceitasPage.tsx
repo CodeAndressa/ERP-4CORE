@@ -110,13 +110,14 @@ export default function ReceitasPage() {
     setDeletedDirectSaleIds(readDeletedDirectSaleIds());
   }, []);
 
-  const received = (data?.payments ?? []).filter((p) => RECEIVED_STATUSES.has(p.status ?? ''));
-  const baseDirectSales = (data?.manual_financial?.direct_sales ?? []).filter((item) => !deletedDirectSaleIds.includes(item.id));
+  const periodPayments = (data?.payments ?? []).filter((p) => isInFinancePeriod(p.due_date, period));
+  const received = periodPayments.filter((p) => RECEIVED_STATUSES.has(p.status ?? ''));
+  const baseDirectSales = (data?.manual_financial?.direct_sales ?? []).filter((item) => !deletedDirectSaleIds.includes(item.id) && isInFinancePeriod(item.date, period));
   const directSales = [...baseDirectSales, ...localDirectSales.filter((item) => isInFinancePeriod(item.date, period))].sort((a, b) => a.date.localeCompare(b.date));
-  const totalReceived = data?.received_value ?? data?.summary?.total_received ?? received.reduce((sum, item) => sum + item.value, 0);
+  const totalReceived = received.reduce((sum, item) => sum + item.value, 0);
   const totalDirectSales = directSales.reduce((sum, item) => sum + item.value, 0);
   const unmatchedDirectSales = directSales.filter((item) => !item.matched).reduce((sum, item) => sum + item.value, 0);
-  const receivedCount = data?.received_count ?? received.length;
+  const receivedCount = received.length;
   const avgTicket = receivedCount > 0 ? totalReceived / receivedCount : 0;
   const directSaleGroups = buildDirectSaleGroups(directSales);
 

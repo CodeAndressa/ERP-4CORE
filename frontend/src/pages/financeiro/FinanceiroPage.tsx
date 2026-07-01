@@ -36,6 +36,9 @@ export type AsaasData = {
   };
 };
 
+const RECEIVED_STATUSES = new Set(['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'received', 'confirmed', 'received_in_cash']);
+const PENDING_STATUSES = new Set(['PENDING', 'OVERDUE', 'pending', 'overdue']);
+
 export const money = (value: number) => currency(value);
 
 
@@ -93,33 +96,42 @@ function FinanceiroCockpit() {
   }, []);
 
   const manual = data?.manual_financial;
-  const received = data?.received_value ?? 0;
-  const pending = data?.pending_value ?? 0;
-  const effectiveDirectSales = [...((manual?.direct_sales ?? []).filter((item) => !deletedDirectSaleIds.includes(item.id))), ...localDirectSales.filter((item) => isInFinancePeriod(item.date, period))];
+  const periodPayments = (data?.payments ?? []).filter((payment) => isInFinancePeriod(payment.due_date, period));
+  const receivedPayments = periodPayments.filter((payment) => RECEIVED_STATUSES.has(payment.status ?? ''));
+  const pendingPayments = periodPayments.filter((payment) => PENDING_STATUSES.has(payment.status ?? ''));
+  const received = receivedPayments.reduce((sum, item) => sum + item.value, 0);
+  const pending = pendingPayments.reduce((sum, item) => sum + item.value, 0);
+  const backendDirectSales = (manual?.direct_sales ?? []).filter((item) => !deletedDirectSaleIds.includes(item.id) && isInFinancePeriod(item.date, period));
+  const effectiveDirectSales = [...backendDirectSales, ...localDirectSales.filter((item) => isInFinancePeriod(item.date, period))];
   const directSales = effectiveDirectSales.filter((item) => !item.matched).reduce((sum, item) => sum + item.value, 0);
-  const fixedCosts = manual?.summary.fixed_expenses_total ?? 0;
-  const recurringCosts = manual?.summary.recurring_expenses_total ?? 0;
+  const periodFixedCosts = (manual?.fixed_costs ?? []).filter((item) => isInFinancePeriod(item.date, period));
+  const periodRecurringCosts = (manual?.recurring_costs ?? []).filter((item) => isInFinancePeriod(item.date, period));
+  const fixedCosts = periodFixedCosts.reduce((sum, item) => sum + item.value, 0);
+  const recurringCosts = periodRecurringCosts.reduce((sum, item) => sum + item.value, 0);
   const totalCosts = fixedCosts + recurringCosts;
   const net = received + directSales - totalCosts;
   const margin = received + directSales > 0 ? (net / (received + directSales)) * 100 : 0;
 
   const monthly = new Map<string, { month: string; asaas: number; direct: number; fixed: number; recurring: number }>();
-  (data?.payments ?? []).forEach((payment) => {
+  periodPayments.forEach((payment) => {
     const month = (payment.due_date ?? '').slice(0, 7);
     if (!month) return;
     const row = monthly.get(month) ?? { month, asaas: 0, direct: 0, fixed: 0, recurring: 0 };
-    if (['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(payment.status)) {
+    if (RECEIVED_STATUSES.has(payment.status ?? '')) {
       row.asaas += payment.value;
     }
     monthly.set(month, row);
   });
-  (manual?.monthly ?? []).forEach((item) => {
+  periodFixedCosts.forEach((item) => {
     const row = monthly.get(item.month) ?? { month: item.month, asaas: 0, direct: 0, fixed: 0, recurring: 0 };
-    row.fixed = item.fixed_costs;
-    row.recurring = item.recurring_costs;
+    row.fixed += item.value;
     monthly.set(item.month, row);
   });
-
+  periodRecurringCosts.forEach((item) => {
+    const row = monthly.get(item.month) ?? { month: item.month, asaas: 0, direct: 0, fixed: 0, recurring: 0 };
+    row.recurring += item.value;
+    monthly.set(item.month, row);
+  });
   effectiveDirectSales.filter((item) => !item.matched).forEach((item) => {
     const row = monthly.get(item.month) ?? { month: item.month, asaas: 0, direct: 0, fixed: 0, recurring: 0 };
     row.direct += item.value;
@@ -154,7 +166,7 @@ function FinanceiroCockpit() {
         <MetricCard label="Receita realizada" value={loading ? '...' : currency(received + directSales, 2)} detail={`${currency(received, 2)} ASAAS + ${currency(directSales, 2)} venda direta`} tone="emerald" icon={<ArrowUpRight size={16} />} />
         <MetricCard label="Custos controlados" value={loading ? '...' : currency(totalCosts, 2)} detail={`${currency(fixedCosts, 2)} fixos + ${currency(recurringCosts, 2)} recorrentes`} tone="rose" icon={<ArrowDownRight size={16} />} />
         <MetricCard label="Resultado líquido" value={loading ? '...' : currency(net, 2)} detail={`${margin.toFixed(1)}% margem operacional`} tone={net >= 0 ? 'cyan' : 'amber'} icon={<Banknote size={16} />} />
-        <MetricCard label="A receber" value={loading ? '...' : currency(pending, 2)} detail={`${data?.pending_count ?? 0} cobranças pendentes`} tone="violet" icon={<WalletCards size={16} />} />
+        <MetricCard label="A receber" value={loading ? '...' : currency(pending, 2)} detail={`${pendingPayments.length} cobranças pendentes`} tone="violet" icon={<WalletCards size={16} />} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-1">

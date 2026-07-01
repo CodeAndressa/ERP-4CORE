@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
 
@@ -9,11 +10,17 @@ from fastapi import HTTPException
 from app.core.config import settings
 
 
+# Scopes pedidos no OAuth — inclui Instagram para permitir leitura de perfil e mídia
 META_SCOPES = [
     "pages_show_list",
     "pages_read_engagement",
     "pages_read_user_content",
+    "instagram_basic",
+    "instagram_manage_insights",
 ]
+
+# Cache em memória do Instagram Business Account ID para evitar consultas repetidas
+_ig_account_id_cache: str = ""
 
 
 class MetaMarketingService:
@@ -24,6 +31,15 @@ class MetaMarketingService:
     def _require_app(self) -> None:
         if not settings.meta_app_id or not settings.meta_app_secret:
             raise HTTPException(400, "Configure META_APP_ID e META_APP_SECRET no backend.")
+
+    def _page_token(self, page_id: str | None, page_access_token: str | None) -> tuple[str, str]:
+        target_page_id = page_id or settings.meta_page_id
+        token = page_access_token or settings.meta_page_access_token or settings.meta_access_token
+        if not target_page_id or not token:
+            raise HTTPException(400, "Configure META_PAGE_ID e META_PAGE_ACCESS_TOKEN.")
+        return target_page_id, token
+
+    # ─── OAuth ────────────────────────────────────────────────────────────────
 
     def auth_url(self, redirect_uri: str | None = None) -> str:
         self._require_app()
@@ -78,23 +94,308 @@ class MetaMarketingService:
         pages = await self.list_pages(user_token)
         return {"user_access_token": user_token, "pages": pages}
 
-    async def page_insights(self, page_id: str | None = None, page_access_token: str | None = None) -> dict[str, Any]:
-        target_page_id = page_id or settings.meta_page_id
-        token = page_access_token or settings.meta_page_access_token or settings.meta_access_token
-        if not target_page_id or not token:
-            raise HTTPException(400, "Configure META_PAGE_ID e META_PAGE_ACCESS_TOKEN.")
+    # ─── Facebook Page ─────────────────────────────────────────────────────────
+
+    async def page_posts(
+        self,
+        page_id: str | None = None,
+        page_access_token: str | None = None,
+    ) -> list[dict[str, Any]]:
+        target_page_id, token = self._page_token(page_id, page_access_token)
         async with httpx.AsyncClient(timeout=20) as client:
             response = await client.get(
-                f"{self.base_url}/{target_page_id}/insights",
+                f"{self.base_url}/{target_page_id}/posts",
                 params={
                     "access_token": token,
-                    "metric": "page_impressions,page_post_engagements,page_fans",
-                    "period": "day",
+                    "fields": "message,created_time,full_picture,permalink_url,"
+                              "likes.summary(true),comments.summary(true)",
+                    "limit": 30,
                 },
             )
         if response.status_code >= 400:
             raise HTTPException(response.status_code, response.text)
-        return response.json()
+        return response.json().get("data", [])
+
+    async def page_insights_full(
+        self,
+        page_id: str | None = None,
+        page_access_token: str | None = None,
+    ) -> dict[str, Any]:
+        target_page_id, token = self._page_token(page_id, page_access_token)
+        now = datetime.now(timezone.utc)
+        since = now - timedelta(days=57)
+        async with httpx.AsyncClient(timeout=30) as client:
+            insights_resp = await client.get(
+                f"{self.base_url}/{target_page_id}/insights",
+                params={
+                    "access_token": token,
+                    "metric": "page_impressions,page_post_engagements",
+                    "period": "day",
+                    "since": int(since.timestamp()),
+                    "until": int(now.timestamp()),
+                },
+            )
+            fans_resp = await client.get(
+                f"{self.base_url}/{target_page_id}",
+                params={"access_token": token, "fields": "fan_count"},
+            )
+        if insights_resp.status_code >= 400:
+            raise HTTPException(insights_resp.status_code, insights_resp.text)
+        data = insights_resp.json().get("data", [])
+        fans_data = fans_resp.json() if fans_resp.status_code < 400 else {}
+        daily: dict[str, dict[str, int]] = {}
+        for item in data:
+            name = item["name"]
+            for v in item.get("values", []):
+                day = v["end_time"][:10]
+                if day not in daily:
+                    daily[day] = {"alcance": 0, "engajamento": 0}
+                if name == "page_impressions":
+                    daily[day]["alcance"] = int(v["value"])
+                elif name == "page_post_engagements":
+                    daily[day]["engajamento"] = int(v["value"])
+        today = now.date()
+        weekly = []
+        for weeks_ago in range(7, -1, -1):
+            week_end = today - timedelta(days=weeks_ago * 7)
+            week_start = week_end - timedelta(days=6)
+            label = week_end.strftime("%d/%m")
+            weekly.append({
+                "week": label,
+                "alcance": sum(daily.get(str(week_start + timedelta(days=d)), {}).get("alcance", 0) for d in range(7)),
+                "engajamento": sum(daily.get(str(week_start + timedelta(days=d)), {}).get("engajamento", 0) for d in range(7)),
+            })
+        total_impressions = sum(v.get("alcance", 0) for v in daily.values())
+        total_engagements = sum(v.get("engajamento", 0) for v in daily.values())
+        first_half = sum(w["alcance"] for w in weekly[:4])
+        second_half = sum(w["alcance"] for w in weekly[4:])
+        trend_pct = round(((second_half - first_half) / first_half * 100) if first_half > 0 else 0, 1)
+        return {
+            "weekly": weekly,
+            "summary": {
+                "impressions_total": total_impressions,
+                "engagements_total": total_engagements,
+                "fans": fans_data.get("fan_count", 0),
+                "trend_pct": trend_pct,
+                "engagement_rate": round(
+                    (total_engagements / total_impressions * 100) if total_impressions > 0 else 0, 2
+                ),
+            },
+        }
+
+    # Kept for backwards compat
+    async def page_insights(self, page_id: str | None = None, page_access_token: str | None = None) -> dict[str, Any]:
+        return await self.page_insights_full(page_id, page_access_token)
+
+    # ─── Instagram Business Account ────────────────────────────────────────────
+
+    async def get_instagram_account_id(self) -> str:
+        global _ig_account_id_cache
+        if settings.instagram_business_account_id:
+            return settings.instagram_business_account_id
+        if _ig_account_id_cache:
+            return _ig_account_id_cache
+        target_page_id, token = self._page_token(None, None)
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{self.base_url}/{target_page_id}",
+                params={"access_token": token, "fields": "instagram_business_account"},
+            )
+        if r.status_code >= 400:
+            raise HTTPException(
+                400,
+                "Não foi possível obter o Instagram Business Account ID. "
+                "Configure INSTAGRAM_BUSINESS_ACCOUNT_ID no .env ou vincule o Instagram à página no Facebook.",
+            )
+        ig_id = r.json().get("instagram_business_account", {}).get("id", "")
+        if not ig_id:
+            raise HTTPException(
+                400,
+                "Nenhuma conta Instagram Business vinculada à página Facebook. "
+                "Acesse Configurações da Página → Instagram e vincule a conta.",
+            )
+        _ig_account_id_cache = ig_id
+        return ig_id
+
+    async def instagram_profile(self) -> dict[str, Any]:
+        ig_id = await self.get_instagram_account_id()
+        _, token = self._page_token(None, None)
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{self.base_url}/{ig_id}",
+                params={
+                    "access_token": token,
+                    "fields": "id,name,username,biography,website,followers_count,media_count,profile_picture_url",
+                },
+            )
+        if r.status_code >= 400:
+            raise HTTPException(r.status_code, r.text)
+        return r.json()
+
+    async def instagram_media(self) -> list[dict[str, Any]]:
+        ig_id = await self.get_instagram_account_id()
+        _, token = self._page_token(None, None)
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(
+                f"{self.base_url}/{ig_id}/media",
+                params={
+                    "access_token": token,
+                    "fields": (
+                        "id,caption,media_type,media_product_type,"
+                        "media_url,thumbnail_url,permalink,timestamp,"
+                        "like_count,comments_count"
+                    ),
+                    "limit": 30,
+                },
+            )
+        if r.status_code >= 400:
+            raise HTTPException(r.status_code, r.text)
+        return r.json().get("data", [])
+
+    async def instagram_account_insights(self) -> dict[str, Any]:
+        ig_id = await self.get_instagram_account_id()
+        _, token = self._page_token(None, None)
+        now = datetime.now(timezone.utc)
+        since = now - timedelta(days=57)
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            profile_r = await client.get(
+                f"{self.base_url}/{ig_id}",
+                params={"access_token": token, "fields": "followers_count,media_count"},
+            )
+            insights_r = await client.get(
+                f"{self.base_url}/{ig_id}/insights",
+                params={
+                    "access_token": token,
+                    "metric": "reach,impressions,profile_views",
+                    "period": "day",
+                    "since": int(since.timestamp()),
+                    "until": int(now.timestamp()),
+                },
+            )
+
+        profile = profile_r.json() if profile_r.status_code < 400 else {}
+
+        # Insights podem falhar se a permissão instagram_manage_insights não foi concedida.
+        # Nesse caso retornamos só os dados do perfil e deixamos o frontend mostrar o aviso.
+        insights_ok = insights_r.status_code < 400
+        data = insights_r.json().get("data", []) if insights_ok else []
+
+        daily: dict[str, dict[str, int]] = {}
+        for item in data:
+            name = item["name"]
+            for v in item.get("values", []):
+                day = v["end_time"][:10]
+                if day not in daily:
+                    daily[day] = {"alcance": 0, "impressoes": 0, "visitas": 0}
+                if name == "reach":
+                    daily[day]["alcance"] = int(v["value"])
+                elif name == "impressions":
+                    daily[day]["impressoes"] = int(v["value"])
+                elif name == "profile_views":
+                    daily[day]["visitas"] = int(v["value"])
+
+        today = now.date()
+        weekly = []
+        for weeks_ago in range(7, -1, -1):
+            week_end = today - timedelta(days=weeks_ago * 7)
+            week_start = week_end - timedelta(days=6)
+            label = week_end.strftime("%d/%m")
+            weekly.append({
+                "week": label,
+                "alcance": sum(daily.get(str(week_start + timedelta(days=d)), {}).get("alcance", 0) for d in range(7)),
+                "impressoes": sum(daily.get(str(week_start + timedelta(days=d)), {}).get("impressoes", 0) for d in range(7)),
+            })
+
+        total_reach = sum(v.get("alcance", 0) for v in daily.values())
+        total_impressions = sum(v.get("impressoes", 0) for v in daily.values())
+        total_profile_views = sum(v.get("visitas", 0) for v in daily.values())
+        first_half = sum(w["alcance"] for w in weekly[:4])
+        second_half = sum(w["alcance"] for w in weekly[4:])
+        trend_pct = round(((second_half - first_half) / first_half * 100) if first_half > 0 else 0, 1)
+
+        return {
+            "weekly": weekly,
+            "insights_available": insights_ok,
+            "summary": {
+                "followers": profile.get("followers_count", 0),
+                "media_count": profile.get("media_count", 0),
+                "reach_total": total_reach,
+                "impressions_total": total_impressions,
+                "profile_views_total": total_profile_views,
+                "trend_pct": trend_pct,
+            },
+        }
+
+
+    async def instagram_follower_growth(self) -> dict[str, Any]:
+        """Daily follower count history (requires instagram_manage_insights)."""
+        ig_id = await self.get_instagram_account_id()
+        _, token = self._page_token(None, None)
+        now = datetime.now(timezone.utc)
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            profile_r = await client.get(
+                f"{self.base_url}/{ig_id}",
+                params={"access_token": token, "fields": "followers_count"},
+            )
+            insights_r = await client.get(
+                f"{self.base_url}/{ig_id}/insights",
+                params={
+                    "access_token": token,
+                    "metric": "follower_count",
+                    "period": "day",
+                    "since": int((now - timedelta(days=30)).timestamp()),
+                    "until": int(now.timestamp()),
+                },
+            )
+
+        current = profile_r.json().get("followers_count", 0) if profile_r.status_code < 400 else 0
+        body = insights_r.json()
+
+        if insights_r.status_code >= 400 or "error" in body:
+            return {"available": False, "current_followers": current}
+
+        data = body.get("data", [])
+        values = data[0].get("values", []) if data else []
+        # follower_count com period=day retorna novos seguidores por dia (net)
+        daily = [{"date": v["end_time"][:10], "novos": int(v["value"])} for v in values]
+        growth_30d = sum(int(v["value"]) for v in values)
+
+        return {
+            "available": True,
+            "current_followers": current,
+            "daily": daily,
+            "growth_30d": growth_30d,
+        }
+
+    async def instagram_messages(self) -> dict[str, Any]:
+        """Instagram DM conversations (requires instagram_manage_messages + Meta App Review)."""
+        ig_id = await self.get_instagram_account_id()
+        _, token = self._page_token(None, None)
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(
+                f"{self.base_url}/{ig_id}/conversations",
+                params={
+                    "access_token": token,
+                    "platform": "instagram",
+                    "fields": "participants,messages{message,from,created_time},updated_time",
+                },
+            )
+
+        body = r.json()
+        if r.status_code >= 400 or "error" in body:
+            return {
+                "available": False,
+                "reason": body.get("error", {}).get(
+                    "message",
+                    "Permissão instagram_manage_messages necessária — requer aprovação da Meta.",
+                ),
+            }
+
+        conversations = body.get("data", [])
+        return {"available": True, "total": len(conversations), "conversations": conversations}
 
 
 def mask_token(token: str) -> str:

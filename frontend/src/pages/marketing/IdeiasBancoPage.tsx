@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Lightbulb, Plus, ArrowRight, Tag, Camera, Globe, Mail, Layers } from 'lucide-react';
+import { Lightbulb, Plus, ArrowRight, Tag, Camera, Globe, Mail, Layers, Sparkles, Loader2 } from 'lucide-react';
 import { Card } from '../../shared/components/ui/Card';
+import { api } from '../../services/api';
 
 type IdeiaStatus = 'nova' | 'desenvolvendo' | 'pronta';
 
@@ -13,15 +14,6 @@ interface Ideia {
   tags: string[];
   status: IdeiaStatus;
 }
-
-const SEED_IDEIAS: Ideia[] = [
-  { id: 1, title: 'Guia eSocial para PMEs', angle: 'Como simplificar obrigações sem burocracia', format: 'Artigo', channel: 'LinkedIn', tags: ['eSocial', 'PME', 'compliance'], status: 'nova' },
-  { id: 2, title: 'Série: Erros comuns em folha de pagamento', angle: '5 erros que custam caro — com exemplos reais', format: 'Carrossel', channel: 'Instagram', tags: ['folha', 'erros', 'educacional'], status: 'nova' },
-  { id: 3, title: 'Calculadora de encargos trabalhistas', angle: 'Ferramenta interativa no site', format: 'Landing page', channel: 'Site', tags: ['ferramenta', 'encargos', 'lead gen'], status: 'desenvolvendo' },
-  { id: 4, title: 'Case: Como reduzimos passivos trabalhistas em 40%', angle: 'Resultado real com cliente do setor industrial', format: 'Case study', channel: 'LinkedIn', tags: ['case', 'resultado', 'industrial'], status: 'desenvolvendo' },
-  { id: 5, title: 'Newsletter mensal: Atualizações trabalhistas', angle: 'Resumo do mês para gestores de RH', format: 'Newsletter', channel: 'E-mail', tags: ['newsletter', 'atualização', 'RH'], status: 'pronta' },
-  { id: 6, title: 'Webinar: Compliance trabalhista 2026', angle: 'Ao vivo com especialistas da 4Core', format: 'Webinar', channel: 'LinkedIn', tags: ['webinar', 'ao vivo', 'especialistas'], status: 'pronta' },
-];
 
 const COLUMN_CONFIG: { id: IdeiaStatus; label: string; description: string; color: string }[] = [
   { id: 'nova',         label: 'Novas Ideias',          description: 'Ideias brutas para avaliar', color: 'var(--erp-text-dim)' },
@@ -43,8 +35,9 @@ const NEXT_STATUS: Record<IdeiaStatus, IdeiaStatus | null> = {
 };
 
 export default function IdeiasBancoPage() {
-  const [ideias, setIdeias] = useState<Ideia[]>(SEED_IDEIAS);
+  const [ideias, setIdeias] = useState<Ideia[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [generatingAI, setGeneratingAI] = useState(false);
   const [form, setForm] = useState({ title: '', angle: '', format: 'Artigo', channel: 'LinkedIn', tags: '' });
 
   function advance(id: number) {
@@ -73,6 +66,30 @@ export default function IdeiasBancoPage() {
     setForm({ title: '', angle: '', format: 'Artigo', channel: 'LinkedIn', tags: '' });
   }
 
+  async function generateWithAI() {
+    setGeneratingAI(true);
+    try {
+      const { data } = await api.post<{ ideas: { title: string; angle: string; format: string; channel: string; tags: string[] }[] }>(
+        '/marketing/meta/ai/ideas',
+      );
+      const ideas = data?.ideas ?? [];
+      const newIdeias: Ideia[] = ideas.map((idea, i) => ({
+        id: Date.now() + i,
+        title: idea.title,
+        angle: idea.angle,
+        format: idea.format,
+        channel: idea.channel,
+        tags: idea.tags ?? [],
+        status: 'nova' as IdeiaStatus,
+      }));
+      setIdeias((prev) => [...prev, ...newIdeias]);
+    } catch (err) {
+      console.error('AI ideas error', err);
+    } finally {
+      setGeneratingAI(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -80,15 +97,42 @@ export default function IdeiasBancoPage() {
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Banco de Ideias</h1>
         </div>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium"
-          style={{ background: 'var(--erp-violet)', color: '#fff' }}
-        >
-          <Plus size={14} />
-          Nova ideia
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={generateWithAI}
+            disabled={generatingAI}
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all disabled:opacity-60"
+            style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-violet-light)', border: '1px solid var(--erp-violet)44' }}
+          >
+            {generatingAI ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {generatingAI ? 'Gerando...' : 'Gerar com IA'}
+          </button>
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium"
+            style={{ background: 'var(--erp-violet)', color: '#fff' }}
+          >
+            <Plus size={14} />
+            Nova ideia
+          </button>
+        </div>
       </div>
+
+      {ideias.length === 0 && !showForm && (
+        <div
+          className="flex flex-col items-center gap-4 rounded-2xl py-12"
+          style={{ border: '1px dashed var(--erp-border)', background: 'var(--erp-surface)' }}
+        >
+          <Sparkles size={28} style={{ color: 'var(--erp-violet-light)' }} />
+          <div className="text-center">
+            <p className="text-sm font-medium" style={{ color: 'var(--erp-text)' }}>Banco de ideias vazio</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--erp-text-muted)' }}>
+              Clique em <strong>Gerar com IA</strong> para criar ideias baseadas nos seus posts do Instagram,
+              ou adicione uma manualmente.
+            </p>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <Card padding="lg">
@@ -134,82 +178,81 @@ export default function IdeiasBancoPage() {
         </Card>
       )}
 
-      {/* Kanban columns */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {COLUMN_CONFIG.map((col) => {
-          const colIdeias = ideias.filter((i) => i.status === col.id);
-          return (
-            <div key={col.id} className="flex flex-col gap-3">
-              {/* Column header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>{col.label}</p>
-                  <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{col.description}</p>
-                </div>
-                <span
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold"
-                  style={{ background: 'var(--erp-surface-2)', color: col.color }}
-                >
-                  {colIdeias.length}
-                </span>
-              </div>
-
-              {/* Cards */}
-              <div className="flex flex-col gap-2">
-                {colIdeias.length === 0 ? (
-                  <div
-                    className="flex flex-col items-center gap-2 rounded-2xl py-8"
-                    style={{ border: '1px dashed var(--erp-border)' }}
-                  >
-                    <Lightbulb size={20} style={{ color: 'var(--erp-text-dim)' }} />
-                    <p className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Nenhuma ideia aqui</p>
+      {ideias.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {COLUMN_CONFIG.map((col) => {
+            const colIdeias = ideias.filter((i) => i.status === col.id);
+            return (
+              <div key={col.id} className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>{col.label}</p>
+                    <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{col.description}</p>
                   </div>
-                ) : (
-                  colIdeias.map((idea) => (
+                  <span
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold"
+                    style={{ background: 'var(--erp-surface-2)', color: col.color }}
+                  >
+                    {colIdeias.length}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {colIdeias.length === 0 ? (
                     <div
-                      key={idea.id}
-                      className="rounded-2xl p-4"
-                      style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}
+                      className="flex flex-col items-center gap-2 rounded-2xl py-8"
+                      style={{ border: '1px dashed var(--erp-border)' }}
                     >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <p className="text-sm font-medium leading-snug" style={{ color: 'var(--erp-text)' }}>{idea.title}</p>
-                        <div className="flex items-center gap-1 flex-shrink-0"
-                          style={{ background: 'var(--erp-surface-2)', borderRadius: 6, padding: '2px 6px' }}>
-                          {CHANNEL_ICONS[idea.channel]}
-                          <span className="text-[10px]" style={{ color: 'var(--erp-text-muted)' }}>{idea.channel}</span>
-                        </div>
-                      </div>
-                      {idea.angle && (
-                        <p className="text-xs mb-2 leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>{idea.angle}</p>
-                      )}
-                      <div className="flex items-center justify-between gap-2 mt-3">
-                        <div className="flex flex-wrap gap-1">
-                          {idea.tags.slice(0, 3).map((tag) => (
-                            <span key={tag} className="flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px]"
-                              style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)' }}>
-                              <Tag size={8} />
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                        {NEXT_STATUS[idea.status] && (
-                          <button
-                            onClick={() => advance(idea.id)}
-                            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all hover:opacity-80"
-                            style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }}
-                          >
-                            Avançar <ArrowRight size={10} />
-                          </button>
-                        )}
-                      </div>
+                      <Lightbulb size={20} style={{ color: 'var(--erp-text-dim)' }} />
+                      <p className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Nenhuma ideia aqui</p>
                     </div>
-                  ))
-                )}
+                  ) : (
+                    colIdeias.map((idea) => (
+                      <div
+                        key={idea.id}
+                        className="rounded-2xl p-4"
+                        style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <p className="text-sm font-medium leading-snug" style={{ color: 'var(--erp-text)' }}>{idea.title}</p>
+                          <div className="flex items-center gap-1 flex-shrink-0"
+                            style={{ background: 'var(--erp-surface-2)', borderRadius: 6, padding: '2px 6px' }}>
+                            {CHANNEL_ICONS[idea.channel]}
+                            <span className="text-[10px]" style={{ color: 'var(--erp-text-muted)' }}>{idea.channel}</span>
+                          </div>
+                        </div>
+                        {idea.angle && (
+                          <p className="text-xs mb-2 leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>{idea.angle}</p>
+                        )}
+                        <div className="flex items-center justify-between gap-2 mt-3">
+                          <div className="flex flex-wrap gap-1">
+                            {idea.tags.slice(0, 3).map((tag) => (
+                              <span key={tag} className="flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px]"
+                                style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)' }}>
+                                <Tag size={8} />
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                          {NEXT_STATUS[idea.status] && (
+                            <button
+                              onClick={() => advance(idea.id as number)}
+                              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-all hover:opacity-80"
+                              style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }}
+                            >
+                              Avançar <ArrowRight size={10} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

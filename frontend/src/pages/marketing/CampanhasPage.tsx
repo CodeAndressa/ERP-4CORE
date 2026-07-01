@@ -19,12 +19,7 @@ interface Campaign {
   end?: string;
 }
 
-const SEED: Campaign[] = [
-  { id: 1, name: 'Lançamento RH Digital',   channel: 'instagram', status: 'ativa',     budget: 3000,  spent: 1800, leads: 24, start: '01/06' },
-  { id: 2, name: 'Nutrição de leads B2B',    channel: 'email',     status: 'ativa',     budget: 500,   spent: 220,  leads: 41, start: '15/06' },
-  { id: 3, name: 'Webinar DP Automatizado',  channel: 'linkedin',  status: 'planejada', budget: 1200,  spent: 0,    leads: 0,  start: '10/07' },
-  { id: 4, name: 'Remarketing clientes',     channel: 'google',    status: 'encerrada', budget: 2000,  spent: 2000, leads: 18, start: '01/05', end: '31/05' },
-];
+const SEED: Campaign[] = [];
 
 const CH_COLOR: Record<Channel, string> = {
   instagram: '#e1306c', linkedin: '#0a66c2', email: '#2b165c',
@@ -145,6 +140,21 @@ export default function CampanhasPage() {
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <Megaphone size={28} style={{ color: 'var(--erp-text-dim)' }} />
+                      <p className="text-sm font-medium" style={{ color: 'var(--erp-text-muted)' }}>
+                        Nenhuma campanha ainda
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>
+                        Clique em "Nova campanha" para começar.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
               {filtered.map((c, i) => {
                 const spentPct = c.budget > 0 ? Math.round((c.spent / c.budget) * 100) : 0;
                 return (

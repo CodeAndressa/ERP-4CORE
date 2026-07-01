@@ -13,6 +13,7 @@ import {
   RefreshCw,
   TrendingUp,
   Users,
+  Camera,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
@@ -61,6 +62,7 @@ type Lead = {
   created_at?: string;
 };
 
+type IgProfile = { followers_count?: number; media_count?: number; username?: string };
 type Client = { id?: string | number; name?: string; company?: string; email?: string };
 type Post = { id: string | number; title: string; channel: string; status: string; format?: string; date?: string };
 
@@ -137,6 +139,7 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [igProfile, setIgProfile] = useState<IgProfile | null>(null);
   const [secondaryLoading, setSecondaryLoading] = useState(true);
 
   const loadAsaas = (forceRefresh = false) => {
@@ -165,8 +168,9 @@ export default function DashboardPage() {
       api.get<Lead[] | { data?: Lead[]; leads?: Lead[] }>('/leads'),
       api.get<Client[] | { data?: Client[] }>('/clients'),
       api.get<Post[]>('/marketing/posts'),
+      api.get<IgProfile>('/marketing/meta/instagram/profile'),
     ])
-      .then(([leadResult, clientResult, postResult]) => {
+      .then(([leadResult, clientResult, postResult, igResult]) => {
         if (leadResult.status === 'fulfilled') setLeads(normalizeList<Lead>(leadResult.value.data));
         if (clientResult.status === 'fulfilled') setClients(normalizeList<Client>(clientResult.value.data));
         if (postResult.status === 'fulfilled') {
@@ -175,6 +179,7 @@ export default function DashboardPage() {
         } else {
           setPosts(FALLBACK_POSTS);
         }
+        if (igResult.status === 'fulfilled') setIgProfile(igResult.value.data);
       })
       .finally(() => setSecondaryLoading(false));
   };
@@ -200,10 +205,11 @@ export default function DashboardPage() {
     published: posts.filter((post) => post.status === 'publicado').length,
   }), [posts]);
 
-  const upcomingPosts = [...posts]
-    .filter((post) => post.date)
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .slice(0, 5);
+  const today = new Date().toISOString().slice(0, 10);
+  const futurePosts = [...posts].filter((p) => p.date && p.date >= today).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const recentPosts = [...posts].filter((p) => p.date && p.date < today).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const upcomingPosts = (futurePosts.length > 0 ? futurePosts : recentPosts).slice(0, 5);
+  const hasScheduled = futurePosts.length > 0;
 
   return (
     <div className="space-y-6">
@@ -271,12 +277,12 @@ export default function DashboardPage() {
         </Card>
 
         <Card padding="lg">
-          <CardHeader title="Marketing" subtitle="Calendário de conteúdo" action={<Link to="/marketing/calendario" className="text-xs font-medium text-violet-700">Abrir</Link>} />
+          <CardHeader title="Instagram" subtitle={igProfile?.username ? `@${igProfile.username}` : 'Marketing digital'} action={<Link to="/marketing/metricas" className="text-xs font-medium text-violet-700">Métricas</Link>} />
           <div className="mt-4 space-y-2">
-            <SummaryLine label="Posts" value={fmt.format(postCounts.total)} />
-            <SummaryLine label="Publicados" value={fmt.format(postCounts.published)} />
+            <SummaryLine label="Seguidores" value={igProfile ? fmt.format(igProfile.followers_count ?? 0) : '—'} />
+            <SummaryLine label="Publicações" value={igProfile ? fmt.format(igProfile.media_count ?? 0) : '—'} />
+            <SummaryLine label="Posts (calendário)" value={fmt.format(postCounts.total)} />
             <SummaryLine label="Agendados" value={fmt.format(postCounts.scheduled)} />
-            <SummaryLine label="Em revisão" value={fmt.format(postCounts.review)} />
           </div>
         </Card>
       </div>
@@ -296,7 +302,7 @@ export default function DashboardPage() {
         </Card>
 
         <Card padding="lg">
-          <CardHeader title="Calendário de posts" subtitle="Próximas entregas" action={<Link to="/marketing/calendario" className="flex items-center gap-1 text-xs font-medium text-violet-700">Ver agenda <ArrowRight size={11} /></Link>} />
+          <CardHeader title="Calendário de posts" subtitle={hasScheduled ? 'Próximas entregas' : 'Publicações recentes do Instagram'} action={<Link to="/marketing/calendario" className="flex items-center gap-1 text-xs font-medium text-violet-700">Ver agenda <ArrowRight size={11} /></Link>} />
           {secondaryLoading ? <EmptyBlock label="Carregando posts..." /> : upcomingPosts.length ? (
             <div className="mt-1 space-y-2">
               {upcomingPosts.map((post) => (
@@ -349,14 +355,14 @@ export default function DashboardPage() {
           <CardHeader title="Métricas rápidas" subtitle="Sinais operacionais" />
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-[18px] border border-violet-100 bg-white p-3">
+              <Camera size={14} className="mb-2" style={{ color: '#ee2a7b' }} />
+              <p className="text-lg font-bold text-slate-950">{igProfile ? fmt.format(igProfile.followers_count ?? 0) : '—'}</p>
+              <p className="text-xs text-slate-500">Seguidores IG</p>
+            </div>
+            <div className="rounded-[18px] border border-violet-100 bg-white p-3">
               <MousePointerClick size={14} className="mb-2 text-violet-700" />
               <p className="text-lg font-bold text-slate-950">{conversion.toFixed(1)}%</p>
               <p className="text-xs text-slate-500">Conversão site</p>
-            </div>
-            <div className="rounded-[18px] border border-violet-100 bg-white p-3">
-              <FileText size={14} className="mb-2 text-violet-700" />
-              <p className="text-lg font-bold text-slate-950">{fmt.format(postCounts.scheduled)}</p>
-              <p className="text-xs text-slate-500">Posts agendados</p>
             </div>
             <div className="rounded-[18px] border border-violet-100 bg-white p-3">
               <Users size={14} className="mb-2 text-violet-700" />

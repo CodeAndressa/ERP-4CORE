@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Calendar, CheckCircle, DollarSign, Link2, Plus, RefreshCw, Trash2, TrendingUp } from 'lucide-react';
+import { Calendar, CheckCircle, ChevronDown, DollarSign, Link2, Plus, RefreshCw, Trash2, TrendingUp } from 'lucide-react';
 import { api } from '../../services/api';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
@@ -29,15 +29,62 @@ type DirectSaleDraft = {
   description: string;
   value: string;
   contract_total: string;
+  installment_count: string;
 };
 
 const RECEIVED_STATUSES = new Set(['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'received', 'confirmed', 'received_in_cash']);
 const today = new Date().toISOString().slice(0, 10);
-const emptyDirectSale: DirectSaleDraft = { date: today, customer: '', description: '', value: '', contract_total: '' };
+const emptyDirectSale: DirectSaleDraft = { date: today, customer: '', description: '', value: '', contract_total: '', installment_count: '1' };
 
 function parseMoney(value: string) {
-  const parsed = Number(value.replace(/\./g, '').replace(',', '.'));
+  const cleaned = value.replace(/[^0-9,.-]/g, '').trim();
+  const normalized = cleaned.includes(',') ? cleaned.replace(/\./g, '').replace(',', '.') : cleaned.replace(/\.(?=\d{3}(\D|$))/g, '');
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+function addMonths(date: string, months: number) {
+  const current = new Date(`${date}T12:00:00`);
+  current.setMonth(current.getMonth() + months);
+  return current.toISOString().slice(0, 10);
+}
+
+function directSaleSeriesPrefix(id: string) {
+  const match = id.match(/^(local-direct-sale-\d+)-\d+$/);
+  return match?.[1] ?? null;
+}
+
+type DirectSaleGroup = {
+  key: string;
+  item: DirectSale;
+  installments: DirectSale[];
+  totalInstallments: number;
+  installmentTotal: number;
+  contractTotal: number;
+};
+
+function directSaleGroupKey(item: DirectSale) {
+  return directSaleSeriesPrefix(item.id) ?? item.id;
+}
+
+function buildDirectSaleGroups(items: DirectSale[]): DirectSaleGroup[] {
+  const map = new Map<string, DirectSale[]>();
+  items.forEach((item) => {
+    const key = directSaleGroupKey(item);
+    map.set(key, [...(map.get(key) ?? []), item]);
+  });
+
+  return Array.from(map.entries()).map(([key, groupItems]) => {
+    const installments = [...groupItems].sort((a, b) => a.date.localeCompare(b.date));
+    const item = installments[0];
+    return {
+      key,
+      item,
+      installments,
+      totalInstallments: installments.length,
+      installmentTotal: installments.reduce((sum, entry) => sum + entry.value, 0),
+      contractTotal: item.contract_total || installments.reduce((sum, entry) => sum + entry.value, 0),
+    };
+  }).sort((a, b) => a.item.date.localeCompare(b.item.date));
 }
 
 export default function ReceitasPage() {
@@ -47,6 +94,7 @@ export default function ReceitasPage() {
   const [localDirectSales, setLocalDirectSales] = useState<DirectSale[]>([]);
   const [deletedDirectSaleIds, setDeletedDirectSaleIds] = useState<string[]>([]);
   const [directSaleDraft, setDirectSaleDraft] = useState<DirectSaleDraft>(emptyDirectSale);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
 
   const load = useCallback((forceRefresh = false) => {
     setLoading(true);
@@ -70,25 +118,38 @@ export default function ReceitasPage() {
   const unmatchedDirectSales = directSales.filter((item) => !item.matched).reduce((sum, item) => sum + item.value, 0);
   const receivedCount = data?.received_count ?? received.length;
   const avgTicket = receivedCount > 0 ? totalReceived / receivedCount : 0;
+  const directSaleGroups = buildDirectSaleGroups(directSales);
+
+  function toggleGroup(key: string) {
+    setExpandedGroups((current) => current.includes(key) ? current.filter((item) => item !== key) : [...current, key]);
+  }
 
   function saveLocalDirectSale() {
-    const value = parseMoney(directSaleDraft.value);
+    const contractTotal = parseMoney(directSaleDraft.contract_total);
+    const installmentCount = Math.max(1, Number(directSaleDraft.installment_count) || 1);
+    const typedInstallmentValue = parseMoney(directSaleDraft.value);
+    const value = typedInstallmentValue > 0 ? typedInstallmentValue : contractTotal > 0 ? contractTotal / installmentCount : 0;
     if (value <= 0) return;
-    const contractTotal = parseMoney(directSaleDraft.contract_total) || value;
+
     const date = directSaleDraft.date || today;
-    const entry: DirectSale = {
-      id: `local-direct-sale-${Date.now()}`,
-      month: date.slice(0, 7),
-      date,
-      customer: directSaleDraft.customer || 'Cliente manual',
-      description: directSaleDraft.description || 'Venda direta',
-      value,
-      contract_total: contractTotal,
-      source: 'Manual',
-      matched: false,
-      asaas_match: null,
-    };
-    const next = [...localDirectSales, entry];
+    const seriesId = `local-direct-sale-${Date.now()}`;
+    const entries: DirectSale[] = Array.from({ length: installmentCount }, (_, index) => {
+      const installmentDate = addMonths(date, index);
+      return {
+        id: `${seriesId}-${index}`,
+        month: installmentDate.slice(0, 7),
+        date: installmentDate,
+        customer: directSaleDraft.customer || 'Cliente manual',
+        description: directSaleDraft.description || 'Venda direta',
+        value,
+        contract_total: contractTotal || value * installmentCount,
+        source: 'Manual',
+        matched: false,
+        asaas_match: null,
+      };
+    });
+
+    const next = [...localDirectSales, ...entries];
     setLocalDirectSales(next);
     localStorage.setItem(LOCAL_DIRECT_SALES_KEY, JSON.stringify(next));
     setDirectSaleDraft(emptyDirectSale);
@@ -96,7 +157,8 @@ export default function ReceitasPage() {
 
   function removeDirectSale(item: DirectSale) {
     if (item.id.startsWith('local-direct-sale-')) {
-      const next = localDirectSales.filter((entry) => entry.id !== item.id);
+      const seriesPrefix = directSaleSeriesPrefix(item.id);
+      const next = seriesPrefix ? localDirectSales.filter((entry) => !entry.id.startsWith(seriesPrefix)) : localDirectSales.filter((entry) => entry.id !== item.id);
       setLocalDirectSales(next);
       localStorage.setItem(LOCAL_DIRECT_SALES_KEY, JSON.stringify(next));
       return;
@@ -139,32 +201,56 @@ export default function ReceitasPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                  {['Competência', 'Cliente', 'Descrição', 'Parcela', 'Total contrato', 'Origem', ''].map((h) => (
+                  {['Cliente', 'Descrição', 'Parcelas', 'Valor da parcela', 'Total do contrato', 'Receita prevista', 'Origem', ''].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {directSales.map((item, i) => (
-                  <tr key={item.id} style={{ borderBottom: i < directSales.length - 1 ? '1px solid var(--erp-border)' : undefined }}>
-                    <td className="px-4 py-3 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{item.month}</td>
-                    <td className="px-4 py-3 font-medium max-w-xs" style={{ color: 'var(--erp-text)' }}>{item.customer}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.description}</td>
-                    <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#34d399' }}>{currency(item.value, 2)}</td>
-                    <td className="px-4 py-3 tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{currency(item.contract_total, 2)}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: item.matched ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)', color: item.matched ? '#34d399' : '#b45309' }}>
-                        {item.id.startsWith('local-direct-sale-') ? 'Manual' : item.matched ? 'Conciliado' : 'Base manual'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button type="button" onClick={() => removeDirectSale(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-full" style={{ border: '1px solid var(--erp-border)', color: '#ef4444', background: '#fff' }} aria-label="Remover venda direta">
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {!loading && directSales.length === 0 && <tr><td colSpan={7} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma venda direta cadastrada no período</td></tr>}
+                {directSaleGroups.map((group, i) => {
+                  const isExpanded = expandedGroups.includes(group.key);
+                  const canExpand = group.installments.length > 1;
+                  return (
+                    <>
+                      <tr key={group.key} style={{ borderBottom: i < directSaleGroups.length - 1 ? '1px solid var(--erp-border)' : undefined }}>
+                        <td className="px-4 py-3 font-medium max-w-xs" style={{ color: 'var(--erp-text)' }}>
+                          <button type="button" onClick={() => canExpand && toggleGroup(group.key)} className="flex items-center gap-2 text-left">
+                            {canExpand && <ChevronDown size={15} className="transition-transform" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />}
+                            <span>{group.item.customer}</span>
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{group.item.description}</td>
+                        <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{group.totalInstallments}x</td>
+                        <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#34d399' }}>{currency(group.item.value, 2)}</td>
+                        <td className="px-4 py-3 tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{currency(group.contractTotal, 2)}</td>
+                        <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#22c55e' }}>{currency(group.installmentTotal, 2)}</td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: group.item.matched ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)', color: group.item.matched ? '#34d399' : '#b45309' }}>
+                            {group.item.id.startsWith('local-direct-sale-') ? 'Manual' : group.item.matched ? 'Conciliado' : 'Base manual'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button type="button" onClick={() => removeDirectSale(group.item)} className="inline-flex h-8 w-8 items-center justify-center rounded-full" style={{ border: '1px solid var(--erp-border)', color: '#ef4444', background: '#fff' }} aria-label="Remover venda direta">
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                      {isExpanded && group.installments.map((item) => (
+                        <tr key={item.id} style={{ background: 'var(--erp-surface-2)' }}>
+                          <td className="px-4 py-2 pl-10 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{formatDate(item.date)}</td>
+                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.description}</td>
+                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.month}</td>
+                          <td className="px-4 py-2 font-semibold tabular-nums" style={{ color: '#34d399' }}>{currency(item.value, 2)}</td>
+                          <td className="px-4 py-2 text-xs tabular-nums" style={{ color: 'var(--erp-text-dim)' }}>{currency(item.contract_total, 2)}</td>
+                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--erp-text-dim)' }}>Parcela</td>
+                          <td className="px-4 py-2 text-xs" style={{ color: 'var(--erp-text-dim)' }}>{item.source}</td>
+                          <td />
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })}
+                {!loading && directSaleGroups.length === 0 && <tr><td colSpan={8} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma venda direta cadastrada no período</td></tr>}
               </tbody>
             </table>
           </div>
@@ -174,15 +260,16 @@ export default function ReceitasPage() {
           <CardHeader title="Nova venda direta" subtitle="Cadastro manual" />
           <div className="space-y-3">
             {[
-              ['date', 'Data', 'date'],
+              ['date', 'Primeiro vencimento', 'date'],
               ['customer', 'Cliente', 'text'],
               ['description', 'Descrição', 'text'],
               ['value', 'Valor da parcela', 'text'],
               ['contract_total', 'Total do contrato', 'text'],
+              ['installment_count', 'Quantidade de parcelas', 'number'],
             ].map(([key, label, type]) => (
               <label key={key} className="block">
                 <span className="mb-1 block text-xs font-medium" style={{ color: 'var(--erp-text-muted)' }}>{label}</span>
-                <input type={type} value={directSaleDraft[key as keyof DirectSaleDraft]} onChange={(event) => setDirectSaleDraft((current) => ({ ...current, [key]: event.target.value }))} className="h-10 w-full rounded-xl px-3 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
+                <input type={type} min={key === 'installment_count' ? '1' : undefined} value={directSaleDraft[key as keyof DirectSaleDraft]} onChange={(event) => setDirectSaleDraft((current) => ({ ...current, [key]: event.target.value }))} className="h-10 w-full rounded-xl px-3 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
               </label>
             ))}
             <button type="button" onClick={saveLocalDirectSale} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold" style={{ background: 'var(--erp-violet)', color: '#fff' }}>

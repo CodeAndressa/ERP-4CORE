@@ -25,6 +25,7 @@ import IdeiasBancoPage from './pages/marketing/IdeiasBancoPage';
 import MetricasMarketingPage from './pages/marketing/MetricasMarketingPage';
 import CampanhasPage from './pages/marketing/CampanhasPage';
 import PlanejamentoPage from './pages/marketing/PlanejamentoPage';
+import ConexoesMarketingPage from './pages/marketing/ConexoesMarketingPage';
 
 import ChatPage from './pages/ia/ChatPage';
 import SugestoesPage from './pages/ia/SugestoesPage';
@@ -90,6 +91,7 @@ function App() {
           <Route path="metricas" element={<MetricasMarketingPage />} />
           <Route path="campanhas" element={<CampanhasPage />} />
           <Route path="planejamento" element={<PlanejamentoPage />} />
+          <Route path="conexoes" element={<ConexoesMarketingPage />} />
         </Route>
 
         <Route path="ia" element={<IALayout />}>

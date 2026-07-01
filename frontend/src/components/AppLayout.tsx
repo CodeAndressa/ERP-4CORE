@@ -64,6 +64,7 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
       { label: 'Métricas', path: '/marketing/metricas', icon: <BarChart3 size={14} /> },
       { label: 'Campanhas', path: '/marketing/campanhas', icon: <Target size={14} /> },
       { label: 'Planejamento', path: '/marketing/planejamento', icon: <Megaphone size={14} /> },
+      { label: 'Conexões', path: '/marketing/conexoes', icon: <Settings2 size={14} /> },
     ],
   },
   {

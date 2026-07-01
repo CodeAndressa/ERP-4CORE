@@ -347,18 +347,20 @@ class MetaMarketingService:
         ig_id = await self.get_instagram_account_id()
         _, token = await self._page_token_async(None, None)
         now = datetime.now(timezone.utc)
-        since = now - timedelta(days=57)
+        # API v20+: reach com period=day suporta até 30 dias; impressions foi removido
+        since = now - timedelta(days=30)
 
         async with httpx.AsyncClient(timeout=30) as client:
             profile_r = await client.get(
                 f"{self.base_url}/{ig_id}",
                 params={"access_token": token, "fields": "followers_count,media_count"},
             )
+            # Usar apenas reach (única métrica diária válida na v20+)
             insights_r = await client.get(
                 f"{self.base_url}/{ig_id}/insights",
                 params={
                     "access_token": token,
-                    "metric": "reach,impressions,profile_views",
+                    "metric": "reach",
                     "period": "day",
                     "since": int(since.timestamp()),
                     "until": int(now.timestamp()),
@@ -366,43 +368,29 @@ class MetaMarketingService:
             )
 
         profile = profile_r.json() if profile_r.status_code < 400 else {}
-
-        # Insights podem falhar se a permissão instagram_manage_insights não foi concedida.
-        # Nesse caso retornamos só os dados do perfil e deixamos o frontend mostrar o aviso.
         insights_ok = insights_r.status_code < 400
         data = insights_r.json().get("data", []) if insights_ok else []
 
-        daily: dict[str, dict[str, int]] = {}
+        daily: dict[str, int] = {}
         for item in data:
-            name = item["name"]
-            for v in item.get("values", []):
-                day = v["end_time"][:10]
-                if day not in daily:
-                    daily[day] = {"alcance": 0, "impressoes": 0, "visitas": 0}
-                if name == "reach":
-                    daily[day]["alcance"] = int(v["value"])
-                elif name == "impressions":
-                    daily[day]["impressoes"] = int(v["value"])
-                elif name == "profile_views":
-                    daily[day]["visitas"] = int(v["value"])
+            if item["name"] == "reach":
+                for v in item.get("values", []):
+                    daily[v["end_time"][:10]] = int(v["value"])
 
         today = now.date()
         weekly = []
-        for weeks_ago in range(7, -1, -1):
+        for weeks_ago in range(3, -1, -1):
             week_end = today - timedelta(days=weeks_ago * 7)
             week_start = week_end - timedelta(days=6)
             label = week_end.strftime("%d/%m")
             weekly.append({
                 "week": label,
-                "alcance": sum(daily.get(str(week_start + timedelta(days=d)), {}).get("alcance", 0) for d in range(7)),
-                "impressoes": sum(daily.get(str(week_start + timedelta(days=d)), {}).get("impressoes", 0) for d in range(7)),
+                "alcance": sum(daily.get(str(week_start + timedelta(days=d)), 0) for d in range(7)),
             })
 
-        total_reach = sum(v.get("alcance", 0) for v in daily.values())
-        total_impressions = sum(v.get("impressoes", 0) for v in daily.values())
-        total_profile_views = sum(v.get("visitas", 0) for v in daily.values())
-        first_half = sum(w["alcance"] for w in weekly[:4])
-        second_half = sum(w["alcance"] for w in weekly[4:])
+        total_reach = sum(daily.values())
+        first_half = sum(w["alcance"] for w in weekly[:2])
+        second_half = sum(w["alcance"] for w in weekly[2:])
         trend_pct = round(((second_half - first_half) / first_half * 100) if first_half > 0 else 0, 1)
 
         return {
@@ -412,8 +400,8 @@ class MetaMarketingService:
                 "followers": profile.get("followers_count", 0),
                 "media_count": profile.get("media_count", 0),
                 "reach_total": total_reach,
-                "impressions_total": total_impressions,
-                "profile_views_total": total_profile_views,
+                "impressions_total": 0,
+                "profile_views_total": 0,
                 "trend_pct": trend_pct,
             },
         }

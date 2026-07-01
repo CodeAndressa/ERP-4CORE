@@ -13,7 +13,7 @@ import { api } from '../../services/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface WeeklyPoint { week: string; alcance: number; impressoes: number }
+interface WeeklyPoint { week: string; alcance: number; impressoes?: number }
 interface Summary {
   followers: number;
   media_count: number;
@@ -166,7 +166,7 @@ export default function MetricasMarketingPage() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Métricas de Marketing</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Dados dos últimos 56 dias · Instagram @4coreconsultoria</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Dados dos últimos 30 dias · Instagram @4coreconsultoria</p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white"
           style={{ background: 'linear-gradient(135deg, #ee2a7b, #6228d7)' }}>
@@ -192,23 +192,22 @@ export default function MetricasMarketingPage() {
             trend={followerGrowth?.available && growth30d > 0 ? growth30d : undefined}
           />
           <MetricCard
-            label={insightsAvailable ? 'Alcance Total' : 'Curtidas'}
-            value={insightsAvailable ? fmtNum(summary?.reach_total ?? 0) : fmtNum(totalLikes)}
+            label="Alcance"
+            value={insightsAvailable ? fmtNum(summary?.reach_total ?? 0) : '—'}
             detail={insightsAvailable
-              ? `${summary?.trend_pct && summary.trend_pct > 0 ? '+' : ''}${summary?.trend_pct ?? 0}% vs. 4 sem. ant.`
-              : 'últimas 30 publicações'}
+              ? `${(summary?.trend_pct ?? 0) > 0 ? '+' : ''}${summary?.trend_pct ?? 0}% vs. 2 sem. ant.`
+              : 'requer instagram_manage_insights'}
             tone="emerald"
             icon={<TrendingUp size={16} />}
             trend={insightsAvailable ? summary?.trend_pct : undefined}
             sparkline={insightsAvailable ? weekly.map((w) => w.alcance) : undefined}
           />
           <MetricCard
-            label={insightsAvailable ? 'Impressões' : 'Comentários'}
-            value={insightsAvailable ? fmtNum(summary?.impressions_total ?? 0) : fmtNum(totalComments)}
-            detail={insightsAvailable ? 'total de impressões' : 'últimas 30 publicações'}
+            label="Comentários"
+            value={fmtNum(totalComments)}
+            detail="últimas 30 publicações"
             tone="amber"
             icon={<Eye size={16} />}
-            sparkline={insightsAvailable ? weekly.map((w) => w.impressoes) : undefined}
           />
           <MetricCard
             label="Engajamento"
@@ -226,26 +225,13 @@ export default function MetricasMarketingPage() {
           style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
           <div className="flex items-start gap-3">
             <AlertCircle size={15} className="mt-0.5 shrink-0" style={{ color: '#f59e0b' }} />
-            <div className="space-y-2">
+            <div className="space-y-1">
               <p className="font-semibold" style={{ color: 'var(--erp-text)' }}>
-                Alcance e impressões não disponíveis — permissão <code className="text-xs">instagram_manage_insights</code> não concedida
+                Alcance não disponível — permissão <code className="text-xs">instagram_manage_insights</code> não concedida
               </p>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>
-                Isso acontece quando a permissão não foi aprovada durante o OAuth. Para corrigir:
-              </p>
-              <ol className="text-xs space-y-1 list-decimal list-inside" style={{ color: 'var(--erp-text-muted)' }}>
-                <li>Vá em <strong style={{ color: 'var(--erp-text)' }}>Marketing → Conexões</strong> e desconecte o Instagram</li>
-                <li>Reconecte clicando em "Conectar Instagram"</li>
-                <li>Na tela da Meta, certifique-se de <strong style={{ color: 'var(--erp-text)' }}>manter todas as permissões marcadas</strong></li>
-                <li>Conclua o fluxo de autorização</li>
-              </ol>
               <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                Se o problema persistir, acesse{' '}
-                <a href="https://developers.facebook.com/apps/1649220676379325/roles/roles/" target="_blank" rel="noreferrer"
-                  className="underline" style={{ color: 'var(--erp-violet-light)' }}>
-                  Meta App → Funções
-                </a>{' '}
-                e confirme que sua conta está listada como Administrador ou Testador.
+                Vá em <a href="/marketing/conexoes" className="underline font-semibold" style={{ color: 'var(--erp-violet-light)' }}>Marketing → Conexões</a>,
+                reconecte via Meta e mantenha todas as permissões marcadas.
               </p>
             </div>
           </div>
@@ -336,7 +322,7 @@ export default function MetricasMarketingPage() {
         <Card padding="lg">
           <CardHeader
             title={insightsAvailable ? 'Alcance Semanal' : 'Engajamento por Post'}
-            subtitle={insightsAvailable ? 'Alcance e impressões (Instagram)' : 'Curtidas + comentários nas últimas publicações'}
+            subtitle={insightsAvailable ? 'Alcance por semana (últimos 30 dias)' : 'Curtidas + comentários nas últimas publicações'}
           />
           {insightsAvailable ? (
             <ResponsiveContainer width="100%" height={200}>
@@ -346,18 +332,13 @@ export default function MetricasMarketingPage() {
                     <stop offset="5%"  stopColor="#ee2a7b" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#ee2a7b" stopOpacity={0} />
                   </linearGradient>
-                  <linearGradient id="gImpressoes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#6228d7" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#6228d7" stopOpacity={0} />
-                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
                 <XAxis dataKey="week" tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={40}
                   tickFormatter={(v) => fmtNum(v)} />
                 <Tooltip content={<Tip />} />
-                <Area name="Alcance"    type="monotone" dataKey="alcance"   stroke="#ee2a7b" strokeWidth={2} fill="url(#gAlcance)" />
-                <Area name="Impressões" type="monotone" dataKey="impressoes" stroke="#6228d7" strokeWidth={2} fill="url(#gImpressoes)" />
+                <Area name="Alcance" type="monotone" dataKey="alcance" stroke="#ee2a7b" strokeWidth={2} fill="url(#gAlcance)" />
               </AreaChart>
             </ResponsiveContainer>
           ) : (

@@ -1,5 +1,8 @@
+import uuid
+
 from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
+from sqlalchemy.types import Uuid
 
 from app.database.session import Base
 
@@ -7,7 +10,7 @@ from app.database.session import Base
 class Lead(Base):
     __tablename__ = "leads"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Uuid(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String(180), nullable=False)
     company = Column(String(180))
     email = Column(String(180))
@@ -28,7 +31,7 @@ class Proposal(Base):
     __tablename__ = "proposals"
 
     id = Column(Integer, primary_key=True)
-    lead_id = Column(Integer, ForeignKey("leads.id"), nullable=True, index=True)
+    lead_id = Column(Uuid(as_uuid=False), ForeignKey("leads.id"), nullable=True, index=True)
     code = Column(String(40), nullable=False, unique=True)
     title = Column(String(180), nullable=False, default="Proposta comercial")
     client = Column(String(180), nullable=False)

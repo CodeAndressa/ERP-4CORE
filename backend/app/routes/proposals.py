@@ -18,7 +18,7 @@ class ProposalCreate(BaseModel):
     status: str = "elaboracao"
     next_action: str | None = None
     title: str | None = "Proposta comercial"
-    lead_id: int | None = None
+    lead_id: str | None = None
     notes: str | None = None
 
 
@@ -28,7 +28,7 @@ class ProposalUpdate(BaseModel):
     status: str | None = None
     next_action: str | None = None
     title: str | None = None
-    lead_id: int | None = None
+    lead_id: str | None = None
     notes: str | None = None
 
 

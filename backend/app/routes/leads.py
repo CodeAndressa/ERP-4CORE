@@ -73,7 +73,7 @@ def create_lead(payload: LeadCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/{lead_id}")
-def update_lead(lead_id: int, payload: LeadUpdate, db: Session = Depends(get_db)):
+def update_lead(lead_id: str, payload: LeadUpdate, db: Session = Depends(get_db)):
     item = db.get(Lead, lead_id)
     if not item:
         raise HTTPException(status_code=404, detail="Lead nao encontrado.")
@@ -87,7 +87,7 @@ def update_lead(lead_id: int, payload: LeadUpdate, db: Session = Depends(get_db)
 
 
 @router.delete("/{lead_id}")
-def delete_lead(lead_id: int, db: Session = Depends(get_db)):
+def delete_lead(lead_id: str, db: Session = Depends(get_db)):
     item = db.get(Lead, lead_id)
     if not item:
         raise HTTPException(status_code=404, detail="Lead nao encontrado.")

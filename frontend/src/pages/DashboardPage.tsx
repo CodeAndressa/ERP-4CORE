@@ -8,7 +8,6 @@ import {
   Clock,
   DollarSign,
   Eye,
-  FileText,
   MousePointerClick,
   RefreshCw,
   TrendingUp,

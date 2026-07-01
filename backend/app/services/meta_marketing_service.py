@@ -15,8 +15,11 @@ META_SCOPES = [
     "pages_show_list",
     "pages_read_engagement",
     "pages_read_user_content",
+    "pages_manage_posts",
     "instagram_basic",
     "instagram_manage_insights",
+    "instagram_content_publish",
+    "instagram_manage_messages",
 ]
 
 # Cache em memória do Instagram Business Account ID para evitar consultas repetidas
@@ -33,8 +36,9 @@ class MetaMarketingService:
             raise HTTPException(400, "Configure META_APP_ID e META_APP_SECRET no backend.")
 
     def _page_token(self, page_id: str | None, page_access_token: str | None) -> tuple[str, str]:
-        target_page_id = page_id or settings.meta_page_id
-        token = page_access_token or settings.meta_page_access_token or settings.meta_access_token
+        from app.services.token_store import get as ts_get
+        target_page_id = page_id or ts_get("meta_page_id") or settings.meta_page_id
+        token = page_access_token or ts_get("meta_page_access_token") or settings.meta_page_access_token or settings.meta_access_token
         if not target_page_id or not token:
             raise HTTPException(400, "Configure META_PAGE_ID e META_PAGE_ACCESS_TOKEN.")
         return target_page_id, token
@@ -92,7 +96,80 @@ class MetaMarketingService:
         token_payload = await self.exchange_code(code, redirect_uri)
         user_token = token_payload.get("access_token", "")
         pages = await self.list_pages(user_token)
+        # Salvar automaticamente o token long-lived para o token_store
+        await self._auto_save_page_token(user_token, pages)
         return {"user_access_token": user_token, "pages": pages}
+
+    async def _auto_save_page_token(self, user_token: str, pages: list) -> None:
+        """Troca user token por long-lived page token e persiste em .meta_tokens.json."""
+        from app.services.token_store import save as ts_save
+        try:
+            # 1. Trocar user token curto por long-lived
+            async with httpx.AsyncClient(timeout=20) as client:
+                r = await client.get(
+                    f"{self.base_url}/oauth/access_token",
+                    params={
+                        "grant_type": "fb_exchange_token",
+                        "client_id": settings.meta_app_id,
+                        "client_secret": settings.meta_app_secret,
+                        "fb_exchange_token": user_token,
+                    },
+                )
+            long_user = r.json().get("access_token", "")
+            if not long_user:
+                return
+
+            # 2. Achar a página certa (usa meta_page_id do .env, ou a primeira)
+            target_page = next(
+                (p for p in pages if p.get("id") == settings.meta_page_id),
+                pages[0] if pages else None,
+            )
+            if not target_page:
+                return
+            page_id = target_page["id"]
+
+            # 3. Obter long-lived page token
+            async with httpx.AsyncClient(timeout=20) as client:
+                r = await client.get(
+                    f"{self.base_url}/{page_id}",
+                    params={"fields": "access_token", "access_token": long_user},
+                )
+            page_token = r.json().get("access_token", "")
+            if not page_token:
+                return
+
+            # 4. Descobrir IG Business Account ID a partir da página (se ainda não tiver)
+            ig_id = (
+                target_page.get("instagram_business_account", {}).get("id", "")
+                or settings.instagram_business_account_id
+            )
+
+            # 5. Persistir
+            ts_save({
+                "meta_page_id": page_id,
+                "meta_page_access_token": page_token,
+                "instagram_business_account_id": ig_id,
+            })
+            global _ig_account_id_cache
+            if ig_id:
+                _ig_account_id_cache = ig_id
+        except Exception:
+            # Fallback: salvar o token de curto prazo da página (expira em ~1-2h)
+            try:
+                from app.services.token_store import save as ts_save_fb
+                target_page = next(
+                    (p for p in pages if p.get("id") == settings.meta_page_id),
+                    pages[0] if pages else None,
+                )
+                if target_page and target_page.get("access_token"):
+                    ig_id = target_page.get("instagram_business_account", {}).get("id", "") or settings.instagram_business_account_id
+                    ts_save_fb({
+                        "meta_page_id": target_page["id"],
+                        "meta_page_access_token": target_page["access_token"],
+                        "instagram_business_account_id": ig_id,
+                    })
+            except Exception:
+                pass
 
     # ─── Facebook Page ─────────────────────────────────────────────────────────
 
@@ -191,8 +268,12 @@ class MetaMarketingService:
 
     async def get_instagram_account_id(self) -> str:
         global _ig_account_id_cache
+        from app.services.token_store import get as ts_get
         if settings.instagram_business_account_id:
             return settings.instagram_business_account_id
+        stored_ig = ts_get("instagram_business_account_id")
+        if stored_ig:
+            return stored_ig
         if _ig_account_id_cache:
             return _ig_account_id_cache
         target_page_id, token = self._page_token(None, None)

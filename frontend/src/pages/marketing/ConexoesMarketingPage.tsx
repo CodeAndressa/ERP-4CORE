@@ -59,7 +59,6 @@ function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
 export default function ConexoesMarketingPage() {
   const [fbStatus, setFbStatus] = useState<MetaStatus | null>(null);
   const [igProfile, setIgProfile] = useState<IgProfile | null>(null);
-  const [igError, setIgError] = useState<string | null>(null);
   const [pages, setPages] = useState<MetaPage[]>([]);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -81,8 +80,8 @@ export default function ConexoesMarketingPage() {
 
   function loadIgProfile() {
     api.get<IgProfile>('/marketing/meta/instagram/profile')
-      .then(({ data }) => { setIgProfile(data); setIgError(null); })
-      .catch((err) => setIgError(errorDetail(err, 'Não foi possível carregar o perfil do Instagram.')));
+      .then(({ data }) => setIgProfile(data))
+      .catch(() => setIgProfile(null));
   }
 
   useEffect(() => {
@@ -104,7 +103,8 @@ export default function ConexoesMarketingPage() {
     api.get('/marketing/meta/callback', { params: { code, redirect_uri: redirectUri } })
       .then(({ data }) => {
         setPages(data.pages ?? []);
-        setMessage('Conexão autorizada. Escolha a página da 4Core e copie os valores para as variáveis de ambiente.');
+        setMessage('✅ Conexão atualizada! Token com todas as permissões salvo automaticamente — não precisa editar o .env.');
+        loadStatus();
         loadIgProfile();
       })
       .catch((err) => setMessage(err?.response?.data?.detail || 'Não foi possível concluir a conexão com a Meta.'))
@@ -343,7 +343,7 @@ export default function ConexoesMarketingPage() {
       {/* ── Páginas OAuth (após callback) ────────────────────────────────── */}
       {pages.length > 0 && (
         <Card padding="lg">
-          <CardHeader title="Páginas disponíveis" subtitle="Selecione a página 4Core e copie as variáveis de ambiente" />
+          <CardHeader title="Páginas disponíveis" subtitle="Token salvo automaticamente. O botão abaixo copia as variáveis caso precise atualizar o .env manualmente." />
           <div className="mt-3 space-y-3">
             {pages.map((page) => (
               <div key={page.id}

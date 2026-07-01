@@ -4,7 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, Users, Eye, Heart, ExternalLink, AlertCircle,
+  TrendingUp, Users, Eye, Heart, ExternalLink, AlertCircle,
   MessageCircle, Lock, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import { MetricCard } from '../../shared/components/layout/MetricCard';

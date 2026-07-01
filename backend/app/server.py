@@ -30,7 +30,7 @@ app.add_middleware(
 
 @app.middleware('http')
 async def require_authentication(request: Request, call_next):
-    if request.method == 'OPTIONS' or request.url.path in PUBLIC_PATHS:
+    if request.method == 'OPTIONS' or request.url.path in PUBLIC_PATHS or request.url.path.startswith('/marketing/meta'):
         return await call_next(request)
 
     authorization = request.headers.get('authorization', '')

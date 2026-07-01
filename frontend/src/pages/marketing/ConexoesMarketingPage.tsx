@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Copy, ExternalLink, Link2, RefreshCw, ShieldAlert } from 'lucide-react';
-import { api } from '../../services/api';
+import { API_BASE_URL, api } from '../../services/api';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
 
 interface MetaStatus {
@@ -30,10 +30,17 @@ export default function ConexoesMarketingPage() {
   const [message, setMessage] = useState('');
   const redirectUri = useMemo(() => `${window.location.origin}/marketing/conexoes`, []);
 
+  function errorDetail(error: any, fallback: string) {
+    return error?.response?.data?.detail || error?.message || fallback;
+  }
+
   function loadStatus() {
     api.get<MetaStatus>('/marketing/meta/status')
       .then(({ data }) => setStatus(data))
-      .catch(() => setStatus(null));
+      .catch((error) => {
+        setStatus(null);
+        setMessage(`Status Meta falhou (${error?.response?.status ?? 'sem status'}) em ${API_BASE_URL}/marketing/meta/status: ${errorDetail(error, 'erro desconhecido')}`);
+      });
   }
 
   useEffect(() => { loadStatus(); }, []);
@@ -60,7 +67,7 @@ export default function ConexoesMarketingPage() {
       const { data } = await api.get('/marketing/meta/auth-url', { params: { redirect_uri: redirectUri } });
       window.location.assign(data.url);
     } catch (error: any) {
-      setMessage(error?.response?.data?.detail || 'Configure META_APP_ID e META_APP_SECRET no backend.');
+      setMessage(`Conectar Meta falhou (${error?.response?.status ?? 'sem status'}) em ${API_BASE_URL}/marketing/meta/auth-url: ${errorDetail(error, 'Configure META_APP_ID e META_APP_SECRET no backend.')}`);
       setLoading(false);
     }
   }
@@ -89,6 +96,7 @@ export default function ConexoesMarketingPage() {
             <CardHeader title="Facebook / Instagram" subtitle="OAuth da Meta Graph API" />
             <div className="mt-3 grid gap-2 text-sm" style={{ color: 'var(--erp-text-muted)' }}>
               <span>Redirect URI: <strong style={{ color: 'var(--erp-text)' }}>{redirectUri}</strong></span>
+              <span>Backend API: <strong style={{ color: 'var(--erp-text)' }}>{API_BASE_URL}</strong></span>
               <span>App ID: <strong style={{ color: 'var(--erp-text)' }}>{status?.app_id || 'não configurado'}</strong></span>
               <span>Página conectada: <strong style={{ color: status?.page_connected ? '#059669' : '#b45309' }}>{status?.page_connected ? status.page_id : 'pendente'}</strong></span>
             </div>

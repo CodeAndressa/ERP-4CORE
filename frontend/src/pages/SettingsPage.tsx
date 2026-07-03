@@ -19,6 +19,15 @@ type User = {
   is_active: boolean;
 };
 
+type CompanySettings = {
+  company_name: string;
+  cnpj: string | null;
+  financial_email: string | null;
+  phone: string | null;
+};
+
+const EMPTY_COMPANY: CompanySettings = { company_name: '', cnpj: '', financial_email: '', phone: '' };
+
 const INTEGRATIONS = [
   { key: 'site_analytics' as const, label: 'Métricas do Site', desc: 'Supabase · acessos, conversões e leads', icon: Globe },
   { key: 'financial' as const, label: 'Financeiro', desc: 'ASAAS · cobranças e pagamentos', icon: DollarSign },
@@ -32,7 +41,11 @@ export default function SettingsPage() {
   const [status, setStatus] = useState<IntegrationStatus>({ site_analytics: false, financial: false, instagram: false, ai: false, email: false, contract_storage: false });
   const [users, setUsers] = useState<User[]>([]);
   const [checked, setChecked] = useState(false);
+  const [company, setCompany] = useState<CompanySettings>(EMPTY_COMPANY);
+  const [companyLoaded, setCompanyLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [userMessage, setUserMessage] = useState('');
   const [userError, setUserError] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
@@ -47,12 +60,26 @@ export default function SettingsPage() {
       .then(({ data }) => setStatus(data))
       .catch(() => undefined)
       .finally(() => setChecked(true));
+    api.get<CompanySettings>('/settings/company')
+      .then(({ data }) => setCompany(data))
+      .catch(() => undefined)
+      .finally(() => setCompanyLoaded(true));
     loadUsers().catch(() => undefined);
   }, []);
 
-  function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  async function handleSave() {
+    setSaveError('');
+    setSaving(true);
+    try {
+      const { data } = await api.put<CompanySettings>('/settings/company', company);
+      setCompany(data);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e: any) {
+      setSaveError(e?.response?.data?.detail || 'Não foi possível salvar os dados da empresa.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function createUser() {
@@ -90,26 +117,37 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Configurações</h1>
           <p className="mt-1 text-sm" style={{ color: 'var(--erp-text-muted)' }}>{activeCount} de {INTEGRATIONS.length} integrações ativas</p>
         </div>
-        <button onClick={handleSave} className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all" style={{ background: saved ? '#ecfdf5' : 'var(--erp-violet)', color: saved ? '#047857' : '#fff' }}>
+        <button onClick={() => void handleSave()} disabled={saving || !companyLoaded} className="flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all disabled:opacity-60" style={{ background: saved ? 'rgba(4,120,87,0.1)' : 'var(--erp-violet)', color: saved ? 'var(--erp-emerald)' : '#fff' }}>
           {saved ? <CheckCircle size={14} /> : <Save size={14} />}
-          {saved ? 'Salvo!' : 'Salvar alterações'}
+          {saving ? 'Salvando...' : saved ? 'Salvo!' : 'Salvar alterações'}
         </button>
       </div>
+      {saveError && <p className="text-sm" style={{ color: 'var(--erp-rose)' }}>{saveError}</p>}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card padding="lg">
           <p className="mb-4 text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Dados da empresa</p>
           <p className="mb-4 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Exibidos em documentos e comunicações</p>
           <div className="space-y-3">
-            {[
-              { label: 'Nome da empresa', value: '4Core Consultoria Estratégica' },
-              { label: 'CNPJ', value: '00.000.000/0001-00' },
-              { label: 'E-mail financeiro', value: 'financeiro@4core.com.br' },
-              { label: 'Telefone', value: '+55 (11) 90000-0000' },
-            ].map((field) => (
-              <div key={field.label}>
+            {(
+              [
+                { key: 'company_name', label: 'Nome da empresa', placeholder: '4Core Consultoria Estratégica', type: 'text' },
+                { key: 'cnpj', label: 'CNPJ', placeholder: '00.000.000/0001-00', type: 'text' },
+                { key: 'financial_email', label: 'E-mail financeiro', placeholder: 'financeiro@4core.com.br', type: 'email' },
+                { key: 'phone', label: 'Telefone', placeholder: '+55 (11) 90000-0000', type: 'text' },
+              ] as { key: keyof CompanySettings; label: string; placeholder: string; type: string }[]
+            ).map((field) => (
+              <div key={field.key}>
                 <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--erp-text-muted)' }}>{field.label}</label>
-                <input defaultValue={field.value} className="w-full rounded-full px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
+                <input
+                  value={company[field.key] ?? ''}
+                  onChange={(e) => setCompany((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                  placeholder={field.placeholder}
+                  type={field.type ?? 'text'}
+                  disabled={!companyLoaded}
+                  className="w-full rounded-xl px-3 py-2 text-sm outline-none disabled:opacity-60"
+                  style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+                />
               </div>
             ))}
           </div>
@@ -124,10 +162,10 @@ export default function SettingsPage() {
             {INTEGRATIONS.map(({ key, label, desc, icon: Icon }) => {
               const active = status[key];
               return (
-                <div key={key} className="flex items-center gap-3 rounded-[22px] px-3 py-3" style={{ background: active ? '#ecfdf5' : 'var(--erp-surface-2)', border: `1px solid ${active ? '#bbf7d0' : 'var(--erp-border)'}` }}>
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: active ? '#d1fae5' : 'var(--erp-surface)' }}><Icon size={14} style={{ color: active ? '#047857' : 'var(--erp-text-dim)' }} /></div>
+                <div key={key} className="flex items-center gap-3 rounded-[22px] px-3 py-3" style={{ background: active ? 'rgba(4,120,87,0.07)' : 'var(--erp-surface-2)', border: `1px solid ${active ? 'rgba(4,120,87,0.24)' : 'var(--erp-border)'}` }}>
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: active ? 'rgba(4,120,87,0.14)' : 'var(--erp-surface)' }}><Icon size={14} style={{ color: active ? 'var(--erp-emerald)' : 'var(--erp-text-dim)' }} /></div>
                   <div className="min-w-0 flex-1"><p className="text-sm font-medium" style={{ color: 'var(--erp-text)' }}>{label}</p><p className="truncate text-xs" style={{ color: 'var(--erp-text-muted)' }}>{desc}</p></div>
-                  <div className="flex shrink-0 items-center gap-1.5">{active ? <CheckCircle size={13} style={{ color: '#047857' }} /> : <AlertCircle size={13} style={{ color: '#b45309' }} />}<span className="text-xs font-medium" style={{ color: active ? '#047857' : '#b45309' }}>{active ? 'Ativa' : 'Pendente'}</span></div>
+                  <div className="flex shrink-0 items-center gap-1.5">{active ? <CheckCircle size={13} style={{ color: 'var(--erp-emerald)' }} /> : <AlertCircle size={13} style={{ color: 'var(--erp-amber)' }} />}<span className="text-xs font-medium" style={{ color: active ? 'var(--erp-emerald)' : 'var(--erp-amber)' }}>{active ? 'Ativa' : 'Pendente'}</span></div>
                 </div>
               );
             })}
@@ -144,19 +182,19 @@ export default function SettingsPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <input value={form.full_name} onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} placeholder="Nome completo" className="rounded-full px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@empresa.com" type="email" className="rounded-full px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <input value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} placeholder="Senha inicial" type="password" className="rounded-full px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
+            <input value={form.full_name} onChange={(e) => setForm((p) => ({ ...p, full_name: e.target.value }))} placeholder="Nome completo" className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
+            <input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@empresa.com" type="email" className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
+            <input value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} placeholder="Senha inicial" type="password" className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
           </div>
-          <button onClick={createUser} disabled={creatingUser} className="mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--erp-violet)' }}><UserPlus size={14} />{creatingUser ? 'Criando...' : 'Criar usuário'}</button>
-          {(userError || userMessage) && <p className="mt-3 text-sm" style={{ color: userError ? '#be123c' : '#047857' }}>{userError || userMessage}</p>}
+          <button onClick={createUser} disabled={creatingUser} className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:opacity-60" style={{ background: 'var(--erp-violet)' }}><UserPlus size={14} />{creatingUser ? 'Criando...' : 'Criar usuário'}</button>
+          {(userError || userMessage) && <p className="mt-3 text-sm" style={{ color: userError ? 'var(--erp-rose)' : 'var(--erp-emerald)' }}>{userError || userMessage}</p>}
 
           <div className="mt-5 space-y-2">
             {users.map((user) => (
               <div key={user.id} className="flex items-center gap-3 rounded-[22px] px-3 py-3" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)' }}>
                 <div className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)', fontWeight: 700, fontSize: 12 }}>{user.full_name[0]}</div>
                 <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium" style={{ color: 'var(--erp-text)' }}>{user.full_name}</p><p className="truncate text-xs" style={{ color: 'var(--erp-text-muted)' }}>{user.email}</p></div>
-                <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: user.is_active ? '#ecfdf5' : 'var(--erp-surface)', color: user.is_active ? '#047857' : 'var(--erp-text-muted)' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: user.is_active ? 'rgba(4,120,87,0.1)' : 'var(--erp-surface)', color: user.is_active ? 'var(--erp-emerald)' : 'var(--erp-text-muted)' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
               </div>
             ))}
             {users.length === 0 && <div className="flex items-center gap-2 rounded-[22px] border border-dashed border-violet-100 px-3 py-4 text-sm" style={{ color: 'var(--erp-text-muted)' }}><Users size={14} />Nenhum usuário encontrado</div>}

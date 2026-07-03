@@ -30,10 +30,10 @@ function formatLabel(type: string, productType?: string): string {
 
 function formatIcon(type: string, productType?: string) {
   const cls = 'shrink-0';
-  if (productType === 'REELS') return <PlaySquare size={13} className={cls} style={{ color: '#a78bfa' }} />;
-  if (type === 'CAROUSEL_ALBUM') return <Layers size={13} className={cls} style={{ color: '#f59e0b' }} />;
-  if (type === 'VIDEO') return <Video size={13} className={cls} style={{ color: '#60a5fa' }} />;
-  return <Image size={13} className={cls} style={{ color: '#f472b6' }} />;
+  if (productType === 'REELS') return <PlaySquare size={13} className={cls} style={{ color: 'var(--erp-text-muted)' }} />;
+  if (type === 'CAROUSEL_ALBUM') return <Layers size={13} className={cls} style={{ color: 'var(--erp-text-muted)' }} />;
+  if (type === 'VIDEO') return <Video size={13} className={cls} style={{ color: 'var(--erp-text-muted)' }} />;
+  return <Image size={13} className={cls} style={{ color: 'var(--erp-text-muted)' }} />;
 }
 
 type StatusTone = 'emerald';
@@ -131,7 +131,7 @@ export default function PostsPage() {
             style={{
               background: typeFilter === key ? 'var(--erp-violet-dim)' : 'transparent',
               color: typeFilter === key ? 'var(--erp-violet-light)' : 'var(--erp-text-muted)',
-              border: typeFilter === key ? '1px solid var(--erp-violet)44' : '1px solid transparent',
+              border: typeFilter === key ? '1px solid var(--erp-border-strong)' : '1px solid transparent',
             }}
           >
             {label}
@@ -142,7 +142,7 @@ export default function PostsPage() {
       {/* Platform badge */}
       <div className="flex items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white"
-          style={{ background: 'linear-gradient(135deg, #ee2a7b, #6228d7)' }}>
+          style={{ background: 'var(--erp-violet)' }}>
           Instagram
         </span>
         {!loading && !error && (

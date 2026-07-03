@@ -9,7 +9,8 @@ from app.database.session import engine, Base, SessionLocal
 from app.database.schema import ensure_runtime_schema
 from app.models.commercial import Lead, Proposal
 from app.models.contracts import Contract, Order
-from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, knowledge, ai, site_analytics, integrations, contracts
+from app.models.settings import CompanySettings
+from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
 
 
@@ -99,7 +100,7 @@ def on_startup():
         db.close()
 
 
-for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router]:
+for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, settings_routes.router]:
     app.include_router(router)
 
 

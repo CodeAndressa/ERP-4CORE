@@ -1,0 +1,50 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "reason": "Documented sole typeface in DESIGN.md; product register explicitly permits system/familiar sans defaults for app UI",
+        "createdAt": "2026-07-03T16:12:52.212Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#e2dcee",
+        "reason": "Intentional intermediate violet tint used only inside the global Tailwind violet-100 remap in styles.css, not picked ad-hoc by components",
+        "createdAt": "2026-07-03T16:39:28.047Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#f9ce34",
+        "reason": "Genuine one-off platform-brand logo mark (Instagram/Facebook/WhatsApp icon) in ConexoesMarketingPage, not decorative color drift",
+        "createdAt": "2026-07-03T16:39:37.634Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#ee2a7b",
+        "reason": "Genuine one-off platform-brand logo mark (Instagram/Facebook/WhatsApp icon) in ConexoesMarketingPage, not decorative color drift",
+        "createdAt": "2026-07-03T16:39:37.827Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#6228d7",
+        "reason": "Genuine one-off platform-brand logo mark (Instagram/Facebook/WhatsApp icon) in ConexoesMarketingPage, not decorative color drift",
+        "createdAt": "2026-07-03T16:39:38.018Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#1877f2",
+        "reason": "Genuine one-off platform-brand logo mark (Instagram/Facebook/WhatsApp icon) in ConexoesMarketingPage, not decorative color drift",
+        "createdAt": "2026-07-03T16:39:38.205Z"
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#25d366",
+        "reason": "Genuine one-off platform-brand logo mark (Instagram/Facebook/WhatsApp icon) in ConexoesMarketingPage, not decorative color drift",
+        "createdAt": "2026-07-03T16:39:38.385Z"
+      }
+    ]
+  }
+}

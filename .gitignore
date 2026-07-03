@@ -41,3 +41,5 @@ backend/uploads/
 .vercel
 .agents/
 .claude/skills/
+.codex/
+.impeccable/hook.cache.json

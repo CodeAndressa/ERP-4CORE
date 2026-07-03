@@ -343,10 +343,69 @@ export function LeadsPageNew() {
     }
   }
 
+  function confirmDeleteLead(lead: Lead) {
+    return new Promise<boolean>((resolve) => {
+      toast.custom(
+        (t) => (
+          <div className="flex w-full max-w-sm flex-col gap-3 rounded-2xl border bg-white p-4" style={{ borderColor: 'var(--erp-border)', boxShadow: '0 18px 45px rgba(43,22,92,0.18)' }}>
+            <p className="text-sm" style={{ color: 'var(--erp-text)' }}>
+              Excluir <strong>{lead.name}</strong>? Essa ação não pode ser desfeita.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => { toast.dismiss(t.id); resolve(false); }}
+                className="min-h-11 rounded-xl px-3 py-2 text-sm font-medium"
+                style={{ border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { toast.dismiss(t.id); resolve(true); }}
+                className="min-h-11 rounded-xl px-3 py-2 text-sm font-semibold text-white"
+                style={{ background: 'var(--erp-rose)' }}
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        ),
+        { duration: Infinity },
+      );
+    });
+  }
+
+  async function undoDeleteLead(lead: Lead) {
+    try {
+      const { id: _id, created_at: _createdAt, ...payload } = lead;
+      const { data } = await api.post('/leads', payload);
+      setLeads((prev) => [normalizeLead(data), ...prev]);
+      toast.success('Lead restaurado.');
+    } catch {
+      toast.error('Não foi possível restaurar o lead.');
+    }
+  }
+
   async function deleteLead(id: string) {
-    if (!window.confirm('Excluir este lead?')) return;
-    await api.delete(`/leads/${id}`);
-    setLeads((prev) => prev.filter((lead) => lead.id !== id));
+    const lead = leads.find((item) => item.id === id);
+    if (!lead) return;
+    const confirmed = await confirmDeleteLead(lead);
+    if (!confirmed) return;
+    try {
+      await api.delete(`/leads/${id}`);
+      setLeads((prev) => prev.filter((item) => item.id !== id));
+      toast((t) => (
+        <span className="flex items-center gap-3 text-sm" style={{ color: 'var(--erp-text)' }}>
+          Lead excluído.
+          <button type="button" onClick={() => { toast.dismiss(t.id); void undoDeleteLead(lead); }} className="font-semibold underline" style={{ color: 'var(--erp-violet-light)' }}>
+            Desfazer
+          </button>
+        </span>
+      ), { duration: 6000 });
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Não foi possível excluir o lead.');
+    }
   }
 
   const filtered = leads.filter((lead) => {
@@ -484,7 +543,7 @@ export function LeadsPageNew() {
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1">
                           <button onClick={() => editLead(lead)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--erp-violet-light)', border: '1px solid var(--erp-border)' }} title="Editar lead"><Edit3 size={14} /></button>
-                          <button onClick={() => void deleteLead(lead.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: '#f87171', border: '1px solid var(--erp-border)' }} title="Excluir lead"><Trash2 size={14} /></button>
+                          <button onClick={() => void deleteLead(lead.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--erp-rose)', border: '1px solid var(--erp-border)' }} title="Excluir lead"><Trash2 size={14} /></button>
                         </div>
                       </td>
                     </tr>

@@ -77,7 +77,7 @@ export default function AnalisesPage() {
 
       {error && (
         <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+          style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.2)', color: 'var(--erp-rose)' }}>
           <AlertTriangle size={14} />
           <span>{error}</span>
         </div>
@@ -112,8 +112,8 @@ export default function AnalisesPage() {
                 <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--erp-violet-light)' }}>{a.area}</span>
                 <span className="rounded-full px-2 py-0.5 text-[9px] font-medium"
                   style={{
-                    background: a.priority === 'alta' ? 'rgba(248,113,113,0.12)' : 'rgba(251,191,36,0.12)',
-                    color: a.priority === 'alta' ? '#f87171' : '#fbbf24',
+                    background: a.priority === 'alta' ? 'rgba(190,18,60,0.12)' : 'rgba(180,83,9,0.12)',
+                    color: a.priority === 'alta' ? 'var(--erp-rose)' : 'var(--erp-amber)',
                   }}>
                   {a.priority}
                 </span>

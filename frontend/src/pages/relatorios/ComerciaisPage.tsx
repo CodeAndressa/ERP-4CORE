@@ -19,11 +19,11 @@ const STATUS_LABELS: Record<string, string> = {
   novo: 'Novo', contato: 'Contato', qualificado: 'Qualificado', perdido: 'Perdido',
 };
 
-const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  novo:        { bg: 'rgba(103,232,249,0.12)', color: '#67e8f9' },
-  contato:     { bg: 'rgba(43,22,92,0.12)',  color: '#2b165c' },
-  qualificado: { bg: 'rgba(52,211,153,0.12)',  color: '#34d399' },
-  perdido:     { bg: 'rgba(100,116,139,0.12)', color: '#94a3b8' },
+const STATUS_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+  novo:        { bg: 'var(--erp-violet-dim)', color: 'var(--erp-text-muted)', border: 'rgba(43,22,92,0.20)' },
+  contato:     { bg: 'var(--erp-violet-dim)', color: 'var(--erp-violet)', border: 'rgba(43,22,92,0.20)' },
+  qualificado: { bg: 'rgba(4,120,87,0.12)', color: 'var(--erp-emerald)', border: 'rgba(4,120,87,0.20)' },
+  perdido:     { bg: 'rgba(190,18,60,0.12)', color: 'var(--erp-rose)', border: 'rgba(190,18,60,0.20)' },
 };
 
 export default function ComerciaisPage() {
@@ -65,8 +65,8 @@ export default function ComerciaisPage() {
           onClick={handleExport}
           className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all"
           style={{
-            background: exported ? 'rgba(52,211,153,0.12)' : 'var(--erp-surface)',
-            color: exported ? '#34d399' : 'var(--erp-text-muted)',
+            background: exported ? 'rgba(4,120,87,0.12)' : 'var(--erp-surface)',
+            color: exported ? 'var(--erp-emerald)' : 'var(--erp-text-muted)',
             border: '1px solid var(--erp-border)',
           }}
         >
@@ -90,12 +90,12 @@ export default function ComerciaisPage() {
             const pct = leads.length > 0 ? Math.round((count / leads.length) * 100) : 0;
             const cfg = STATUS_COLORS[s];
             return (
-              <div key={s} className="rounded-2xl p-4" style={{ background: cfg.bg, border: `1px solid ${cfg.color}30` }}>
+              <div key={s} className="rounded-2xl p-4" style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}>
                 <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: cfg.color }}>{STATUS_LABELS[s]}</p>
                 <p className="text-3xl font-bold tabular-nums" style={{ color: 'var(--erp-text)' }}>{count}</p>
                 <p className="text-xs mt-1" style={{ color: 'var(--erp-text-muted)' }}>{pct}% do total</p>
                 {/* Mini progress bar */}
-                <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: `${cfg.color}20` }}>
+                <div className="mt-3 h-1 rounded-full overflow-hidden" style={{ background: cfg.bg }}>
                   <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: cfg.color }} />
                 </div>
               </div>

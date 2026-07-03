@@ -26,13 +26,13 @@ interface Deal {
   daysInStage: number;
 }
 
-const STAGES: { id: Stage; label: string; color: string }[] = [
-  { id: 'novo', label: 'Novo lead', color: '#06b6d4' },
-  { id: 'contato', label: 'Em contato', color: '#2b165c' },
-  { id: 'qualificado', label: 'Qualificado', color: '#8b5cf6' },
-  { id: 'proposta', label: 'Proposta', color: '#f59e0b' },
-  { id: 'negociacao', label: 'Em negociação', color: '#f97316' },
-  { id: 'fechado', label: 'Fechado', color: '#10b981' },
+const STAGES: { id: Stage; label: string; color: string; bg: string; border: string }[] = [
+  { id: 'novo', label: 'Novo lead', color: 'var(--erp-text-muted)', bg: 'rgba(43,22,92,0.13)', border: 'rgba(43,22,92,0.4)' },
+  { id: 'contato', label: 'Em contato', color: 'var(--erp-violet)', bg: 'rgba(43,22,92,0.13)', border: 'rgba(43,22,92,0.4)' },
+  { id: 'qualificado', label: 'Qualificado', color: 'var(--erp-emerald)', bg: 'rgba(4,120,87,0.13)', border: 'rgba(4,120,87,0.4)' },
+  { id: 'proposta', label: 'Proposta', color: 'var(--erp-amber)', bg: 'rgba(180,83,9,0.13)', border: 'rgba(180,83,9,0.4)' },
+  { id: 'negociacao', label: 'Em negociação', color: 'var(--erp-cyan)', bg: 'rgba(8,145,178,0.13)', border: 'rgba(8,145,178,0.4)' },
+  { id: 'fechado', label: 'Fechado', color: 'var(--erp-emerald)', bg: 'rgba(4,120,87,0.13)', border: 'rgba(4,120,87,0.4)' },
 ];
 
 function fmt(value: number) {
@@ -82,9 +82,9 @@ function normalizeDeal(item: Record<string, unknown>): Deal {
 }
 
 function HeatIcon({ heat }: { heat: Heat }) {
-  if (heat === 'hot') return <Flame size={13} className="text-amber-400" />;
-  if (heat === 'cold') return <Snowflake size={13} className="text-cyan-400" />;
-  return <Minus size={13} className="text-slate-400" />;
+  if (heat === 'hot') return <Flame size={13} style={{ color: 'var(--erp-amber)' }} />;
+  if (heat === 'cold') return <Snowflake size={13} style={{ color: 'var(--erp-cyan)' }} />;
+  return <Minus size={13} style={{ color: 'var(--erp-text-dim)' }} />;
 }
 
 function DealCard({ deal, isDragging = false }: { deal: Deal; isDragging?: boolean }) {
@@ -122,11 +122,11 @@ function KanbanColumn({ stage, deals, activeId }: { stage: (typeof STAGES)[numbe
   const total = deals.reduce((s, d) => s + d.value, 0);
 
   return (
-    <div className="mobile-snap-item flex w-[86vw] flex-none flex-col rounded-2xl sm:w-64" style={{ background: 'var(--erp-surface)', border: `1px solid ${isOver ? stage.color + '66' : 'var(--erp-border)'}`, minWidth: 240 }}>
+    <div className="mobile-snap-item flex w-[86vw] flex-none flex-col rounded-2xl sm:w-64" style={{ background: 'var(--erp-surface)', border: `1px solid ${isOver ? stage.border : 'var(--erp-border)'}`, minWidth: 240 }}>
       <div className="flex items-center gap-2 p-3 pb-2">
         <span className="h-2.5 w-2.5 rounded-full flex-none" style={{ background: stage.color }} />
         <span className="text-sm font-semibold flex-1" style={{ color: 'var(--erp-text)' }}>{stage.label}</span>
-        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: stage.color + '22', color: stage.color }}>{deals.length}</span>
+        <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: stage.bg, color: stage.color }}>{deals.length}</span>
       </div>
       <div className="px-3 pb-2"><span className="text-[11px] font-medium" style={{ color: 'var(--erp-text-muted)' }}>{fmt(total)}</span></div>
       <div ref={setNodeRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3 pt-1" style={{ minHeight: 120, maxHeight: 'calc(100vh - 280px)' }}>
@@ -181,8 +181,8 @@ export default function PipelinePage() {
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'var(--erp-violet-dim)' }}><TrendingUp size={18} style={{ color: 'var(--erp-violet-light)' }} /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Total em pipeline</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{fmt(totalPipeline)}</p></div></div>
-        <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(6,182,212,0.12)' }}><Users size={18} className="text-cyan-400" /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Oportunidades abertas</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{openDeals.length}</p></div></div>
-        <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(16,185,129,0.12)' }}><Trophy size={18} className="text-emerald-400" /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Maior valor</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{topDeal ? fmt(topDeal.value) : '-'}</p>{topDeal && <p className="text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>{topDeal.name}</p>}</div></div>
+        <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(8,145,178,0.12)' }}><Users size={18} style={{ color: 'var(--erp-cyan)' }} /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Oportunidades abertas</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{openDeals.length}</p></div></div>
+        <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(4,120,87,0.12)' }}><Trophy size={18} style={{ color: 'var(--erp-emerald)' }} /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Maior valor</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{topDeal ? fmt(topDeal.value) : '-'}</p>{topDeal && <p className="text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>{topDeal.name}</p>}</div></div>
       </div>
       {loading ? <div className="py-12 text-sm" style={{ color: 'var(--erp-text-muted)' }}>Carregando pipeline...</div> : deals.length === 0 ? <div className="rounded-2xl py-16 text-center text-sm" style={{ border: '1px dashed var(--erp-border)', color: 'var(--erp-text-muted)' }}>Nenhum lead cadastrado para exibir no pipeline.</div> : <div className="mobile-snap-scroll -mx-3 flex-1 overflow-x-auto px-3 pb-4"><DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}><div className="flex h-full gap-3 sm:gap-4" style={{ minWidth: 'max-content' }}>{STAGES.map((stage) => <KanbanColumn key={stage.id} stage={stage} deals={deals.filter((d) => d.stage === stage.id)} activeId={activeId} />)}</div><DragOverlay>{activeDeal ? <DealCardOverlay deal={activeDeal} /> : null}</DragOverlay></DndContext></div>}
     </div>

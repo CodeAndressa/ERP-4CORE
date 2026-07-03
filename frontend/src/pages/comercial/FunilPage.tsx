@@ -17,16 +17,16 @@ interface Lead {
   origin?: string | null;
 }
 
-type Stage = { id: LeadStage; label: string; color: string; bg: string };
+type Stage = { id: LeadStage; label: string; color: string; bg: string; border: string };
 
 const STAGES: Stage[] = [
-  { id: 'novo', label: 'Novo lead', color: '#6b5a95', bg: 'rgba(43,22,92,0.10)' },
-  { id: 'contato', label: 'Em contato', color: '#2b165c', bg: 'rgba(43,22,92,0.10)' },
-  { id: 'qualificado', label: 'Qualificado', color: '#4338ca', bg: 'rgba(67,56,202,0.10)' },
-  { id: 'proposta', label: 'Proposta enviada', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
-  { id: 'negociacao', label: 'Em negociação', color: '#f97316', bg: 'rgba(249,115,22,0.12)' },
-  { id: 'fechado', label: 'Fechado', color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
-  { id: 'perdido', label: 'Perdido', color: '#64748b', bg: 'rgba(100,116,139,0.12)' },
+  { id: 'novo', label: 'Novo lead', color: 'var(--erp-text-muted)', bg: 'var(--erp-violet-dim)', border: 'rgba(43,22,92,0.20)' },
+  { id: 'contato', label: 'Em contato', color: 'var(--erp-violet)', bg: 'var(--erp-violet-dim)', border: 'rgba(43,22,92,0.20)' },
+  { id: 'qualificado', label: 'Qualificado', color: 'var(--erp-emerald)', bg: 'rgba(4,120,87,0.10)', border: 'rgba(4,120,87,0.20)' },
+  { id: 'proposta', label: 'Proposta enviada', color: 'var(--erp-amber)', bg: 'rgba(180,83,9,0.12)', border: 'rgba(180,83,9,0.20)' },
+  { id: 'negociacao', label: 'Em negociação', color: 'var(--erp-cyan)', bg: 'rgba(8,145,178,0.12)', border: 'rgba(8,145,178,0.20)' },
+  { id: 'fechado', label: 'Fechado', color: 'var(--erp-emerald)', bg: 'rgba(4,120,87,0.12)', border: 'rgba(4,120,87,0.20)' },
+  { id: 'perdido', label: 'Perdido', color: 'var(--erp-rose)', bg: 'rgba(190,18,60,0.12)', border: 'rgba(190,18,60,0.20)' },
 ];
 
 const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -94,7 +94,7 @@ export default function FunilPage() {
                         <span className="text-[10px]" style={{ color: 'var(--erp-text-dim)' }}>{conversion}% passaram</span>
                       </div>
                     )}
-                    <div className="flex items-center justify-between rounded-xl px-4 py-3 mx-auto transition-all" style={{ background: stage.bg, border: `1px solid ${stage.color}33`, width: `${pct}%`, minWidth: '60%' }}>
+                    <div className="flex items-center justify-between rounded-xl px-4 py-3 mx-auto transition-all" style={{ background: stage.bg, border: `1px solid ${stage.border}`, width: `${pct}%`, minWidth: '60%' }}>
                       <span className="text-sm font-medium" style={{ color: stage.color }}>{stage.label}</span>
                       <span className="text-sm font-bold tabular-nums" style={{ color: stage.color }}>{count}</span>
                     </div>

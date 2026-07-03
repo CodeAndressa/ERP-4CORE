@@ -17,9 +17,9 @@ interface Analysis {
 }
 
 const PRIORITY_CONFIG = {
-  alta:  { bg: 'rgba(248,113,113,0.12)', color: '#f87171' },
-  media: { bg: 'rgba(251,191,36,0.12)',  color: '#fbbf24' },
-  baixa: { bg: 'rgba(52,211,153,0.12)',  color: '#34d399' },
+  alta:  { bg: 'rgba(190,18,60,0.12)', color: 'var(--erp-rose)' },
+  media: { bg: 'rgba(180,83,9,0.12)',  color: 'var(--erp-amber)' },
+  baixa: { bg: 'rgba(4,120,87,0.12)',  color: 'var(--erp-emerald)' },
 };
 
 export default function SugestoesPage() {
@@ -58,7 +58,7 @@ export default function SugestoesPage() {
 
       {error && (
         <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+          style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.2)', color: 'var(--erp-rose)' }}>
           <AlertTriangle size={14} />
           <span>{error}</span>
         </div>

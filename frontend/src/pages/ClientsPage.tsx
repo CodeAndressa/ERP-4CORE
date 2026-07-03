@@ -147,7 +147,7 @@ export default function ClientsPage() {
           <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-violet-light)' }}>Comercial · ASAAS</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Clientes</h1>
         </div>
-        <div className="flex min-w-[220px] items-center gap-2 rounded-full px-3 py-2" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}>
+        <div className="flex min-w-[220px] items-center gap-2 rounded-xl px-3 py-2" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}>
           <Search size={13} style={{ color: 'var(--erp-text-muted)' }} />
           <input type="text" placeholder="Buscar cliente..." value={search} onChange={(e) => setSearch(e.target.value)} className="flex-1 bg-transparent text-sm outline-none" style={{ color: 'var(--erp-text)' }} />
         </div>
@@ -160,7 +160,7 @@ export default function ClientsPage() {
       </div>
 
       {(error || success) && (
-        <div className="flex items-center gap-3 rounded-[22px] px-4 py-3 text-sm" style={{ background: error ? '#fff1f2' : '#ecfdf5', border: `1px solid ${error ? '#fecdd3' : '#bbf7d0'}`, color: error ? '#be123c' : '#047857' }}>
+        <div className="flex items-center gap-3 rounded-[22px] px-4 py-3 text-sm" style={{ background: error ? 'rgba(190,18,60,0.08)' : 'rgba(4,120,87,0.08)', border: `1px solid ${error ? 'rgba(190,18,60,0.24)' : 'rgba(4,120,87,0.24)'}`, color: error ? 'var(--erp-rose)' : 'var(--erp-emerald)' }}>
           {error ? <AlertTriangle size={14} /> : <CheckCircle size={14} />}
           <span>{error || success}</span>
         </div>
@@ -196,20 +196,23 @@ export default function ClientsPage() {
                       <td className="px-4 py-3 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{client.created_at ? new Date(client.created_at).toLocaleDateString('pt-BR') : '-'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          {latest?.file_name && <button onClick={() => openContractFile(latest.id)} className="rounded-full border border-violet-100 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-50">Ver PDF</button>}
-                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: 'var(--erp-violet)' }}>
+                          {latest?.file_name && <button onClick={() => openContractFile(latest.id)} className="rounded-xl border border-violet-100 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-50">Ver PDF</button>}
+                          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-semibold text-white" style={{ background: 'var(--erp-violet)' }}>
                             <Upload size={12} />
                             {uploading === client.id ? 'Enviando...' : linked.length ? 'Substituir' : 'Anexar PDF'}
                             <input type="file" accept="application/pdf,.pdf" className="hidden" disabled={uploading === client.id} onChange={(event) => uploadContract(client, event.target.files?.[0])} />
                           </label>
                         </div>
                       </td>
-                      <td className="px-4 py-3"><span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">ASAAS</span></td>
+                      <td className="px-4 py-3"><span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--erp-violet-soft)', color: 'var(--erp-violet-light)' }}>ASAAS</span></td>
                       <td className="px-4 py-3">
                         <button
                           onClick={() => removeClient(client)}
                           disabled={removing === client.id}
-                          className="inline-flex items-center gap-1 rounded-full border border-rose-100 px-3 py-1 text-xs font-medium text-rose-700 transition hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
+                          className="inline-flex items-center gap-1 rounded-xl px-3 py-1 text-xs font-medium transition disabled:cursor-wait disabled:opacity-60"
+                          style={{ border: '1px solid rgba(190,18,60,0.24)', color: 'var(--erp-rose)' }}
+                          onMouseEnter={(e) => { if (removing !== client.id) e.currentTarget.style.background = 'rgba(190,18,60,0.08)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                           title="Remover cliente no ASAAS"
                         >
                           <Trash2 size={11} />

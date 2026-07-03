@@ -83,7 +83,7 @@ export default function RelatoriosOverview() {
                       <span className={`text-xs font-medium ${report.status === 'pronto' ? 'text-emerald-700' : 'text-amber-700'}`}>{report.status === 'pronto' ? 'Pronto' : 'Atualizando'}</span>
                     </div>
                     {report.path && <Link to={report.path} className="text-xs font-medium text-violet-700">Abrir</Link>}
-                    <button onClick={() => handleExport(report.id)} className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors ${done ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-violet-100 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700'}`}>
+                    <button onClick={() => handleExport(report.id)} className={`flex items-center gap-1 rounded-xl border px-2.5 py-1 text-xs transition-colors ${done ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-violet-100 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700'}`}>
                       {done ? <CheckCircle size={11} /> : <Download size={11} />}
                       {done ? 'Exportado' : 'Exportar'}
                     </button>

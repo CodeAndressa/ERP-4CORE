@@ -74,7 +74,7 @@ export default function ResumosPage() {
 
       {error && (
         <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
-          style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+          style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.2)', color: 'var(--erp-rose)' }}>
           <AlertTriangle size={14} />
           <span>{error}</span>
         </div>

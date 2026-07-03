@@ -43,8 +43,8 @@ function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
       style={{
-        background: ok ? '#d1fae5' : '#fef3c7',
-        color: ok ? '#065f46' : '#92400e',
+        background: ok ? 'rgba(4,120,87,0.10)' : 'rgba(180,83,9,0.12)',
+        color: ok ? 'var(--erp-emerald)' : 'var(--erp-amber)',
       }}>
       {ok
         ? <CheckCircle2 size={12} />
@@ -149,9 +149,9 @@ export default function ConexoesMarketingPage() {
       {message && (
         <div className="flex items-start gap-2 rounded-xl px-4 py-3 text-sm font-medium"
           style={{
-            background: message.startsWith('✅') ? '#d1fae5' : '#fef2f2',
-            border: `1px solid ${message.startsWith('✅') ? '#6ee7b7' : '#fca5a5'}`,
-            color: message.startsWith('✅') ? '#065f46' : '#991b1b',
+            background: message.startsWith('✅') ? 'rgba(4,120,87,0.10)' : 'rgba(190,18,60,0.08)',
+            border: `1px solid ${message.startsWith('✅') ? 'rgba(4,120,87,0.3)' : 'rgba(190,18,60,0.3)'}`,
+            color: message.startsWith('✅') ? 'var(--erp-emerald)' : 'var(--erp-rose)',
           }}>
           <ShieldAlert size={15} className="mt-0.5 shrink-0" />
           <span>{message}</span>
@@ -176,7 +176,7 @@ export default function ConexoesMarketingPage() {
             {/* Aviso se META_APP_SECRET não está configurado */}
             {fbStatus && !fbStatus.configured && (
               <div className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs font-medium"
-                style={{ background: '#fef2f2', border: '1px solid #fca5a5', color: '#991b1b' }}>
+                style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.3)', color: 'var(--erp-rose)' }}>
                 <ShieldAlert size={13} className="mt-0.5 shrink-0" />
                 <span>
                   <strong>Variáveis faltando na Vercel.</strong> Adicione em{' '}
@@ -237,7 +237,7 @@ export default function ConexoesMarketingPage() {
                   </div>
                   {/* Instruções de vinculação */}
                   <div className="rounded-xl p-3 space-y-1.5 text-xs"
-                    style={{ background: '#fef9c3', border: '1px solid #fde047', color: '#713f12' }}>
+                    style={{ background: 'rgba(180,83,9,0.12)', border: '1px solid rgba(180,83,9,0.3)', color: 'var(--erp-amber)' }}>
                     <p className="font-semibold">Como vincular o Instagram à página Facebook:</p>
                     <ol className="list-decimal list-inside space-y-1">
                       <li>Acesse sua <strong>Página do Facebook</strong> (4Core Consultoria)</li>
@@ -251,7 +251,7 @@ export default function ConexoesMarketingPage() {
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 font-semibold mt-1"
-                      style={{ color: '#1877f2' }}
+                      style={{ color: 'var(--erp-violet-light)' }}
                     >
                       Abrir configurações da página <ExternalLink size={11} />
                     </a>
@@ -267,7 +267,7 @@ export default function ConexoesMarketingPage() {
             disabled={oauthLoading}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold shrink-0"
             style={{
-              background: 'linear-gradient(135deg, #ee2a7b, #6228d7)',
+              background: 'var(--erp-violet)',
               color: '#fff',
               opacity: oauthLoading ? 0.7 : 1,
             }}
@@ -315,7 +315,7 @@ export default function ConexoesMarketingPage() {
             disabled={oauthLoading}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold shrink-0"
             style={{
-              background: '#1877f2',
+              background: 'var(--erp-violet)',
               color: '#fff',
               opacity: oauthLoading ? 0.7 : 1,
             }}
@@ -341,7 +341,7 @@ export default function ConexoesMarketingPage() {
             </div>
             <div className="mt-3 flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
-                style={{ background: '#e0e7ff', color: '#3730a3' }}>
+                style={{ background: 'rgba(8,145,178,0.10)', color: 'var(--erp-cyan)' }}>
                 <Clock size={12} />
                 Em breve
               </span>
@@ -353,7 +353,7 @@ export default function ConexoesMarketingPage() {
           <button
             disabled
             className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold shrink-0 opacity-40 cursor-not-allowed"
-            style={{ background: '#25d366', color: '#fff' }}
+            style={{ background: 'var(--erp-violet)', color: '#fff' }}
           >
             <Link2 size={16} />
             Conectar WhatsApp
@@ -383,7 +383,7 @@ export default function ConexoesMarketingPage() {
                   type="button"
                   onClick={() => copyEnv(page)}
                   className="inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold"
-                  style={{ background: '#fff', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+                  style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
                 >
                   <Copy size={14} />
                   Copiar variáveis

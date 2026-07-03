@@ -148,15 +148,15 @@ function FinanceiroCockpit() {
 
   return (
     <div className="space-y-6">
-      <div className="relative z-[900] flex flex-col gap-3 rounded-2xl border bg-white/80 px-3 py-3 shadow-[0_8px_24px_rgba(43,22,92,0.05)] backdrop-blur sm:flex-row sm:items-center sm:justify-end" style={{ borderColor: 'var(--erp-border)' }}>
+      <div className="relative z-[900] flex flex-col gap-3 rounded-2xl border bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-end" style={{ borderColor: 'var(--erp-border)' }}>
         <FinancePeriodFilter value={period} onApply={setPeriod} />
-        <button onClick={() => load(true)} className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-xs font-bold transition-colors" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface)', color: 'var(--erp-text)' }}>
+        <button onClick={() => load(true)} className="flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-xs font-bold transition-colors" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface)', color: 'var(--erp-text)' }}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           Atualizar
         </button>
       </div>
       {error && (
-        <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+        <div className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.2)', color: 'var(--erp-rose)' }}>
           <AlertTriangle size={14} />
           <span>{error}</span>
         </div>
@@ -178,10 +178,10 @@ function FinanceiroCockpit() {
               <XAxis dataKey="label" tick={{ fill: 'var(--erp-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--erp-text-dim)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `R$${(Number(value) / 1000).toFixed(0)}k`} />
               <Tooltip content={chartTooltip} />
-              <Bar dataKey="asaas" name="ASAAS" stackId="receita" fill="#34d399" radius={[5, 5, 0, 0]} />
-              <Bar dataKey="direct" name="Venda direta" stackId="receita" fill="#67e8f9" radius={[5, 5, 0, 0]} />
-              <Bar dataKey="fixed" name="Fixos" stackId="custos" fill="#f87171" radius={[5, 5, 0, 0]} />
-              <Bar dataKey="recurring" name="Recorrentes" stackId="custos" fill="#fbbf24" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="asaas" name="ASAAS" stackId="receita" fill="var(--erp-emerald)" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="direct" name="Venda direta" stackId="receita" fill="var(--erp-cyan)" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="fixed" name="Fixos" stackId="custos" fill="var(--erp-rose)" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="recurring" name="Recorrentes" stackId="custos" fill="var(--erp-amber)" radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -202,11 +202,11 @@ function FinanceiroCockpit() {
               {rows.map((row) => (
                 <tr key={row.month}>
                   <td className="py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{row.label}</td>
-                  <td className="py-3 tabular-nums" style={{ color: '#34d399' }}>{currency(row.asaas, 2)}</td>
-                  <td className="py-3 tabular-nums" style={{ color: '#67e8f9' }}>{currency(row.direct, 2)}</td>
-                  <td className="py-3 tabular-nums" style={{ color: '#f87171' }}>{currency(row.fixed, 2)}</td>
-                  <td className="py-3 tabular-nums" style={{ color: '#fbbf24' }}>{currency(row.recurring, 2)}</td>
-                  <td className="py-3 font-semibold tabular-nums" style={{ color: row.saldo >= 0 ? '#34d399' : '#f87171' }}>{currency(row.saldo, 2)}</td>
+                  <td className="py-3 tabular-nums" style={{ color: 'var(--erp-emerald)' }}>{currency(row.asaas, 2)}</td>
+                  <td className="py-3 tabular-nums" style={{ color: 'var(--erp-cyan)' }}>{currency(row.direct, 2)}</td>
+                  <td className="py-3 tabular-nums" style={{ color: 'var(--erp-rose)' }}>{currency(row.fixed, 2)}</td>
+                  <td className="py-3 tabular-nums" style={{ color: 'var(--erp-amber)' }}>{currency(row.recurring, 2)}</td>
+                  <td className="py-3 font-semibold tabular-nums" style={{ color: row.saldo >= 0 ? 'var(--erp-emerald)' : 'var(--erp-rose)' }}>{currency(row.saldo, 2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -216,17 +216,17 @@ function FinanceiroCockpit() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card padding="lg">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399' }}><ShieldCheck size={18} /></div>
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(4,120,87,0.1)', color: 'var(--erp-emerald)' }}><ShieldCheck size={18} /></div>
           <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Receita centralizada</p>
           <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>ASAAS, pendências, recebidos e venda direta conciliada ficam em Receita.</p>
         </Card>
         <Card padding="lg">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}><ArrowDownRight size={18} /></div>
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(190,18,60,0.1)', color: 'var(--erp-rose)' }}><ArrowDownRight size={18} /></div>
           <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Custos fixos manuais</p>
           <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Impostos, logística e obrigações previsíveis com cadastro rápido.</p>
         </Card>
         <Card padding="lg">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}><RefreshCw size={18} /></div>
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(180,83,9,0.1)', color: 'var(--erp-amber)' }}><RefreshCw size={18} /></div>
           <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Recorrências sob controle</p>
           <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Software, contabilidade, empréstimos e contratos mensais sem poluir a navegação.</p>
         </Card>

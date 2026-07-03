@@ -178,7 +178,7 @@ export default function ReceitasPage() {
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <FinancePeriodFilter value={period} onApply={setPeriod} />
-          <button onClick={() => load(true)} className="flex h-11 items-center justify-center gap-1.5 rounded-full border border-violet-100 bg-white px-4 text-xs font-bold text-slate-600 transition hover:border-violet-200 hover:text-violet-700">
+          <button onClick={() => load(true)} className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-violet-100 bg-white px-4 text-xs font-bold transition hover:border-violet-200 hover:text-violet-700" style={{ color: 'var(--erp-text-muted)' }}>
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             Atualizar
           </button>
@@ -222,16 +222,16 @@ export default function ReceitasPage() {
                         </td>
                         <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{group.item.description}</td>
                         <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{group.totalInstallments}x</td>
-                        <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#34d399' }}>{currency(group.item.value, 2)}</td>
+                        <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-emerald)' }}>{currency(group.item.value, 2)}</td>
                         <td className="px-4 py-3 tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{currency(group.contractTotal, 2)}</td>
-                        <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: '#22c55e' }}>{currency(group.installmentTotal, 2)}</td>
+                        <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-emerald)' }}>{currency(group.installmentTotal, 2)}</td>
                         <td className="px-4 py-3">
-                          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: group.item.matched ? 'rgba(52,211,153,0.12)' : 'rgba(251,191,36,0.12)', color: group.item.matched ? '#34d399' : '#b45309' }}>
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: group.item.matched ? 'rgba(4,120,87,0.12)' : 'rgba(180,83,9,0.12)', color: group.item.matched ? 'var(--erp-emerald)' : 'var(--erp-amber)' }}>
                             {group.item.id.startsWith('local-direct-sale-') ? 'Manual' : group.item.matched ? 'Conciliado' : 'Base manual'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button type="button" onClick={() => removeDirectSale(group.item)} className="inline-flex h-8 w-8 items-center justify-center rounded-full" style={{ border: '1px solid var(--erp-border)', color: '#ef4444', background: '#fff' }} aria-label="Remover venda direta">
+                          <button type="button" onClick={() => removeDirectSale(group.item)} className="inline-flex h-8 w-8 items-center justify-center rounded-full" style={{ border: '1px solid var(--erp-border)', color: 'var(--erp-rose)', background: '#fff' }} aria-label="Remover venda direta">
                             <Trash2 size={14} />
                           </button>
                         </td>
@@ -241,7 +241,7 @@ export default function ReceitasPage() {
                           <td className="px-4 py-2 pl-10 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{formatDate(item.date)}</td>
                           <td className="px-4 py-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.description}</td>
                           <td className="px-4 py-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.month}</td>
-                          <td className="px-4 py-2 font-semibold tabular-nums" style={{ color: '#34d399' }}>{currency(item.value, 2)}</td>
+                          <td className="px-4 py-2 font-semibold tabular-nums" style={{ color: 'var(--erp-emerald)' }}>{currency(item.value, 2)}</td>
                           <td className="px-4 py-2 text-xs tabular-nums" style={{ color: 'var(--erp-text-dim)' }}>{currency(item.contract_total, 2)}</td>
                           <td className="px-4 py-2 text-xs" style={{ color: 'var(--erp-text-dim)' }}>Parcela</td>
                           <td className="px-4 py-2 text-xs" style={{ color: 'var(--erp-text-dim)' }}>{item.source}</td>
@@ -297,9 +297,9 @@ export default function ReceitasPage() {
                 <tr key={p.id} style={{ borderBottom: i < received.length - 1 ? '1px solid var(--erp-border)' : undefined }}>
                   <td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{p.customer ?? '-'}</td>
                   <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--erp-text-muted)' }}>{p.description ?? '-'}</td>
-                  <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: '#34d399' }}>{currency(p.value, 2)}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: 'var(--erp-emerald)' }}>{currency(p.value, 2)}</td>
                   <td className="px-4 py-3"><span className="flex items-center gap-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}><Calendar size={10} />{formatDate(p.due_date)}</span></td>
-                  <td className="px-4 py-3"><span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>Recebido</span></td>
+                  <td className="px-4 py-3"><span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgba(4,120,87,0.12)', color: 'var(--erp-emerald)' }}>Recebido</span></td>
                 </tr>
               ))}
               {!loading && received.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum pagamento recebido no período</td></tr>}

@@ -32,11 +32,11 @@ const SEED_GOALS: Goal[] = [
 ];
 
 const PILLAR_COLOR: Record<string, string> = {
-  Educação:    '#6228d7',
-  Cases:       '#ee2a7b',
-  Autoridade:  '#f59e0b',
-  Engajamento: '#34d399',
-  Prospecção:  '#3b82f6',
+  Educação:    'var(--erp-violet)',
+  Cases:       'var(--erp-violet)',
+  Autoridade:  'var(--erp-violet)',
+  Engajamento: 'var(--erp-violet)',
+  Prospecção:  'var(--erp-violet)',
 };
 
 export default function PlanejamentoPage() {
@@ -92,7 +92,7 @@ export default function PlanejamentoPage() {
             onClick={generateSuggestions}
             disabled={loadingAI}
             className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all disabled:opacity-60"
-            style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-violet-light)', border: '1px solid var(--erp-violet)44' }}
+            style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-violet-light)', border: '1px solid var(--erp-border-strong)' }}
           >
             {loadingAI ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             {loadingAI ? 'Analisando Instagram...' : 'Sugestões da IA'}
@@ -113,7 +113,7 @@ export default function PlanejamentoPage() {
       </div>
 
       {aiError && (
-        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
+        <div className="rounded-xl px-4 py-3 text-sm" style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.2)', color: 'var(--erp-rose)' }}>
           {aiError}
         </div>
       )}
@@ -133,7 +133,7 @@ export default function PlanejamentoPage() {
               <div key={i} className="rounded-xl p-3" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)' }}>
                 <div className="flex items-center gap-1.5 mb-2">
                   <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{ background: `${PILLAR_COLOR[s.pillar] ?? '#6228d7'}22`, color: PILLAR_COLOR[s.pillar] ?? '#6228d7' }}>
+                    style={{ background: 'var(--erp-violet-soft)', color: 'var(--erp-violet-light)' }}>
                     {s.pillar}
                   </span>
                   <span className="text-[10px]" style={{ color: 'var(--erp-text-dim)' }}>{s.format}</span>
@@ -185,7 +185,7 @@ export default function PlanejamentoPage() {
           <Card key={pillar} padding="lg">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full" style={{ background: PILLAR_COLOR[pillar] ?? '#6228d7' }} />
+                <div className="h-2.5 w-2.5 rounded-full" style={{ background: PILLAR_COLOR[pillar] ?? 'var(--erp-violet)' }} />
                 <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>{pillar}</p>
               </div>
               <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
@@ -197,15 +197,15 @@ export default function PlanejamentoPage() {
                 <div key={g.id}
                   className="flex items-start gap-3 rounded-xl px-3 py-3 cursor-pointer transition-all"
                   style={{
-                    background: g.done ? 'rgba(52,211,153,0.06)' : 'var(--erp-surface-2)',
-                    border: `1px solid ${g.done ? 'rgba(52,211,153,0.2)' : 'var(--erp-border)'}`,
+                    background: g.done ? 'rgba(4,120,87,0.07)' : 'var(--erp-surface-2)',
+                    border: `1px solid ${g.done ? 'rgba(4,120,87,0.24)' : 'var(--erp-border)'}`,
                   }}
                   onClick={() => toggleGoal(g.id)}
                 >
                   <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md mt-0.5"
                     style={{
-                      background: g.done ? '#34d399' : 'var(--erp-surface)',
-                      border: `1px solid ${g.done ? '#34d399' : 'var(--erp-border-strong)'}`,
+                      background: g.done ? 'var(--erp-emerald)' : 'var(--erp-surface)',
+                      border: `1px solid ${g.done ? 'var(--erp-emerald)' : 'var(--erp-border-strong)'}`,
                     }}>
                     {g.done && <Check size={10} color="#fff" strokeWidth={3} />}
                   </div>

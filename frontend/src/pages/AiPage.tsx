@@ -50,7 +50,7 @@ export default function AiPage() {
       <SectionCard title="Contexto da análise" subtitle="Escolha uma área e descreva o que precisa decidir.">
         <div className="flex flex-wrap gap-2">
           {scopes.map(([id, label]) => (
-            <button key={id} onClick={() => setScope(id)} className={`rounded-full px-4 py-2 text-sm font-medium transition ${scope === id ? 'bg-violet-600 text-white' : 'border border-violet-100 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700'}`}>
+            <button key={id} onClick={() => setScope(id)} className={`rounded-xl px-4 py-2 text-sm font-medium transition ${scope === id ? 'bg-violet-600 text-white' : 'border border-violet-100 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700'}`}>
               {label}
             </button>
           ))}

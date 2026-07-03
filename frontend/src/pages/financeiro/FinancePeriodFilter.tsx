@@ -40,8 +40,8 @@ export default function FinancePeriodFilter({ value, onApply, className = '' }: 
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
-        className="flex h-11 min-w-[140px] items-center justify-center gap-2 rounded-full px-4 text-sm font-bold transition-all"
-        style={{ background: '#dbeafe', border: '1px solid #2563eb', color: '#1d4ed8' }}
+        className="flex h-11 min-w-[140px] items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold transition-all"
+        style={{ background: 'var(--erp-violet-soft)', border: '1px solid var(--erp-border-strong)', color: 'var(--erp-violet-light)' }}
       >
         <Calendar size={16} />
         {range.label}
@@ -49,14 +49,14 @@ export default function FinancePeriodFilter({ value, onApply, className = '' }: 
       </button>
 
       {open && (
-        <div className="absolute right-0 z-[1001] mt-3 w-[306px] overflow-hidden rounded-2xl bg-white shadow-[0_18px_45px_rgba(15,23,42,0.22)]" style={{ border: '1px solid var(--erp-border)' }}>
+        <div className="absolute right-0 z-[1001] mt-3 w-[306px] overflow-hidden rounded-2xl bg-white shadow-[0_18px_45px_rgba(43,22,92,0.18)]" style={{ border: '1px solid var(--erp-border)' }}>
           <div className="space-y-1 p-4">
             {OPTIONS.map((option) => {
               const active = draft.preset === option.value;
               return (
                 <button key={option.value} type="button" onClick={() => setDraft((current) => ({ ...current, preset: option.value }))} className="flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left text-sm font-medium" style={{ color: 'var(--erp-text)' }}>
-                  <span className="flex h-5 w-5 items-center justify-center rounded-full" style={{ border: `1px solid ${active ? '#1d4ed8' : '#94a3b8'}` }}>
-                    {active && <span className="h-3 w-3 rounded-full bg-[#1d4ed8]" />}
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full" style={{ border: `1px solid ${active ? 'var(--erp-violet)' : 'var(--erp-border-strong)'}` }}>
+                    {active && <span className="h-3 w-3 rounded-full" style={{ background: 'var(--erp-violet)' }} />}
                   </span>
                   {option.label}
                 </button>
@@ -78,8 +78,8 @@ export default function FinancePeriodFilter({ value, onApply, className = '' }: 
           </div>
 
           <div className="flex gap-4 p-4" style={{ borderTop: '1px solid var(--erp-border)' }}>
-            <button type="button" onClick={clear} className="h-11 flex-1 rounded-full text-sm font-bold" style={{ border: '1px solid #1d4ed8', color: '#1d4ed8' }}>Limpar</button>
-            <button type="button" onClick={apply} className="h-11 flex-1 rounded-full text-sm font-bold text-white" style={{ background: '#1d4ed8' }}>Aplicar</button>
+            <button type="button" onClick={clear} className="h-11 flex-1 rounded-xl text-sm font-bold" style={{ border: '1px solid var(--erp-violet)', color: 'var(--erp-violet)' }}>Limpar</button>
+            <button type="button" onClick={apply} className="h-11 flex-1 rounded-xl text-sm font-bold text-white" style={{ background: 'var(--erp-violet)' }}>Aplicar</button>
           </div>
         </div>
       )}

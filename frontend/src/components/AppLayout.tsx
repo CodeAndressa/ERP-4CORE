@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, MoreHorizontal, ScrollText, Settings2, Target, Users } from 'lucide-react';
+import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, ChevronDown, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, MoreHorizontal, ScrollText, Settings2, Target, Users } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
 import { NotificationsMenu } from './NotificationsMenu';
@@ -26,7 +26,7 @@ const t = {
 
 type HeaderTab = { label: string; path: string; icon: JSX.Element };
 
-const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
+const HEADER_TABS: { match: string[]; tabs: HeaderTab[]; overflow?: HeaderTab[] }[] = [
   {
     match: ['/dashboard', '/site-metrics'],
     tabs: [
@@ -35,6 +35,9 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
     ],
   },
   {
+    // Grupo principal segue o mesmo fluxo operacional nomeado no PRODUCT.md
+    // (Leads, Pipeline, Follow-up, Agenda, Funil); destinos de referência/ocasionais
+    // ficam no overflow para não estourar o limite de itens visíveis por vez.
     match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'],
     tabs: [
       { label: 'Leads', path: '/comercial/leads', icon: <Users size={14} /> },
@@ -42,6 +45,8 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
       { label: 'Follow-up', path: '/comercial/followup', icon: <Bell size={14} /> },
       { label: 'Agenda', path: '/comercial/agenda', icon: <Calendar size={14} /> },
       { label: 'Funil', path: '/comercial/funil', icon: <Target size={14} /> },
+    ],
+    overflow: [
       { label: 'Propostas', path: '/comercial/propostas', icon: <FileText size={14} /> },
       { label: 'Clientes', path: '/comercial/clientes', icon: <Building2 size={14} /> },
       { label: 'Contratos', path: '/comercial/contratos', icon: <ScrollText size={14} /> },
@@ -56,12 +61,15 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
     ],
   },
   {
+    // Conteúdo do dia a dia fica visível; itens mais estratégicos/config ficam no overflow.
     match: ['/marketing'],
     tabs: [
       { label: 'Calendário', path: '/marketing/calendario', icon: <CalendarDays size={14} /> },
       { label: 'Posts', path: '/marketing/posts', icon: <FileText size={14} /> },
       { label: 'Ideias', path: '/marketing/ideias', icon: <Lightbulb size={14} /> },
       { label: 'Métricas', path: '/marketing/metricas', icon: <BarChart3 size={14} /> },
+    ],
+    overflow: [
       { label: 'Campanhas', path: '/marketing/campanhas', icon: <Target size={14} /> },
       { label: 'Planejamento', path: '/marketing/planejamento', icon: <Megaphone size={14} /> },
       { label: 'Conexões', path: '/marketing/conexoes', icon: <Settings2 size={14} /> },
@@ -167,19 +175,76 @@ function MobileBottomNav({ pathname }: { pathname: string }) {
   );
 }
 
-function getHeaderTabs(pathname: string) {
-  return HEADER_TABS.find((group) => group.match.some((path) => pathname === path || pathname.startsWith(`${path}/`)))?.tabs ?? [];
+function getHeaderGroup(pathname: string) {
+  return HEADER_TABS.find((group) => group.match.some((path) => pathname === path || pathname.startsWith(`${path}/`)));
+}
+
+function isTabActive(pathname: string, tab: HeaderTab) {
+  return pathname === tab.path || (tab.path !== '/financeiro' && tab.path !== '/relatorios' && pathname.startsWith(`${tab.path}/`));
+}
+
+function HeaderOverflowMenu({ pathname, tabs }: { pathname: string; tabs: HeaderTab[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = tabs.some((tab) => isTabActive(pathname, tab));
+
+  useEffect(() => {
+    const handler = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:rounded-xl"
+        style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
+        Mais
+        <ChevronDown size={13} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+      </button>
+      {open && (
+        <div
+          className="absolute left-0 top-full z-40 mt-1.5 min-w-[180px] rounded-xl border bg-white p-1"
+          style={{ borderColor: 'var(--erp-border)', boxShadow: '0 18px 45px rgba(43,22,92,0.18)' }}
+        >
+          {tabs.map((tab) => {
+            const tabActive = isTabActive(pathname, tab);
+            return (
+              <NavLink
+                key={tab.path}
+                to={tab.path}
+                className="flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors"
+                style={{ background: tabActive ? 'var(--erp-violet-dim)' : 'transparent', color: tabActive ? 'var(--erp-violet)' : 'var(--erp-text)' }}
+              >
+                {tab.icon}
+                {tab.label}
+              </NavLink>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function HeaderAreaNav({ pathname }: { pathname: string }) {
-  const tabs = getHeaderTabs(pathname);
-  if (!tabs.length) return <div />;
+  const group = getHeaderGroup(pathname);
+  if (!group?.tabs.length) return <div />;
 
   return (
     <nav className="min-w-0 flex-1 overflow-x-auto px-0.5 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Navegação da área">
       <div className="inline-flex min-w-max items-center gap-1 rounded-xl border bg-white/90 p-1 backdrop-blur-xl sm:rounded-2xl" style={{ borderColor: 'var(--erp-border)' }}>
-        {tabs.map((tab) => {
-          const active = pathname === tab.path || (tab.path !== '/financeiro' && tab.path !== '/relatorios' && pathname.startsWith(`${tab.path}/`));
+        {group.tabs.map((tab) => {
+          const active = isTabActive(pathname, tab);
           return (
             <NavLink
               key={tab.path}
@@ -192,6 +257,7 @@ function HeaderAreaNav({ pathname }: { pathname: string }) {
             </NavLink>
           );
         })}
+        {group.overflow?.length ? <HeaderOverflowMenu pathname={pathname} tabs={group.overflow} /> : null}
       </div>
     </nav>
   );
@@ -211,7 +277,7 @@ const COMMANDS = [
   { group: 'Marketing', label: t.metricas, path: '/marketing/metricas', keys: 'performance metricas analytics' },
   { group: 'IA', label: 'Chat com IA', path: '/ia/chat', keys: 'chat ia inteligencia assistente' },
   { group: 'IA', label: 'Insights IA', path: '/ia/sugestoes', keys: 'insights sugestoes recomendacoes' },
-  { group: 'Sistema', label: t.relatorios, path: '/reports', keys: 'relatorios reports pdf' },
+  { group: 'Sistema', label: t.relatorios, path: '/relatorios', keys: 'relatorios reports pdf' },
   { group: 'Sistema', label: t.configuracoes, path: '/settings', keys: 'configuracoes settings' },
   { group: 'Sistema', label: t.metricasSite, path: '/site-metrics', keys: 'site metricas analytics' },
 ];

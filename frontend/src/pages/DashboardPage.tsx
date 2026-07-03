@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import {
@@ -6,17 +7,11 @@ import {
   CalendarDays,
   CheckCircle,
   Clock,
-  DollarSign,
-  Eye,
-  MousePointerClick,
   RefreshCw,
-  TrendingUp,
   Users,
-  Camera,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { MetricCard } from '../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../shared/components/ui/Card';
 import { Badge } from '../shared/components/ui/Badge';
 
@@ -129,6 +124,35 @@ function SummaryLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+type PriorityTone = 'rose' | 'violet' | 'amber' | 'emerald';
+
+const PRIORITY_TONE_COLOR: Record<PriorityTone, string> = {
+  rose: 'var(--erp-rose)',
+  violet: 'var(--erp-violet)',
+  amber: 'var(--erp-amber)',
+  emerald: 'var(--erp-emerald)',
+};
+
+const PRIORITY_TONE_BG: Record<PriorityTone, string> = {
+  rose: 'rgba(190,18,60,0.08)',
+  violet: 'var(--erp-violet-dim)',
+  amber: 'rgba(180,83,9,0.08)',
+  emerald: 'rgba(4,120,87,0.08)',
+};
+
+function PriorityRow({ icon, label, detail, value, tone, to }: { icon: ReactNode; label: string; detail: string; value: string; tone: PriorityTone; to: string }) {
+  return (
+    <Link to={to} className="flex min-h-11 items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-[var(--erp-surface-2)] sm:px-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full" style={{ background: PRIORITY_TONE_BG[tone], color: PRIORITY_TONE_COLOR[tone] }}>{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>{label}</p>
+        <p className="truncate text-xs" style={{ color: 'var(--erp-text-muted)' }}>{detail}</p>
+      </div>
+      <p className="shrink-0 text-sm font-bold tabular-nums" style={{ color: PRIORITY_TONE_COLOR[tone] }}>{value}</p>
+    </Link>
+  );
+}
+
 export default function DashboardPage() {
   const [asaas, setAsaas] = useState<AsaasData | null>(null);
   const [asaasLoading, setAsaasLoading] = useState(true);
@@ -210,39 +234,74 @@ export default function DashboardPage() {
   const upcomingPosts = (futurePosts.length > 0 ? futurePosts : recentPosts).slice(0, 5);
   const hasScheduled = futurePosts.length > 0;
 
+  const weekAhead = new Date();
+  weekAhead.setDate(weekAhead.getDate() + 7);
+  const weekAheadStr = weekAhead.toISOString().slice(0, 10);
+  const postsThisWeek = posts.filter((post) => post.date && post.date >= today && post.date <= weekAheadStr).length;
+  const overdueCount = asaas?.overdue_count ?? 0;
+
+  const priorities: { key: string; icon: ReactNode; label: string; detail: string; value: string; tone: PriorityTone; to: string }[] = [
+    {
+      key: 'overdue',
+      icon: overdueCount > 0 ? <AlertTriangle size={16} /> : <CheckCircle size={16} />,
+      label: overdueCount > 0 ? 'Cobranças vencidas' : 'Financeiro em dia',
+      detail: overdueCount > 0 ? (overdueCount === 1 ? '1 cobrança em atraso' : `${fmt.format(overdueCount)} cobranças em atraso`) : 'Nenhuma cobrança vencida',
+      value: overdueCount > 0 ? money(asaas?.overdue_value ?? 0) : '—',
+      tone: overdueCount > 0 ? 'rose' : 'emerald',
+      to: '/financeiro/receita',
+    },
+    {
+      key: 'leads',
+      icon: <Users size={16} />,
+      label: openLeads > 0 ? 'Leads aguardando retorno' : 'Nenhum lead em aberto',
+      detail: openLeads > 0 ? (openLeads === 1 ? '1 lead em aberto no pipeline' : `${fmt.format(openLeads)} leads em aberto no pipeline`) : 'Pipeline comercial limpo',
+      value: fmt.format(openLeads),
+      tone: openLeads > 0 ? 'violet' : 'emerald',
+      to: '/comercial/followup',
+    },
+    {
+      key: 'posts',
+      icon: <CalendarDays size={16} />,
+      label: postsThisWeek > 0 ? 'Conteúdo desta semana' : 'Nada agendado esta semana',
+      detail: postsThisWeek > 0 ? (postsThisWeek === 1 ? '1 publicação programada' : `${fmt.format(postsThisWeek)} publicações programadas`) : 'Sem posts nos próximos 7 dias',
+      value: fmt.format(postsThisWeek),
+      tone: postsThisWeek > 0 ? 'amber' : 'emerald',
+      to: '/marketing/calendario',
+    },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-violet-100 pb-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
-          <div className="h-10 w-1 rounded-full bg-violet-600" />
-          <div className="min-w-0">
-            <h1 className="text-2xl font-semibold text-slate-950">Painel Executivo</h1>
-            <p className="mt-0.5 text-sm text-slate-500">Financeiro, comercial, site e marketing em uma leitura única.</p>
-          </div>
+      <div className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-center lg:justify-between" style={{ borderColor: 'var(--erp-border)' }}>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold" style={{ color: 'var(--erp-text)' }}>Painel Executivo</h1>
+          <p className="mt-0.5 text-sm" style={{ color: 'var(--erp-text-muted)' }}>Financeiro, comercial, site e marketing em uma leitura única.</p>
         </div>
-        <button onClick={() => loadAll(true)} className="flex items-center gap-1.5 rounded-full border border-violet-100 bg-white px-3 py-2 text-xs text-slate-600 transition hover:border-violet-200 hover:text-violet-700">
+        <button onClick={() => loadAll(true)} className="flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-2 text-xs transition-colors" style={{ borderColor: 'var(--erp-border)', color: 'var(--erp-text-muted)' }}>
           <RefreshCw size={12} className={asaasLoading || siteLoading || secondaryLoading ? 'animate-spin' : ''} />
           Atualizar
         </button>
       </div>
 
       {asaasError && (
-        <div className="flex items-center gap-3 rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: 'rgba(190,18,60,0.3)', background: 'rgba(190,18,60,0.06)', color: 'var(--erp-rose)' }}>
           <AlertTriangle size={14} />
           <span><strong>ASAAS:</strong> {asaasError}</span>
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Recebido" value={asaasLoading ? '...' : asaas ? money(asaas.received_value) : '-'} detail={asaas ? `${asaas.received_count} cobranças pagas` : 'Sem dados ASAAS'} tone="emerald" icon={<CheckCircle size={16} />} />
-        <MetricCard label="A receber" value={asaasLoading ? '...' : asaas ? money(asaas.pending_value) : '-'} detail={asaas ? `${asaas.pending_count} cobranças pendentes` : 'Sem dados ASAAS'} tone="violet" icon={<DollarSign size={16} />} />
-        <MetricCard label="Em atraso" value={asaasLoading ? '...' : asaas ? money(asaas.overdue_value) : '-'} detail={asaas ? `${asaas.overdue_count} cobranças vencidas` : 'Sem dados ASAAS'} tone="rose" icon={<AlertTriangle size={16} />} />
-        <MetricCard label="Clientes" value={asaasLoading && secondaryLoading ? '...' : fmt.format(clientCount)} detail="ASAAS e base comercial" tone="cyan" icon={<Users size={16} />} />
-        <MetricCard label="Recorrente MRR" value={asaasLoading ? '...' : asaas?.recurring_value ? money(asaas.recurring_value) : '-'} detail={asaas?.recurring_count ? `${asaas.recurring_count} assinaturas ativas` : 'Sem recorrências ativas'} tone="violet" icon={<RefreshCw size={16} />} />
-        <MetricCard label="Leads" value={secondaryLoading ? '...' : fmt.format(leads.length)} detail={`${openLeads} em aberto`} tone="emerald" icon={<TrendingUp size={16} />} />
-        <MetricCard label="Tráfego do site" value={siteLoading ? '...' : fmt.format(visitors)} detail={`${fmt.format(pageviews)} pageviews`} tone="amber" icon={<Eye size={16} />} />
-        <MetricCard label="Posts" value={secondaryLoading ? '...' : fmt.format(postCounts.total)} detail={`${postCounts.scheduled} agendados`} tone="cyan" icon={<CalendarDays size={16} />} />
-      </div>
+      <Card padding="sm">
+        <div className="px-2 pt-1 sm:px-1">
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>Precisa de atenção hoje</p>
+        </div>
+        <div className="mt-2 space-y-1">
+          {(asaasLoading || secondaryLoading) ? (
+            <div className="space-y-2 p-2">{[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}</div>
+          ) : (
+            priorities.map(({ key, ...item }) => <PriorityRow key={key} {...item} />)
+          )}
+        </div>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-4">
         <Card padding="lg">
@@ -292,8 +351,8 @@ export default function DashboardPage() {
           {siteLoading ? <EmptyBlock label="Carregando dados do site..." /> : siteDaily.length ? (
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={siteDaily} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barSize={10}>
-                <Bar dataKey="visitors" fill="#2b165c" opacity={0.88} radius={[5, 5, 0, 0]} name="Visitantes" />
-                <XAxis dataKey="date" tick={{ fill: '#746d91', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(date) => String(date).slice(8)} />
+                <Bar dataKey="visitors" fill="var(--erp-violet)" opacity={0.88} radius={[5, 5, 0, 0]} name="Visitantes" />
+                <XAxis dataKey="date" tick={{ fill: 'var(--erp-text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(date) => String(date).slice(8)} />
                 <Tooltip content={<ChartTooltip />} />
               </BarChart>
             </ResponsiveContainer>
@@ -324,58 +383,30 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2" padding="lg">
-          <CardHeader title="Últimas cobranças" subtitle="ASAAS, recebidos e pendências" action={<Link to="/financeiro/receita" className="flex items-center gap-1 text-xs font-medium text-violet-700">Ver receita <ArrowRight size={11} /></Link>} />
-          {asaasLoading ? (
-            <div className="space-y-2">{[1, 2, 3, 4].map((i) => <div key={i} className="h-10 animate-pulse rounded-full bg-violet-50" />)}</div>
-          ) : asaas?.payments?.length ? (
-            <div className="divide-y divide-violet-50">
-              {asaas.payments.slice(0, 6).map((payment) => {
-                const status = paymentStatus(payment);
-                return (
-                  <div key={payment.id} className="flex items-center justify-between gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-slate-950">{payment.customer}</p>
-                      <p className="truncate text-xs text-slate-500">{payment.description} - vence {payment.due_date}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge tone={status.tone}>{status.label}</Badge>
-                      <span className="text-sm font-semibold tabular-nums text-slate-950">{money(payment.value)}</span>
-                    </div>
+      <Card padding="lg">
+        <CardHeader title="Últimas cobranças" subtitle="ASAAS, recebidos e pendências" action={<Link to="/financeiro/receita" className="flex items-center gap-1 text-xs font-medium text-violet-700">Ver receita <ArrowRight size={11} /></Link>} />
+        {asaasLoading ? (
+          <div className="space-y-2">{[1, 2, 3, 4].map((i) => <div key={i} className="h-10 animate-pulse rounded-full bg-violet-50" />)}</div>
+        ) : asaas?.payments?.length ? (
+          <div className="divide-y divide-violet-50">
+            {asaas.payments.slice(0, 6).map((payment) => {
+              const status = paymentStatus(payment);
+              return (
+                <div key={payment.id} className="flex items-center justify-between gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-950">{payment.customer}</p>
+                    <p className="truncate text-xs text-slate-500">{payment.description} - vence {payment.due_date}</p>
                   </div>
-                );
-              })}
-            </div>
-          ) : <EmptyBlock label="Sem cobranças disponíveis" />}
-        </Card>
-
-        <Card padding="lg">
-          <CardHeader title="Métricas rápidas" subtitle="Sinais operacionais" />
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="rounded-[18px] border border-violet-100 bg-white p-3">
-              <Camera size={14} className="mb-2" style={{ color: '#ee2a7b' }} />
-              <p className="text-lg font-bold text-slate-950">{igProfile ? fmt.format(igProfile.followers_count ?? 0) : '—'}</p>
-              <p className="text-xs text-slate-500">Seguidores IG</p>
-            </div>
-            <div className="rounded-[18px] border border-violet-100 bg-white p-3">
-              <MousePointerClick size={14} className="mb-2 text-violet-700" />
-              <p className="text-lg font-bold text-slate-950">{conversion.toFixed(1)}%</p>
-              <p className="text-xs text-slate-500">Conversão site</p>
-            </div>
-            <div className="rounded-[18px] border border-violet-100 bg-white p-3">
-              <Users size={14} className="mb-2 text-violet-700" />
-              <p className="text-lg font-bold text-slate-950">{fmt.format(openLeads)}</p>
-              <p className="text-xs text-slate-500">Leads abertos</p>
-            </div>
-            <div className="rounded-[18px] border border-violet-100 bg-white p-3">
-              <DollarSign size={14} className="mb-2 text-violet-700" />
-              <p className="text-lg font-bold text-slate-950">{money(leadPipeline)}</p>
-              <p className="text-xs text-slate-500">Pipeline</p>
-            </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge tone={status.tone}>{status.label}</Badge>
+                    <span className="text-sm font-semibold tabular-nums text-slate-950">{money(payment.value)}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </Card>
-      </div>
+        ) : <EmptyBlock label="Sem cobranças disponíveis" />}
+      </Card>
     </div>
   );
 }

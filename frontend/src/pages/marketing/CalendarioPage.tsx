@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Calendar, Camera, Globe, Mail, Layers, Video, Plus, X,
+  Calendar, Camera, ChevronLeft, ChevronRight, Globe, Mail, Layers, Video, Plus, X,
   CalendarDays, CheckCircle, Clock, Lightbulb, Edit3, RefreshCw,
 } from 'lucide-react';
 import { Card } from '../../shared/components/ui/Card';
@@ -44,6 +44,13 @@ const CHANNEL_ICONS: Record<string, React.ReactNode> = {
   YouTube:   <Video   size={13} className="text-rose-400"   />,
 };
 
+const STATUS_DOT_COLOR: Record<PostStatus, string> = {
+  publicado: 'var(--erp-emerald)',
+  agendado: 'var(--erp-violet)',
+  revisao: 'var(--erp-amber)',
+  ideia: 'var(--erp-text-dim)',
+};
+
 const CHANNELS = ['Instagram', 'LinkedIn', 'E-mail', 'Stories', 'YouTube'];
 const FORMATS  = ['Carrossel', 'Reels', 'Artigo', 'Newsletter', 'Evento', 'Estático', 'Vídeo'];
 
@@ -56,7 +63,7 @@ function weekLabel(iso: string) {
 
 function groupByWeek(posts: Post[]) {
   const groups: Record<string, Post[]> = {};
-  for (const p of [...posts].sort((a, b) => a.date.localeCompare(b.date))) {
+  for (const p of [...posts].sort((a, b) => b.date.localeCompare(a.date))) {
     const key = weekLabel(p.date);
     if (!groups[key]) groups[key] = [];
     groups[key].push(p);
@@ -64,10 +71,41 @@ function groupByWeek(posts: Post[]) {
   return Object.entries(groups);
 }
 
+const WEEKDAY_LABELS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+function isoDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function monthGrid(monthDate: Date) {
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const startOffset = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: { date: string; day: number; inMonth: boolean }[] = [];
+
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const d = new Date(year, month, -i);
+    cells.push({ date: isoDate(d), day: d.getDate(), inMonth: false });
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push({ date: isoDate(new Date(year, month, day)), day, inMonth: true });
+  }
+  let trailing = 1;
+  while (cells.length % 7 !== 0) {
+    const d = new Date(year, month + 1, trailing);
+    cells.push({ date: isoDate(d), day: d.getDate(), inMonth: false });
+    trailing += 1;
+  }
+  return cells;
+}
+
 export default function CalendarioPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<PostStatus | 'all'>('all');
+  const [viewMonth, setViewMonth] = useState(() => { const d = new Date(); d.setDate(1); return d; });
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ date: '', title: '', channel: 'Instagram', format: 'Carrossel', status: 'ideia' as PostStatus });
 
@@ -90,8 +128,29 @@ export default function CalendarioPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = posts.filter((p) => statusFilter === 'all' || p.status === statusFilter);
+  const statusFiltered = posts.filter((p) => statusFilter === 'all' || p.status === statusFilter);
+  const filtered = statusFiltered.filter((p) => !selectedDate || p.date === selectedDate);
   const weeks = groupByWeek(filtered);
+
+  const postsByDate = useMemo(() => {
+    const map: Record<string, Post[]> = {};
+    for (const p of statusFiltered) {
+      if (!p.date) continue;
+      (map[p.date] ??= []).push(p);
+    }
+    return map;
+  }, [statusFiltered]);
+
+  const cells = useMemo(() => monthGrid(viewMonth), [viewMonth]);
+  const todayIso = isoDate(new Date());
+
+  function selectDay(date: string) {
+    setSelectedDate((prev) => (prev === date ? null : date));
+  }
+
+  function changeMonth(delta: number) {
+    setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  }
 
   const counts = {
     publicado: posts.filter((p) => p.status === 'publicado').length,
@@ -245,8 +304,70 @@ export default function CalendarioPage() {
         </div>
       )}
 
+      {/* Calendário */}
+      <Card padding="sm">
+        <div className="flex items-center justify-between px-1 pb-2 pt-1">
+          <p className="text-sm font-semibold capitalize" style={{ color: 'var(--erp-text)' }}>
+            {viewMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+          </p>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => changeMonth(-1)} aria-label="Mês anterior" className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-[var(--erp-surface-2)]" style={{ color: 'var(--erp-text-muted)' }}>
+              <ChevronLeft size={16} />
+            </button>
+            <button type="button" onClick={() => setViewMonth(() => { const d = new Date(); d.setDate(1); return d; })} className="rounded-xl px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--erp-surface-2)]" style={{ color: 'var(--erp-text-muted)' }}>
+              Hoje
+            </button>
+            <button type="button" onClick={() => changeMonth(1)} aria-label="Próximo mês" className="flex h-9 w-9 items-center justify-center rounded-xl transition-colors hover:bg-[var(--erp-surface-2)]" style={{ color: 'var(--erp-text-muted)' }}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 px-1 pb-1 text-center">
+          {WEEKDAY_LABELS.map((label) => (
+            <span key={label} className="py-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-dim)' }}>{label}</span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1 px-1 pb-1">
+          {cells.map((cell) => {
+            const dayPosts = postsByDate[cell.date] ?? [];
+            const isToday = cell.date === todayIso;
+            const isSelected = cell.date === selectedDate;
+            return (
+              <button
+                key={cell.date}
+                type="button"
+                onClick={() => cell.inMonth && selectDay(cell.date)}
+                disabled={!cell.inMonth}
+                aria-label={`${cell.day} de ${new Date(cell.date + 'T12:00:00').toLocaleDateString('pt-BR', { month: 'long' })}${dayPosts.length ? `, ${dayPosts.length} publicação(ões)` : ''}`}
+                className="flex aspect-square flex-col items-center justify-center gap-0.5 rounded-lg text-xs transition-colors disabled:cursor-default"
+                style={{
+                  background: isSelected ? 'var(--erp-violet)' : isToday ? 'var(--erp-violet-soft)' : 'transparent',
+                  color: !cell.inMonth ? 'var(--erp-text-dim)' : isSelected ? '#fff' : 'var(--erp-text)',
+                  opacity: cell.inMonth ? 1 : 0.45,
+                  fontWeight: isToday || isSelected ? 700 : 500,
+                }}
+              >
+                <span>{cell.day}</span>
+                {dayPosts.length > 0 && (
+                  <span className="flex items-center gap-0.5">
+                    {dayPosts.slice(0, 3).map((p) => (
+                      <span
+                        key={p.id}
+                        className="h-1 w-1 rounded-full"
+                        style={{ background: isSelected ? '#fff' : STATUS_DOT_COLOR[p.status] }}
+                      />
+                    ))}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
       {/* Status filter */}
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex flex-wrap items-center gap-1">
         {STATUS_FILTER_TABS.map((tab) => {
           const active = statusFilter === tab.id;
           return (
@@ -257,13 +378,23 @@ export default function CalendarioPage() {
               style={{
                 background: active ? 'var(--erp-violet-dim)' : 'transparent',
                 color: active ? 'var(--erp-violet-light)' : 'var(--erp-text-muted)',
-                border: active ? '1px solid var(--erp-violet)44' : '1px solid transparent',
+                border: active ? '1px solid var(--erp-border-strong)' : '1px solid transparent',
               }}
             >
               {tab.label}
             </button>
           );
         })}
+        {selectedDate && (
+          <button
+            onClick={() => setSelectedDate(null)}
+            className="ml-1 flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium"
+            style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)' }}
+          >
+            {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+            <X size={12} />
+          </button>
+        )}
       </div>
 
       {/* Empty state contextual */}

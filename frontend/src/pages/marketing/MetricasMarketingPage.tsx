@@ -144,7 +144,7 @@ export default function MetricasMarketingPage() {
         </div>
         <Card padding="lg">
           <div className="flex items-start gap-3 text-sm">
-            <AlertCircle size={16} className="mt-0.5 shrink-0" style={{ color: '#f59e0b' }} />
+            <AlertCircle size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--erp-amber)' }} />
             <div>
               <p style={{ color: 'var(--erp-text)' }}>{error}</p>
               <a href="/marketing/conexoes" className="mt-1 inline-block text-xs font-semibold"
@@ -169,7 +169,7 @@ export default function MetricasMarketingPage() {
           <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Dados dos últimos 30 dias · Instagram @4coreconsultoria</p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white"
-          style={{ background: 'linear-gradient(135deg, #ee2a7b, #6228d7)' }}>
+          style={{ background: 'var(--erp-violet)' }}>
           Instagram
         </span>
       </div>
@@ -222,9 +222,9 @@ export default function MetricasMarketingPage() {
       {/* Aviso instagram_manage_insights */}
       {!loading && !insightsAvailable && (
         <div className="rounded-xl px-4 py-4 text-sm"
-          style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
+          style={{ background: 'rgba(180,83,9,0.08)', border: '1px solid rgba(180,83,9,0.25)' }}>
           <div className="flex items-start gap-3">
-            <AlertCircle size={15} className="mt-0.5 shrink-0" style={{ color: '#f59e0b' }} />
+            <AlertCircle size={15} className="mt-0.5 shrink-0" style={{ color: 'var(--erp-amber)' }} />
             <div className="space-y-1">
               <p className="font-semibold" style={{ color: 'var(--erp-text)' }}>
                 Alcance não disponível — permissão <code className="text-xs">instagram_manage_insights</code> não concedida
@@ -264,11 +264,11 @@ export default function MetricasMarketingPage() {
               <>
                 <div className="flex items-center gap-4 mt-2 mb-3">
                   <div className="flex items-center gap-1.5">
-                    <div className="h-2 w-2 rounded-full bg-pink-500" />
+                    <div className="h-2 w-2 rounded-full" style={{ background: 'var(--erp-violet)' }} />
                     <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Seguidores</span>
                   </div>
                   <div className="ml-auto flex items-center gap-1.5 text-sm font-semibold"
-                    style={{ color: growthPositive ? '#34d399' : '#ef4444' }}>
+                    style={{ color: growthPositive ? 'var(--erp-emerald)' : 'var(--erp-rose)' }}>
                     {growthPositive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                     {growthPositive ? '+' : ''}{growth30d} nos últimos 30 dias
                   </div>
@@ -281,7 +281,7 @@ export default function MetricasMarketingPage() {
                     <YAxis tick={{ fill: 'var(--erp-text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} width={45}
                       domain={['auto', 'auto']} tickFormatter={fmtNum} />
                     <Tooltip content={<Tip />} />
-                    <Line name="Novos seguidores" type="monotone" dataKey="novos" stroke="#ee2a7b" strokeWidth={2} dot={false} />
+                    <Line name="Novos seguidores" type="monotone" dataKey="novos" stroke="var(--erp-violet)" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </>
@@ -298,7 +298,7 @@ export default function MetricasMarketingPage() {
                 {topPosts.map((p, i) => (
                   <div key={i} className="flex items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="font-medium tabular-nums" style={{ color: '#ee2a7b', minWidth: 16 }}>{i + 1}</span>
+                      <span className="font-medium tabular-nums" style={{ color: 'var(--erp-violet)', minWidth: 16 }}>{i + 1}</span>
                       <span className="truncate" style={{ color: 'var(--erp-text)' }}>{p.label}</span>
                       {p.permalink && (
                         <a href={p.permalink} target="_blank" rel="noreferrer">
@@ -329,8 +329,8 @@ export default function MetricasMarketingPage() {
               <AreaChart data={weekly} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                 <defs>
                   <linearGradient id="gAlcance" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor="#ee2a7b" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#ee2a7b" stopOpacity={0} />
+                    <stop offset="5%"  stopColor="var(--erp-violet)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="var(--erp-violet)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
@@ -338,7 +338,7 @@ export default function MetricasMarketingPage() {
                 <YAxis tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={40}
                   tickFormatter={(v) => fmtNum(v)} />
                 <Tooltip content={<Tip />} />
-                <Area name="Alcance" type="monotone" dataKey="alcance" stroke="#ee2a7b" strokeWidth={2} fill="url(#gAlcance)" />
+                <Area name="Alcance" type="monotone" dataKey="alcance" stroke="var(--erp-violet)" strokeWidth={2} fill="url(#gAlcance)" />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -354,7 +354,7 @@ export default function MetricasMarketingPage() {
                 <XAxis dataKey="label" tick={{ fill: 'var(--erp-text-muted)', fontSize: 9 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={32} />
                 <Tooltip content={<Tip />} />
-                <Bar name="Engajamento" dataKey="engajamento" fill="#ee2a7b" radius={[4, 4, 0, 0]} maxBarSize={48} />
+                <Bar name="Engajamento" dataKey="engajamento" fill="var(--erp-violet)" radius={[4, 4, 0, 0]} maxBarSize={48} />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -371,7 +371,7 @@ export default function MetricasMarketingPage() {
           {!messages?.available ? (
             <div className="flex flex-col gap-3">
               <div className="flex items-start gap-3 rounded-xl px-4 py-3"
-                style={{ background: 'rgba(98,40,215,0.06)', border: '1px solid rgba(98,40,215,0.15)' }}>
+                style={{ background: 'var(--erp-violet-dim)', border: '1px solid var(--erp-border)' }}>
                 <Lock size={14} className="mt-0.5 shrink-0" style={{ color: 'var(--erp-violet-light)' }} />
                 <div className="space-y-1">
                   <p className="text-sm font-medium" style={{ color: 'var(--erp-text)' }}>
@@ -408,7 +408,7 @@ export default function MetricasMarketingPage() {
                     <div key={conv.id} className="flex items-center justify-between rounded-xl px-3 py-2.5"
                       style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)' }}>
                       <div className="flex items-center gap-2">
-                        <MessageCircle size={13} style={{ color: '#ee2a7b' }} />
+                        <MessageCircle size={13} style={{ color: 'var(--erp-violet-light)' }} />
                         <span className="text-sm" style={{ color: 'var(--erp-text)' }}>{name}</span>
                       </div>
                       {conv.updated_time && (
@@ -435,7 +435,7 @@ export default function MetricasMarketingPage() {
               <XAxis dataKey="label" tick={{ fill: 'var(--erp-text-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--erp-text-muted)', fontSize: 11 }} axisLine={false} tickLine={false} width={32} />
               <Tooltip content={<Tip />} />
-              <Bar name="Engajamento" dataKey="engajamento" radius={[4, 4, 0, 0]} maxBarSize={60} fill="#ee2a7b" />
+              <Bar name="Engajamento" dataKey="engajamento" radius={[4, 4, 0, 0]} maxBarSize={60} fill="var(--erp-violet)" />
             </BarChart>
           </ResponsiveContainer>
         </Card>

@@ -373,7 +373,7 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
                 key={item.value}
                 type="button"
                 onClick={() => setFilter(item.value)}
-                className="h-9 shrink-0 rounded-full px-4 text-xs font-bold transition-all"
+                className="h-9 shrink-0 rounded-xl px-4 text-xs font-bold transition-all"
                 style={{
                   background: filter === item.value ? 'var(--erp-violet)' : 'var(--erp-surface-2)',
                   border: '1px solid var(--erp-border)',
@@ -419,18 +419,18 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
                             {canExpand && <ChevronDown size={15} className="transition-transform" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />}
                             <span className="font-semibold">{group.item.description}</span>
                           </button>
-                          <span className="mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: group.item.kind === 'fixed' ? 'var(--erp-violet-dim)' : 'rgba(251,191,36,0.12)', color: group.item.kind === 'fixed' ? 'var(--erp-violet-light)' : '#b45309' }}>{label}</span>
+                          <span className="mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: group.item.kind === 'fixed' ? 'var(--erp-violet-dim)' : 'rgba(180,83,9,0.12)', color: group.item.kind === 'fixed' ? 'var(--erp-violet-light)' : 'var(--erp-amber)' }}>{label}</span>
                         </td>
                         <td className="py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{group.item.category}</td>
                         <td className="py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{group.item.vendor}</td>
                         <td className="py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{statusLabel}</td>
                         <td className="py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>{group.contractTotal ? currency(group.contractTotal, 2) : '-'}</td>
-                        <td className="py-3 font-semibold tabular-nums" style={{ color: '#f59e0b' }}>{currency(group.total, 2)}</td>
-                        <td className="py-3 font-semibold tabular-nums" style={{ color: '#047857' }}>{currency(group.paidTotal, 2)}</td>
-                        <td className="py-3 font-semibold tabular-nums" style={{ color: '#2563eb' }}>{currency(group.payableTotal, 2)}</td>
+                        <td className="py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-amber)' }}>{currency(group.total, 2)}</td>
+                        <td className="py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-emerald)' }}>{currency(group.paidTotal, 2)}</td>
+                        <td className="py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-cyan)' }}>{currency(group.payableTotal, 2)}</td>
                         <td className="py-3 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{group.nextDue ? formatDate(group.nextDue.date) : '-'}</td>
                         <td className="py-3 text-right">
-                          <button type="button" onClick={() => removeCost(group.item)} className="inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors" style={{ border: '1px solid var(--erp-border)', color: '#ef4444', background: '#fff' }} aria-label="Remover lançamento">
+                          <button type="button" onClick={() => removeCost(group.item)} className="inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors" style={{ border: '1px solid var(--erp-border)', color: 'var(--erp-rose)', background: '#fff' }} aria-label="Remover lançamento">
                             <Trash2 size={14} />
                           </button>
                         </td>
@@ -440,9 +440,9 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
                           <td className="py-2 pl-8 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{formatDate(item.date)}</td>
                           <td className="py-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.recurrence}</td>
                           <td className="py-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.vendor}</td>
-                          <td className="py-2"><span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: item.date < today ? 'rgba(52,211,153,0.12)' : 'rgba(59,130,246,0.12)', color: item.date < today ? '#047857' : '#2563eb' }}>{item.date < today ? 'Pago' : 'A vencer'}</span></td>
+                          <td className="py-2"><span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: item.date < today ? 'rgba(4,120,87,0.12)' : 'rgba(8,145,178,0.12)', color: item.date < today ? 'var(--erp-emerald)' : 'var(--erp-cyan)' }}>{item.date < today ? 'Pago' : 'A vencer'}</span></td>
                           <td className="py-2 text-xs" style={{ color: 'var(--erp-text-dim)' }}>Parcela</td>
-                          <td className="py-2 font-semibold tabular-nums" style={{ color: '#f59e0b' }}>{currency(item.value, 2)}</td>
+                          <td className="py-2 font-semibold tabular-nums" style={{ color: 'var(--erp-amber)' }}>{currency(item.value, 2)}</td>
                           <td className="py-2 text-xs" style={{ color: 'var(--erp-text-dim)' }}>{item.date < today ? currency(item.value, 2) : '-'}</td>
                           <td className="py-2 text-xs" style={{ color: 'var(--erp-text-dim)' }}>{item.date >= today ? currency(item.value, 2) : '-'}</td>
                           <td className="py-2 text-xs" style={{ color: 'var(--erp-text-dim)' }}>{item.notes ?? '-'}</td>
@@ -535,7 +535,7 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
                       key={limit.value}
                       type="button"
                       onClick={() => setDraft((current) => ({ ...current, limit: limit.value }))}
-                      className="flex h-9 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-bold"
+                      className="flex h-9 items-center justify-center gap-1 rounded-xl px-2 text-[11px] font-bold"
                       style={{
                         background: draft.limit === limit.value ? '#fff' : 'transparent',
                         border: '1px solid var(--erp-border)',
@@ -594,7 +594,7 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
             <div key={item.month} className="rounded-xl px-3 py-3" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)' }}>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--erp-text-muted)' }}>{monthLabel(item.month)}</span>
-                <ShieldCheck size={13} style={{ color: '#f59e0b' }} />
+                <ShieldCheck size={13} style={{ color: 'var(--erp-amber)' }} />
               </div>
               <p className="text-lg font-bold tabular-nums" style={{ color: 'var(--erp-text)' }}>{currency(item.value, 2)}</p>
             </div>

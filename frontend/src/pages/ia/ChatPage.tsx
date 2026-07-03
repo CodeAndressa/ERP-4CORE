@@ -140,7 +140,7 @@ export default function ChatPage() {
     <div className="flex flex-col" style={{ height: 'calc(100vh - 160px)' }}>
       <div className="mb-4 flex flex-wrap items-center gap-1">
         {SCOPES.map((item) => (
-          <button key={item.id} onClick={() => setScope(item.id)} className={`rounded-full px-3 py-1.5 text-xs font-medium transition-all ${scope === item.id ? 'bg-violet-600 text-white' : 'border border-violet-100 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700'}`}>{item.label}</button>
+          <button key={item.id} onClick={() => setScope(item.id)} className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${scope === item.id ? 'bg-violet-600 text-white' : 'border border-violet-100 bg-white text-slate-600 hover:border-violet-200 hover:text-violet-700'}`}>{item.label}</button>
         ))}
       </div>
 
@@ -176,7 +176,7 @@ export default function ChatPage() {
 
       <div className="mb-3 flex flex-wrap gap-2">
         {QUICK_PROMPTS[scope].map((prompt) => (
-          <button key={prompt} onClick={() => send(prompt)} disabled={loading} className="rounded-full border border-violet-100 bg-white px-3 py-1.5 text-xs text-slate-600 transition-all hover:border-violet-200 hover:text-violet-700 disabled:opacity-40">{prompt}</button>
+          <button key={prompt} onClick={() => send(prompt)} disabled={loading} className="rounded-xl border border-violet-100 bg-white px-3 py-1.5 text-xs text-slate-600 transition-all hover:border-violet-200 hover:text-violet-700 disabled:opacity-40">{prompt}</button>
         ))}
       </div>
 

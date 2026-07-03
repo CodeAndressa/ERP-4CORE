@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-03T00:00:00.000Z",
+  "title": "Design System: 4Core ERP",
+  "extensions": {
+    "colorMeta": {
+      "executive-indigo": { "role": "primary", "displayName": "Índigo Executivo", "canonical": "oklch(27% 0.11 300)", "tonalRamp": ["#0f0928", "#1a0f3d", "#211047", "#2b165c", "#3f2479", "#6a4aa8", "#a996d4", "#eeeaf6"] },
+      "neutral-bg": { "role": "neutral", "displayName": "Fundo da Aplicação", "canonical": "oklch(97.5% 0.01 300)", "tonalRamp": ["#151127", "#3a3550", "#5f5872", "#9189a3", "#c9c3d6", "#ebe7f3", "#f4f2f8", "#f8f7fb"] },
+      "ink": { "role": "neutral", "displayName": "Tinta", "canonical": "oklch(16% 0.03 300)", "tonalRamp": ["#050308", "#151127", "#2a2440", "#3f2479", "#5f5872", "#9189a3", "#c9c3d6", "#eeeaf6"] },
+      "success": { "role": "semantic", "displayName": "Sucesso Esmeralda", "canonical": "oklch(48% 0.11 165)", "tonalRamp": ["#022c1f", "#04452f", "#047857", "#0e9f74", "#34d399", "#6ee7b7", "#a7f3d0", "#ecfdf5"] },
+      "warning": { "role": "semantic", "displayName": "Aviso Âmbar", "canonical": "oklch(52% 0.14 55)", "tonalRamp": ["#3d1f04", "#78350f", "#b45309", "#d97706", "#f59e0b", "#fbbf24", "#fde68a", "#fffbeb"] },
+      "danger": { "role": "semantic", "displayName": "Erro Rose", "canonical": "oklch(45% 0.19 15)", "tonalRamp": ["#2d0512", "#4c0519", "#881337", "#be123c", "#e11d48", "#fb7185", "#fecdd3", "#fff1f2"] },
+      "info": { "role": "semantic", "displayName": "Info Ciano", "canonical": "oklch(55% 0.1 220)", "tonalRamp": ["#083344", "#0e5a6f", "#0891b2", "#06b6d4", "#22d3ee", "#67e8f9", "#a5f3fc", "#ecfeff"] }
+    },
+    "typographyMeta": {
+      "heading": { "displayName": "Heading", "purpose": "Título de página (h1), um por tela." },
+      "title": { "displayName": "Title", "purpose": "Título de card, seção e cabeçalho de tabela." },
+      "body": { "displayName": "Body", "purpose": "Texto corrido, valores de tabela, descrições." },
+      "label": { "displayName": "Label", "purpose": "Rótulo de campo, badge, texto de ajuda." }
+    },
+    "shadows": [
+      { "name": "floating-panel", "value": "0 18px 45px rgba(43,22,92,0.18)", "purpose": "Menus e folhas de ação flutuando sobre o conteúdo em mobile." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Transições padrão de estado (hover, cor, borda)." },
+      { "name": "spring-sidebar", "value": "spring(damping: 28, stiffness: 280)", "purpose": "Expandir/recolher a sidebar (Framer Motion)." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação primária: salvar, criar, confirmar.",
+      "html": "<button class=\"ds-btn-primary\">Salvar lead</button>",
+      "css": ".ds-btn-primary { background: #2b165c; color: #fff; padding: 10px 16px; min-height: 44px; border: none; border-radius: 12px; font-weight: 500; font-size: 14px; transition: background 0.2s cubic-bezier(0.4,0,0.2,1); } .ds-btn-primary:hover { background: #211047; } .ds-btn-primary:focus-visible { outline: 2px solid rgba(43,22,92,0.52); outline-offset: 2px; } .ds-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ação secundária ao lado de uma primária: cancelar, editar.",
+      "html": "<button class=\"ds-btn-ghost\">Cancelar</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #151127; padding: 10px 16px; min-height: 44px; border: 1px solid rgba(43,22,92,0.13); border-radius: 12px; font-weight: 500; font-size: 14px; transition: border-color 0.2s, background 0.2s; } .ds-btn-ghost:hover { border-color: rgba(43,22,92,0.24); background: #f4f2f8; } .ds-btn-ghost:focus-visible { outline: 2px solid rgba(43,22,92,0.52); outline-offset: 2px; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Indicador de estado (status de lead, etapa de pipeline, categoria).",
+      "html": "<span class=\"ds-badge\"><span class=\"ds-badge-dot\"></span>Qualificado</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 9999px; border: 1px solid #a7f3d0; background: #ecfdf5; color: #047857; padding: 4px 10px; font-size: 12px; font-weight: 500; } .ds-badge-dot { width: 6px; height: 6px; border-radius: 9999px; background: #10b981; }"
+    },
+    {
+      "name": "Data Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Contêiner padrão para agrupar dados relacionados (métrica, lead, item de lista).",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">Pipeline</h3><p class=\"ds-card-body\">Proposta enviada</p></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid rgba(43,22,92,0.13); border-radius: 16px; padding: 20px; } .ds-card-title { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: #151127; } .ds-card-body { margin: 0; font-size: 14px; color: #5f5872; line-height: 1.55; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de formulário padrão (texto, e-mail, telefone).",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"contato@empresa.com\" />",
+      "css": ".ds-input { background: #f4f2f8; border: 1px solid transparent; border-radius: 12px; padding: 8px 12px; font-size: 16px; color: #151127; min-height: 44px; transition: border-color 0.2s; } .ds-input::placeholder { color: #9189a3; } .ds-input:focus-visible { outline: 2px solid rgba(43,22,92,0.52); outline-offset: 2px; }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Item de navegação principal, estado ativo/inativo.",
+      "html": "<a class=\"ds-nav-item ds-nav-item--active\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"9\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"5\"/><rect x=\"14\" y=\"12\" width=\"7\" height=\"9\"/><rect x=\"3\" y=\"16\" width=\"7\" height=\"5\"/></svg>Visão Geral</a>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 14px; border-radius: 9999px; font-size: 13px; font-weight: 500; color: #5f5872; text-decoration: none; transition: background 0.2s, color 0.2s; } .ds-nav-item:hover { background: #eeeaf6; color: #3f2479; } .ds-nav-item--active { background: #2b165c; color: #ffffff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Command Center",
+    "overview": "O 4Core ERP existe para desaparecer atrás da tarefa. A pessoa que abre o app no celular no meio de uma visita comercial, ou no financeiro fechando o mês, não deve notar o design — deve notar que encontrou o que precisava em segundos. A paleta gira inteira em torno de um único índigo executivo profundo sobre superfícies quase brancas: autoridade sem peso, precisão sem frieza. Não há teatro visual, não há gradientes de destaque, não há cards decorativos empilhados só para preencher espaço — cada elemento de cor, sombra ou movimento existe para comunicar estado, nunca para decorar.",
+    "keyCharacteristics": [
+      "Um único acento de cor (índigo executivo) carregando ações primárias, seleção e foco — nunca decoração.",
+      "Superfícies quase-brancas em camadas sutis em vez de sombras para indicar profundidade.",
+      "Tipografia única (Inter) do título ao dado da tabela.",
+      "Bordas finas tingidas de índigo em vez de sombra como padrão.",
+      "Alvos de toque ≥44px e densidade calma."
+    ],
+    "rules": [
+      { "name": "The Regra do Acento Único", "body": "O índigo executivo sólido cobre no máximo ~10% de qualquer tela. Todo o resto da hierarquia vem de peso tipográfico e camadas de superfície.", "section": "colors" },
+      { "name": "The Regra do Estado, Não da Decoração", "body": "Emerald, amber, rose e cyan só aparecem em badges, ícones de status e alertas — nunca como fundo de card sem significado de estado por trás.", "section": "colors" },
+      { "name": "The Regra da Escala Fixa", "body": "Tamanhos em rem fixos, não clamp(). A única exceção é o h1 de página, que reduz via media query explícita em telas ≤640px.", "section": "typography" },
+      { "name": "The Regra do Flat-por-Padrão", "body": "Superfícies em repouso nunca têm sombra. Sombra é reservada para o estado 'flutuando acima do documento'.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do manter o índigo executivo como o único acento sólido da interface; tudo mais é neutro ou semântico de estado.",
+      "Do usar borda fina + troca de superfície para hierarquia; reservar sombra para elementos flutuantes.",
+      "Do manter alvos de toque ≥44px e fonte de input ≥16px em qualquer tela ≤640px.",
+      "Do respeitar prefers-reduced-motion em toda transição.",
+      "Do usar uma família tipográfica só (Inter) do título ao dado de tabela."
+    ],
+    "donts": [
+      "Don't parecer landing page de SaaS — sem hero de métrica gigante, sem gradiente decorativo, sem ícone flutuando sobre blur.",
+      "Don't empilhar cards decorativos idênticos só para preencher a tela.",
+      "Don't parecer ERP antigo e pesado — sem tabelas impossíveis de tocar, sem texto truncado sem critério.",
+      "Don't encolher o desktop para caber no mobile; cada fluxo principal é desenhado mobile-first.",
+      "Don't usar border-left/border-right colorido como stripe decorativo.",
+      "Don't usar texto cinza claro 'por elegância' — corpo de texto sempre ≥4.5:1 de contraste."
+    ]
+  }
+}

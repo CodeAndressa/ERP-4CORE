@@ -21,14 +21,12 @@ LEAD_COLUMNS = {
     'updated_at': 'TIMESTAMPTZ DEFAULT NOW()',
 }
 
-# Colunas que o modelo atual trata como opcionais. Bancos de producao antigos
-# podem ter sido criados com um schema anterior que marcava algumas dessas
-# colunas como NOT NULL (ex.: email), o que quebra o INSERT atual.
-LEAD_NULLABLE_COLUMNS = [
-    'company', 'email', 'phone', 'origin', 'value_potential', 'notes',
-    'next_action', 'last_contact_date', 'next_contact_date',
-    'assigned_to_id', 'assigned_to_name',
-]
+# Colunas que o modelo atual realmente exige. A tabela leads em producao
+# carrega colunas de um schema bem mais antigo (ex.: email, source_page)
+# que nao existem no modelo atual mas ainda tem NOT NULL herdado -- cada
+# uma delas quebra o INSERT atual assim que aparece. Em vez de listar uma
+# a uma conforme surgem, relaxamos tudo que nao esta nesse conjunto minimo.
+LEAD_REQUIRED_COLUMNS = {'id', 'name', 'status', 'stage'}
 
 PROPOSAL_COLUMNS = {
     'lead_id': 'UUID',
@@ -71,7 +69,7 @@ def _ensure_columns(engine: Engine, table: str, required: dict[str, str]) -> Non
                 conn.execute(text(_add_column_sql(table, column, definition, sqlite)))
 
 
-def _relax_not_null(engine: Engine, table: str, columns: list[str]) -> None:
+def _relax_not_null_except(engine: Engine, table: str, required: set[str]) -> None:
     if _is_sqlite(engine):
         return
     inspector = inspect(engine)
@@ -80,7 +78,7 @@ def _relax_not_null(engine: Engine, table: str, columns: list[str]) -> None:
     not_nullable = {
         column['name']
         for column in inspector.get_columns(table)
-        if column['name'] in columns and not column.get('nullable', True)
+        if column['name'] not in required and not column.get('nullable', True)
     }
     if not not_nullable:
         return
@@ -127,6 +125,6 @@ def ensure_runtime_schema(engine: Engine) -> bool:
     if not recreated_commercial:
         _ensure_columns(engine, 'leads', LEAD_COLUMNS)
         _ensure_columns(engine, 'proposals', PROPOSAL_COLUMNS)
-        _relax_not_null(engine, 'leads', LEAD_NULLABLE_COLUMNS)
+        _relax_not_null_except(engine, 'leads', LEAD_REQUIRED_COLUMNS)
 
     return recreated_commercial

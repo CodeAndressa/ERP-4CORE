@@ -1,6 +1,7 @@
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Edit3, Globe, HelpCircle, Mail, Megaphone, Phone, Plus, Save, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { Card } from '../shared/components/ui/Card';
 import { Badge } from '../shared/components/ui/Badge';
@@ -107,6 +108,11 @@ function money(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
+function dateLabel(value?: string | null) {
+  if (!value) return null;
+  return new Date(value + 'T12:00:00').toLocaleDateString('pt-BR');
+}
+
 function OriginIcon({ origin }: { origin?: string | null }) {
   if (!origin) return <HelpCircle size={13} style={{ color: 'var(--erp-text-dim)' }} />;
   return <>{ORIGIN_ICONS[origin] ?? <HelpCircle size={13} style={{ color: 'var(--erp-text-dim)' }} />}</>;
@@ -173,13 +179,61 @@ function Field({ label, help, children, className = '' }: { label: string; help:
 
 function EmptyLeads({ filtered }: { filtered: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-16">
+    <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: 'var(--erp-violet-dim)' }}>
         <Users size={22} style={{ color: 'var(--erp-violet-light)' }} />
       </div>
       <p className="text-sm font-medium" style={{ color: 'var(--erp-text)' }}>{filtered ? 'Nenhum lead nesta categoria' : 'Nenhum lead cadastrado'}</p>
-      <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{filtered ? 'Tente outro filtro.' : 'Cadastre leads manualmente para alimentar pipeline, funil, agenda e follow-up.'}</p>
+      <p className="max-w-xs text-xs" style={{ color: 'var(--erp-text-muted)' }}>{filtered ? 'Tente outro filtro ou revise a busca.' : 'Cadastre leads manualmente para alimentar pipeline, funil, agenda e follow-up.'}</p>
     </div>
+  );
+}
+
+function LeadMobileCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: (lead: Lead) => void; onDelete: (id: string) => void }) {
+  const nextDate = dateLabel(lead.next_contact_date);
+
+  return (
+    <article className="rounded-2xl border bg-white p-4" style={{ borderColor: 'var(--erp-border)' }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-base font-semibold" style={{ color: 'var(--erp-text)' }}>{lead.name}</h2>
+          <p className="mt-0.5 truncate text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.company || 'Sem empresa'}</p>
+        </div>
+        <Badge tone={STATUS_TONE[lead.status]} dot>{STATUS_LABELS[lead.status]}</Badge>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-xl px-3 py-2" style={{ background: 'var(--erp-surface-2)' }}>
+          <p style={{ color: 'var(--erp-text-muted)' }}>Pipeline</p>
+          <p className="mt-0.5 font-semibold" style={{ color: 'var(--erp-text)' }}>{STAGE_LABELS[lead.stage] ?? lead.stage}</p>
+        </div>
+        <div className="rounded-xl px-3 py-2" style={{ background: 'var(--erp-surface-2)' }}>
+          <p style={{ color: 'var(--erp-text-muted)' }}>Potencial</p>
+          <p className="mt-0.5 font-semibold" style={{ color: lead.value_potential ? 'var(--erp-violet-light)' : 'var(--erp-text-dim)' }}>{lead.value_potential ? money(lead.value_potential) : '-'}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-xl border px-3 py-2.5" style={{ borderColor: 'var(--erp-border)' }}>
+        <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>Próxima ação</p>
+        <p className="mt-1 text-sm font-medium" style={{ color: 'var(--erp-text)' }}>{lead.next_action || 'Sem ação definida'}</p>
+        {nextDate && <p className="mt-0.5 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{nextDate}</p>}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
+        {lead.email && <span className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5" style={{ background: 'var(--erp-surface-2)' }}><Mail size={12} />{lead.email}</span>}
+        {lead.phone && <span className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5" style={{ background: 'var(--erp-surface-2)' }}><Phone size={12} />{lead.phone}</span>}
+        <span className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5" style={{ background: 'var(--erp-surface-2)' }}><OriginIcon origin={lead.origin} />{lead.origin ?? '-'}</span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button type="button" onClick={() => onEdit(lead)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold" style={{ background: 'var(--erp-violet)', color: '#fff' }}>
+          <Edit3 size={15} />Editar
+        </button>
+        <button type="button" onClick={() => onDelete(lead.id)} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl text-sm font-semibold" style={{ border: '1px solid var(--erp-border)', color: '#be123c' }}>
+          <Trash2 size={15} />Excluir
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -229,6 +283,7 @@ export function LeadsPageNew() {
     setEditingId(lead.id);
     setForm(leadToForm(lead));
     setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function saveLead(event: FormEvent) {
@@ -252,7 +307,10 @@ export function LeadsPageNew() {
       const { data } = editingId ? await api.patch(`/leads/${editingId}`, payload) : await api.post('/leads', payload);
       const saved = normalizeLead(data);
       setLeads((prev) => editingId ? prev.map((lead) => lead.id === editingId ? saved : lead) : [saved, ...prev]);
+      toast.success(editingId ? 'Lead atualizado.' : 'Lead cadastrado.');
       closeForm();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.detail || 'Não foi possível salvar o lead. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -281,18 +339,18 @@ export function LeadsPageNew() {
   for (const lead of leads) counts[lead.status] = (counts[lead.status] ?? 0) + 1;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4 sm:gap-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-violet-light)' }}>Comercial</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Leads</h1>
         </div>
         <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
-          <div className="flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', minWidth: 0 }}>
+          <div className="flex min-h-11 items-center gap-2 rounded-xl px-3 py-2" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', minWidth: 0 }}>
             <Search size={14} style={{ color: 'var(--erp-text-muted)' }} />
             <input type="text" placeholder="Buscar lead..." value={search} onChange={(event) => setSearch(event.target.value)} className="flex-1 bg-transparent text-sm outline-none placeholder:text-inherit" style={{ color: 'var(--erp-text)', caretColor: 'var(--erp-violet)' }} />
           </div>
-          <button onClick={() => showForm ? closeForm() : openCreateForm()} className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium" style={{ background: showForm ? 'var(--erp-surface)' : 'var(--erp-violet)', color: showForm ? 'var(--erp-text)' : '#fff', border: '1px solid var(--erp-border)' }}>
+          <button onClick={() => showForm ? closeForm() : openCreateForm()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium" style={{ background: showForm ? 'var(--erp-surface)' : 'var(--erp-violet)', color: showForm ? 'var(--erp-text)' : '#fff', border: '1px solid var(--erp-border)' }}>
             {showForm ? <X size={14} /> : <Plus size={14} />}
             {showForm ? 'Cancelar' : 'Novo lead'}
           </button>
@@ -368,34 +426,39 @@ export function LeadsPageNew() {
         ) : filtered.length === 0 ? (
           <EmptyLeads filtered={activeFilter !== 'all' || search !== ''} />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                  {['Nome', 'Contato', 'Status', 'Pipeline', 'Valor potencial', 'Origem', 'Próxima ação', ''].map((header) => <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{header}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((lead, index) => (
-                  <tr key={lead.id} className="transition-colors duration-100" style={{ borderBottom: index < filtered.length - 1 ? '1px solid var(--erp-border)' : undefined }} onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--erp-surface-2)'; }} onMouseLeave={(event) => { event.currentTarget.style.background = 'transparent'; }}>
-                    <td className="px-4 py-3"><span className="font-medium" style={{ color: 'var(--erp-text)' }}>{lead.name}</span><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.company ?? '-'}</p></td>
-                    <td className="px-4 py-3"><div className="flex flex-col gap-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.email && <span className="flex items-center gap-1"><Mail size={11} />{lead.email}</span>}{lead.phone && <span className="flex items-center gap-1"><Phone size={11} />{lead.phone}</span>}{!lead.email && !lead.phone && '-'}</div></td>
-                    <td className="px-4 py-3"><Badge tone={STATUS_TONE[lead.status]} dot>{STATUS_LABELS[lead.status]}</Badge></td>
-                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{STAGE_LABELS[lead.stage] ?? lead.stage}</td>
-                    <td className="px-4 py-3"><span style={{ color: lead.value_potential ? 'var(--erp-violet-light)' : 'var(--erp-text-dim)' }}>{lead.value_potential ? money(lead.value_potential) : '-'}</span></td>
-                    <td className="px-4 py-3"><div className="flex items-center gap-1.5"><OriginIcon origin={lead.origin} /><span style={{ color: 'var(--erp-text-muted)' }}>{lead.origin ?? '-'}</span></div></td>
-                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.next_action || '-'}{lead.next_contact_date && <p className="mt-1" style={{ color: 'var(--erp-text-dim)' }}>{new Date(lead.next_contact_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button onClick={() => editLead(lead)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--erp-violet-light)', border: '1px solid var(--erp-border)' }} title="Editar lead"><Edit3 size={14} /></button>
-                        <button onClick={() => void deleteLead(lead.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: '#f87171', border: '1px solid var(--erp-border)' }} title="Excluir lead"><Trash2 size={14} /></button>
-                      </div>
-                    </td>
+          <>
+            <div className="grid gap-3 md:hidden">
+              {filtered.map((lead) => <LeadMobileCard key={lead.id} lead={lead} onEdit={editLead} onDelete={(id) => void deleteLead(id)} />)}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
+                    {['Nome', 'Contato', 'Status', 'Pipeline', 'Valor potencial', 'Origem', 'Próxima ação', ''].map((header) => <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{header}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((lead, index) => (
+                    <tr key={lead.id} className="transition-colors duration-100" style={{ borderBottom: index < filtered.length - 1 ? '1px solid var(--erp-border)' : undefined }} onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--erp-surface-2)'; }} onMouseLeave={(event) => { event.currentTarget.style.background = 'transparent'; }}>
+                      <td className="px-4 py-3"><span className="font-medium" style={{ color: 'var(--erp-text)' }}>{lead.name}</span><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.company ?? '-'}</p></td>
+                      <td className="px-4 py-3"><div className="flex flex-col gap-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.email && <span className="flex items-center gap-1"><Mail size={11} />{lead.email}</span>}{lead.phone && <span className="flex items-center gap-1"><Phone size={11} />{lead.phone}</span>}{!lead.email && !lead.phone && '-'}</div></td>
+                      <td className="px-4 py-3"><Badge tone={STATUS_TONE[lead.status]} dot>{STATUS_LABELS[lead.status]}</Badge></td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{STAGE_LABELS[lead.stage] ?? lead.stage}</td>
+                      <td className="px-4 py-3"><span style={{ color: lead.value_potential ? 'var(--erp-violet-light)' : 'var(--erp-text-dim)' }}>{lead.value_potential ? money(lead.value_potential) : '-'}</span></td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-1.5"><OriginIcon origin={lead.origin} /><span style={{ color: 'var(--erp-text-muted)' }}>{lead.origin ?? '-'}</span></div></td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.next_action || '-'}{lead.next_contact_date && <p className="mt-1" style={{ color: 'var(--erp-text-dim)' }}>{dateLabel(lead.next_contact_date)}</p>}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <button onClick={() => editLead(lead)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--erp-violet-light)', border: '1px solid var(--erp-border)' }} title="Editar lead"><Edit3 size={14} /></button>
+                          <button onClick={() => void deleteLead(lead.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: '#f87171', border: '1px solid var(--erp-border)' }} title="Excluir lead"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Card>
     </div>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, ScrollText, Settings2, Target, Users } from 'lucide-react';
+import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, MoreHorizontal, ScrollText, Settings2, Target, Users } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
 import { AIDrawer } from '../shared/components/ai/AIDrawer';
@@ -9,20 +9,19 @@ import { useUIStore } from '../core/store/useUIStore';
 import { useAuthStore } from '../core/store/useAuthStore';
 
 const t = {
-  modulos: 'M\u00f3dulos',
-  visao: 'Vis\u00e3o Geral',
-  metricas: 'M\u00e9tricas',
-  metricasSite: 'M\u00e9tricas do Site',
-  calendario: 'Calend\u00e1rio',
-  inteligencia: 'Intelig\u00eancia IA',
-  sugestoes: 'Sugest\u00f5es',
-  relatorios: 'Relat\u00f3rios',
-  configuracoes: 'Configura\u00e7\u00f5es',
-  orcamentos: 'or\u00e7amentos',
-  acoes: 'a\u00e7\u00f5es',
+  modulos: 'Módulos',
+  visao: 'Visão Geral',
+  metricas: 'Métricas',
+  metricasSite: 'Métricas do Site',
+  calendario: 'Calendário',
+  inteligencia: 'Inteligência IA',
+  sugestoes: 'Sugestões',
+  relatorios: 'Relatórios',
+  configuracoes: 'Configurações',
+  orcamentos: 'orçamentos',
+  acoes: 'ações',
   resultados: 'Nenhum resultado',
 };
-
 
 type HeaderTab = { label: string; path: string; icon: JSX.Element };
 
@@ -93,33 +92,80 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
   },
 ];
 
-const MOBILE_AREAS = [
-  { label: 'Visão', path: '/dashboard', icon: <LayoutDashboard size={17} /> },
-  { label: 'Comerc.', path: '/comercial/leads', icon: <Users size={17} /> },
-  { label: 'Fin.', path: '/financeiro', icon: <DollarSign size={17} /> },
-  { label: 'Mkt', path: '/marketing/calendario', icon: <Megaphone size={17} /> },
-  { label: 'IA', path: '/ia/chat', icon: <Brain size={17} /> },
-  { label: 'Relat.', path: '/relatorios', icon: <FolderOpen size={17} /> },
-  { label: 'Sist.', path: '/settings', icon: <Settings2 size={17} /> },
+const MOBILE_PRIMARY = [
+  { label: 'Visão', path: '/dashboard', icon: <LayoutDashboard size={19} />, match: ['/dashboard', '/site-metrics'] },
+  { label: 'Comercial', path: '/comercial/leads', icon: <Users size={19} />, match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'] },
+  { label: 'Financeiro', path: '/financeiro', icon: <DollarSign size={19} />, match: ['/financeiro', '/financial'] },
+  { label: 'Marketing', path: '/marketing/calendario', icon: <Megaphone size={19} />, match: ['/marketing'] },
 ];
 
+const MOBILE_MORE = [
+  { label: 'IA', path: '/ia/chat', icon: <Brain size={18} />, match: ['/ia', '/ai'] },
+  { label: 'Relatórios', path: '/relatorios', icon: <FolderOpen size={18} />, match: ['/relatorios', '/reports'] },
+  { label: 'Sistema', path: '/settings', icon: <Settings2 size={18} />, match: ['/settings', '/knowledge'] },
+];
+
+function pathActive(pathname: string, match: string[]) {
+  return match.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
 function MobileBottomNav({ pathname }: { pathname: string }) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreActive = MOBILE_MORE.some((item) => pathActive(pathname, item.match));
+
+  useEffect(() => { setMoreOpen(false); }, [pathname]);
+
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 px-1 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-1.5 backdrop-blur-xl lg:hidden" style={{ borderColor: 'var(--erp-border)' }} aria-label="Navegação principal">
-      <div className="grid grid-cols-7 gap-0.5">
-        {MOBILE_AREAS.map((item) => {
-          const active = pathname === item.path || pathname.startsWith(`${item.path.split('/').slice(0, 2).join('/')}/`);
-          return (
-            <NavLink key={item.path} to={item.path} className="flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[9px] font-semibold" style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}>
-              {item.icon}
-              <span className="leading-none">{item.label}</span>
-            </NavLink>
-          );
-        })}
-      </div>
-    </nav>
+    <>
+      <AnimatePresence>
+        {moreOpen && (
+          <motion.div className="fixed inset-0 z-40 bg-violet-950/12 lg:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMoreOpen(false)}>
+            <motion.div
+              className="absolute inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] rounded-2xl border bg-white p-2 shadow-[0_18px_45px_rgba(43,22,92,0.18)]"
+              style={{ borderColor: 'var(--erp-border)' }}
+              initial={{ y: 18, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 16, opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="grid gap-1.5">
+                {MOBILE_MORE.map((item) => {
+                  const active = pathActive(pathname, item.match);
+                  return (
+                    <NavLink key={item.path} to={item.path} className="flex min-h-12 items-center gap-3 rounded-xl px-3 text-sm font-semibold" style={{ background: active ? 'var(--erp-violet-dim)' : 'transparent', color: active ? 'var(--erp-violet)' : 'var(--erp-text)' }}>
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: active ? 'var(--erp-violet)' : 'var(--erp-surface-2)', color: active ? '#fff' : 'var(--erp-text-muted)' }}>{item.icon}</span>
+                      {item.label}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-white/95 px-2 pt-1.5 backdrop-blur-xl lg:hidden" style={{ borderColor: 'var(--erp-border)', paddingBottom: 'max(0.45rem, env(safe-area-inset-bottom))' }} aria-label="Navegação principal">
+        <div className="grid grid-cols-5 gap-1">
+          {MOBILE_PRIMARY.map((item) => {
+            const active = pathActive(pathname, item.match);
+            return (
+              <NavLink key={item.path} to={item.path} className="flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold" style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}>
+                {item.icon}
+                <span className="max-w-full truncate leading-none">{item.label}</span>
+              </NavLink>
+            );
+          })}
+          <button type="button" onClick={() => setMoreOpen((value) => !value)} className="flex min-h-[58px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold" style={{ background: moreOpen || moreActive ? 'var(--erp-violet)' : 'transparent', color: moreOpen || moreActive ? '#fff' : 'var(--erp-text-muted)' }}>
+            <MoreHorizontal size={19} />
+            <span className="leading-none">Mais</span>
+          </button>
+        </div>
+      </nav>
+    </>
   );
 }
+
 function getHeaderTabs(pathname: string) {
   return HEADER_TABS.find((group) => group.match.some((path) => pathname === path || pathname.startsWith(`${path}/`)))?.tabs ?? [];
 }
@@ -130,19 +176,15 @@ function HeaderAreaNav({ pathname }: { pathname: string }) {
 
   return (
     <nav className="min-w-0 flex-1 overflow-x-auto px-0.5 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Navegação da área">
-      <div className="inline-flex min-w-max items-center gap-1 rounded-2xl border bg-white/90 p-1 shadow-[0_10px_28px_rgba(43,22,92,0.08)] backdrop-blur-xl" style={{ borderColor: 'var(--erp-border)' }}>
+      <div className="inline-flex min-w-max items-center gap-1 rounded-xl border bg-white/90 p-1 backdrop-blur-xl sm:rounded-2xl" style={{ borderColor: 'var(--erp-border)' }}>
         {tabs.map((tab) => {
           const active = pathname === tab.path || (tab.path !== '/financeiro' && tab.path !== '/relatorios' && pathname.startsWith(`${tab.path}/`));
           return (
             <NavLink
               key={tab.path}
               to={tab.path}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold transition-all sm:h-8 sm:gap-2"
-              style={{
-                background: active ? 'linear-gradient(135deg, #2b165c 0%, #3f2479 100%)' : 'transparent',
-                color: active ? '#fff' : 'var(--erp-text-muted)',
-                boxShadow: active ? '0 8px 18px rgba(43,22,92,0.20)' : 'none',
-              }}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors sm:min-h-8 sm:gap-2 sm:rounded-xl"
+              style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}
             >
               {tab.icon}
               {tab.label}
@@ -153,6 +195,7 @@ function HeaderAreaNav({ pathname }: { pathname: string }) {
     </nav>
   );
 }
+
 const COMMANDS = [
   { group: t.modulos, label: 'Dashboard', path: '/dashboard', keys: 'dashboard visao geral' },
   { group: 'Comercial', label: 'Leads', path: '/comercial/leads', keys: 'leads oportunidades comercial' },
@@ -205,9 +248,9 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
   let globalIndex = 0;
 
   return (
-    <motion.div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[15vh]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <motion.div className="fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[12vh] sm:pt-[15vh]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <div className="absolute inset-0 bg-violet-950/10 backdrop-blur-[2px]" onClick={onClose} />
-      <motion.div className="relative w-full max-w-lg overflow-hidden rounded-[22px] bg-white" style={{ border: '1px solid var(--erp-border-strong)' }} initial={{ y: -16, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: -12, scale: 0.97 }} transition={{ type: 'spring', duration: 0.25 }}>
+      <motion.div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white sm:rounded-[22px]" style={{ border: '1px solid var(--erp-border-strong)' }} initial={{ y: -16, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: -12, scale: 0.97 }} transition={{ duration: 0.2 }}>
         <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderBottom: '1px solid var(--erp-border)' }}>
           <Search size={16} className="flex-shrink-0" style={{ color: 'var(--erp-text-muted)' }} />
           <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Buscar ${t.modulos.toLowerCase()}, ${t.acoes}...`} className="flex-1 bg-transparent text-sm outline-none" style={{ color: 'var(--erp-text)' }} />
@@ -219,12 +262,12 @@ function CommandPalette({ onClose }: { onClose: () => void }) {
               <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-text-dim)' }}>{group}</p>
               {items.map((cmd) => {
                 const isActive = globalIndex++ === activeIndex;
-                return <button key={cmd.path} onClick={() => go(cmd.path)} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors" style={{ background: isActive ? 'var(--erp-violet-dim)' : 'transparent', color: isActive ? 'var(--erp-text)' : 'var(--erp-text-muted)' }}><Command size={13} className="flex-shrink-0" style={{ color: 'var(--erp-text-dim)' }} />{cmd.label}{isActive && <kbd className="ml-auto text-[10px]" style={{ color: 'var(--erp-text-dim)' }}>Enter</kbd>}</button>;
+                return <button key={cmd.path} onClick={() => go(cmd.path)} className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors" style={{ background: isActive ? 'var(--erp-violet-dim)' : 'transparent', color: isActive ? 'var(--erp-text)' : 'var(--erp-text-muted)' }}><Command size={13} className="flex-shrink-0" style={{ color: 'var(--erp-text-dim)' }} />{cmd.label}{isActive && <kbd className="ml-auto text-[10px]" style={{ color: 'var(--erp-text-dim)' }}>Enter</kbd>}</button>;
               })}
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-4 px-4 py-2.5 text-[10px]" style={{ borderTop: '1px solid var(--erp-border)', color: 'var(--erp-text-dim)' }}><span>Setas para navegar</span><span>Enter para selecionar</span><span>ESC para fechar</span></div>
+        <div className="hidden items-center gap-4 px-4 py-2.5 text-[10px] sm:flex" style={{ borderTop: '1px solid var(--erp-border)', color: 'var(--erp-text-dim)' }}><span>Setas para navegar</span><span>Enter para selecionar</span><span>ESC para fechar</span></div>
       </motion.div>
     </motion.div>
   );
@@ -288,7 +331,7 @@ export default function AppLayout() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [commandOpen]);
+  }, [commandOpen, closeCommand, openCommand]);
 
   if (!initialized) {
     return (
@@ -306,21 +349,21 @@ export default function AppLayout() {
     <div className="flex min-h-screen" style={{ background: 'var(--erp-bg)', color: 'var(--erp-text)' }}>
       <MainMenu />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-2 px-3 py-2 backdrop-blur-2xl sm:gap-4 sm:px-5" style={{ background: 'var(--erp-header-bg)', borderBottom: '1px solid var(--erp-border)' }}>
+        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-2 px-2 py-2 backdrop-blur-2xl sm:gap-4 sm:px-5" style={{ background: 'var(--erp-header-bg)', borderBottom: '1px solid var(--erp-border)' }}>
           <HeaderAreaNav pathname={pathname} />
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button onClick={openCommand} className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs transition sm:flex" style={{ border: '1px solid var(--erp-border)', background: '#fff', color: 'var(--erp-text-muted)' }}><Search size={13} /><span>Buscar</span><kbd className="ml-1 rounded-full px-1.5 py-0.5 text-[10px]" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)' }}>Ctrl K</kbd></button>
             <button onClick={() => openAIDrawer(title)} className="hidden items-center gap-1.5 rounded-full border border-violet-500/25 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 transition hover:bg-violet-50 sm:flex"><Sparkles size={13} /><span className="hidden sm:inline">Analisar com IA</span></button>
-            <button className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white transition-colors" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }}><Bell size={16} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-violet-500" /></button>
-            <button onClick={logout} className="flex h-8 w-8 items-center justify-center rounded-full bg-white transition-colors hover:text-violet-600" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }} title="Sair"><LogOut size={15} /></button>
+            <button className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white transition-colors sm:h-8 sm:w-8" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }} aria-label="Notificações"><Bell size={16} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-violet-500" /></button>
+            <button onClick={logout} className="flex h-9 w-9 items-center justify-center rounded-full bg-white transition-colors hover:text-violet-600 sm:h-8 sm:w-8" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }} title="Sair" aria-label="Sair"><LogOut size={15} /></button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto"><div className="px-3 pb-28 pt-4 sm:p-6 lg:p-8"><Outlet /></div></main>
+        <main className="flex-1 overflow-auto"><div className="px-3 pb-24 pt-3 sm:p-6 lg:p-8"><Outlet /></div></main>
       </div>
       <MobileBottomNav pathname={pathname} />
       <AIDrawer />
       <AnimatePresence>{commandOpen && <CommandPalette onClose={closeCommand} />}</AnimatePresence>
-      <Toaster position="bottom-right" toastOptions={{ style: { background: '#fff', color: 'var(--erp-text)', border: '1px solid var(--erp-border)', borderRadius: '18px', fontSize: '13px' } }} />
+      <Toaster position="bottom-right" toastOptions={{ style: { background: '#fff', color: 'var(--erp-text)', border: '1px solid var(--erp-border)', borderRadius: '16px', fontSize: '13px' } }} />
     </div>
   );
 }

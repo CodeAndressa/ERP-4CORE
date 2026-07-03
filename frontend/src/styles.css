@@ -39,6 +39,10 @@ html, body, #root {
   min-height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   background: var(--erp-bg);
@@ -55,6 +59,15 @@ button, input, textarea, select {
 
 button {
   cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(43, 22, 92, 0.52);
+  outline-offset: 2px;
 }
 
 ::selection {
@@ -112,6 +125,25 @@ textarea::placeholder {
 .focus\:border-violet-400:focus,
 .focus\:border-violet-500\/60:focus { border-color: rgba(43, 22, 92, 0.45) !important; }
 
+.mobile-snap-scroll {
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 0.75rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-snap-item {
+  scroll-snap-align: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Mobile ERP ergonomics */
 @media (max-width: 640px) {
   html, body, #root {
@@ -120,6 +152,7 @@ textarea::placeholder {
 
   body {
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
   }
 
   button,
@@ -141,49 +174,11 @@ textarea::placeholder {
     line-height: 1.25 !important;
   }
 
-  .overflow-x-auto > table {
-    min-width: 0 !important;
-  }
-
-  .overflow-x-auto > table thead {
-    display: none;
-  }
-
-  .overflow-x-auto > table,
-  .overflow-x-auto > table tbody,
-  .overflow-x-auto > table tr,
-  .overflow-x-auto > table td {
-    display: block;
-    width: 100%;
-  }
-
-  .overflow-x-auto > table tbody {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .overflow-x-auto > table tr {
-    border: 1px solid var(--erp-border) !important;
-    border-radius: 1rem;
-    background: var(--erp-surface);
-    overflow: hidden;
-  }
-
-  .overflow-x-auto > table td {
-    border: 0 !important;
-    padding: 0.65rem 0.85rem !important;
-    text-align: left !important;
-  }
-
-  .overflow-x-auto > table td + td {
-    border-top: 1px solid var(--erp-border) !important;
-  }
-
-  .overflow-x-auto > table td:empty {
-    display: none;
-  }
-
   .overflow-x-auto {
-    overflow-x: visible !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 720px;
   }
 }

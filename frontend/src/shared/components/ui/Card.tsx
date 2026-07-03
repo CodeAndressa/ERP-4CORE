@@ -13,7 +13,7 @@ export function Card({ children, glass = false, hover = false, padding = 'md', c
   return (
     <div
       className={[
-        'rounded-2xl border border-violet-100 bg-white sm:rounded-[22px]',
+        'rounded-2xl border border-violet-100 bg-white',
         hover ? 'cursor-pointer transition-colors duration-200 hover:border-violet-200 hover:bg-[var(--erp-surface-2)]' : '',
         paddings[padding],
         className,

@@ -2,6 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -57,41 +58,64 @@ def _normalize(payload: dict) -> dict:
     return payload
 
 
+def _database_unavailable(message: str, exc: SQLAlchemyError) -> HTTPException:
+    return HTTPException(status_code=503, detail=message)
+
+
 @router.get("")
 def list_leads(db: Session = Depends(get_db)):
-    return db.query(Lead).order_by(Lead.created_at.desc()).all()
+    try:
+        return db.query(Lead).order_by(Lead.created_at.desc()).all()
+    except SQLAlchemyError as exc:
+        raise _database_unavailable("Banco de leads indisponivel ou sem schema aplicado.", exc) from exc
 
 
 @router.post("")
 def create_lead(payload: LeadCreate, db: Session = Depends(get_db)):
     data = _normalize(payload.model_dump())
     item = Lead(**data)
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return item
+    try:
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return item
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise _database_unavailable("Nao foi possivel salvar o lead. Verifique DATABASE_URL e schema do banco em producao.", exc) from exc
 
 
 @router.patch("/{lead_id}")
 def update_lead(lead_id: str, payload: LeadUpdate, db: Session = Depends(get_db)):
-    item = db.get(Lead, lead_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Lead nao encontrado.")
+    try:
+        item = db.get(Lead, lead_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Lead nao encontrado.")
 
-    data = _normalize(payload.model_dump(exclude_unset=True))
-    for key, value in data.items():
-        setattr(item, key, value)
-    db.commit()
-    db.refresh(item)
-    return item
+        data = _normalize(payload.model_dump(exclude_unset=True))
+        for key, value in data.items():
+            setattr(item, key, value)
+        db.commit()
+        db.refresh(item)
+        return item
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise _database_unavailable("Nao foi possivel atualizar o lead. Verifique o banco em producao.", exc) from exc
 
 
 @router.delete("/{lead_id}")
 def delete_lead(lead_id: str, db: Session = Depends(get_db)):
-    item = db.get(Lead, lead_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Lead nao encontrado.")
-    db.query(Proposal).filter(Proposal.lead_id == lead_id).update({Proposal.lead_id: None})
-    db.delete(item)
-    db.commit()
-    return {"ok": True}
+    try:
+        item = db.get(Lead, lead_id)
+        if not item:
+            raise HTTPException(status_code=404, detail="Lead nao encontrado.")
+        db.query(Proposal).filter(Proposal.lead_id == lead_id).update({Proposal.lead_id: None})
+        db.delete(item)
+        db.commit()
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise _database_unavailable("Nao foi possivel excluir o lead. Verifique o banco em producao.", exc) from exc

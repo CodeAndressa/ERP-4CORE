@@ -69,17 +69,17 @@ export function MetricCard({ label, value, detail, trend, tone = 'violet', icon,
   const trendColor = trend == null ? 'text-slate-500' : trend > 0 ? 'text-emerald-700' : 'text-rose-700';
 
   return (
-    <div className={`rounded-[22px] border bg-white px-5 py-4 transition-colors ${t.bg}`} style={{ borderColor: expanded ? 'var(--erp-border-strong)' : 'var(--erp-border)' }}>
+    <div className={`rounded-2xl border bg-white px-4 py-3.5 transition-colors sm:px-5 sm:py-4 ${t.bg}`} style={{ borderColor: expanded ? 'var(--erp-border-strong)' : 'var(--erp-border)' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: 'var(--erp-text-muted)' }}>{label}</p>
             {tooltip && <Tooltip text={tooltip} />}
           </div>
-          <p className="mt-1.5 text-2xl font-bold tracking-tight" style={{ color: 'var(--erp-text)', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+          <p className="mt-1 text-xl font-bold tracking-tight sm:mt-1.5 sm:text-2xl" style={{ color: 'var(--erp-text)', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
           {detail && <div className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{detail}</div>}
         </div>
-        {icon && <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${t.icon}`}>{icon}</div>}
+        {icon && <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 ${t.icon}`}>{icon}</div>}
       </div>
       <div className="mt-2 flex items-end justify-between gap-2">
         <div className="flex items-center gap-2">

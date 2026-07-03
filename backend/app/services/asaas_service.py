@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from datetime import date, datetime, timedelta
 from time import monotonic
@@ -9,6 +10,8 @@ import httpx
 
 from app.core.config import settings
 from app.services.manual_financial_service import manual_financial_snapshot
+
+logger = logging.getLogger(__name__)
 
 
 class AsaasUnavailable(Exception):
@@ -85,8 +88,10 @@ class AsaasService:
         # resto da Visao Geral, que ja funcionava antes desse campo existir.
         try:
             result = await self._get('finance/balance')
+            logger.warning("ASAAS balance raw response: %s", result)
             return float(result.get('balance', 0) or 0)
-        except (AsaasUnavailable, TypeError, ValueError):
+        except (AsaasUnavailable, TypeError, ValueError) as exc:
+            logger.warning("ASAAS balance fetch failed: %s", exc)
             return None
 
     async def subscriptions(self) -> list[dict[str, Any]]:

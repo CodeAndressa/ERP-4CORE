@@ -23,6 +23,8 @@ class Lead(Base):
     next_action = Column(String(255))
     last_contact_date = Column(Date)
     next_contact_date = Column(Date)
+    assigned_to_id = Column(Integer)
+    assigned_to_name = Column(String(120))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

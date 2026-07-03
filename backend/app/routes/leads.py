@@ -29,6 +29,8 @@ class LeadCreate(BaseModel):
     next_action: str | None = None
     last_contact_date: date | None = None
     next_contact_date: date | None = None
+    assigned_to_id: int | None = None
+    assigned_to_name: str | None = None
 
 
 class LeadUpdate(BaseModel):
@@ -44,6 +46,8 @@ class LeadUpdate(BaseModel):
     next_action: str | None = None
     last_contact_date: date | None = None
     next_contact_date: date | None = None
+    assigned_to_id: int | None = None
+    assigned_to_name: str | None = None
 
 
 def _normalize(payload: dict) -> dict:

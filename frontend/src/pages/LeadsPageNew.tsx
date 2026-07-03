@@ -1,10 +1,16 @@
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { Edit3, Globe, HelpCircle, Mail, Megaphone, Phone, Plus, Save, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Edit3, Globe, HelpCircle, Mail, Megaphone, Phone, Plus, Save, Search, Trash2, User, UserPlus, Users, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { Card } from '../shared/components/ui/Card';
 import { Badge } from '../shared/components/ui/Badge';
+
+interface TeamMember {
+  id: number;
+  full_name: string;
+  email: string;
+}
 
 type LeadStatus = 'novo' | 'contato' | 'qualificado' | 'perdido';
 type LeadStage = 'novo' | 'contato' | 'qualificado' | 'proposta' | 'negociacao' | 'fechado' | 'perdido';
@@ -23,6 +29,8 @@ interface Lead {
   next_action?: string | null;
   last_contact_date?: string | null;
   next_contact_date?: string | null;
+  assigned_to_id?: number | null;
+  assigned_to_name?: string | null;
   created_at?: string;
 }
 
@@ -91,6 +99,7 @@ const initialForm = {
   last_contact_date: '',
   next_contact_date: '',
   notes: '',
+  assigned_to_id: '',
 };
 
 function inputStyle() {
@@ -146,6 +155,8 @@ function normalizeLead(item: Record<string, unknown>): Lead {
     next_action: (item.next_action as string) ?? null,
     last_contact_date: (item.last_contact_date as string) ?? null,
     next_contact_date: (item.next_contact_date as string) ?? null,
+    assigned_to_id: (item.assigned_to_id as number) ?? null,
+    assigned_to_name: (item.assigned_to_name as string) ?? null,
     created_at: (item.created_at as string) ?? undefined,
   };
 }
@@ -164,6 +175,7 @@ function leadToForm(lead: Lead) {
     last_contact_date: lead.last_contact_date ?? '',
     next_contact_date: lead.next_contact_date ?? '',
     notes: lead.notes ?? '',
+    assigned_to_id: lead.assigned_to_id ? String(lead.assigned_to_id) : '',
   };
 }
 
@@ -223,6 +235,7 @@ function LeadMobileCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: (lead:
         {lead.email && <span className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5" style={{ background: 'var(--erp-surface-2)' }}><Mail size={12} />{lead.email}</span>}
         {lead.phone && <span className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5" style={{ background: 'var(--erp-surface-2)' }}><Phone size={12} />{lead.phone}</span>}
         <span className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5" style={{ background: 'var(--erp-surface-2)' }}><OriginIcon origin={lead.origin} />{lead.origin ?? '-'}</span>
+        <span className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5" style={{ background: 'var(--erp-surface-2)' }}><User size={12} />{lead.assigned_to_name || 'Sem responsável'}</span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2">
@@ -239,6 +252,7 @@ function LeadMobileCard({ lead, onEdit, onDelete }: { lead: Lead; onEdit: (lead:
 
 export function LeadsPageNew() {
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [team, setTeam] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -259,8 +273,18 @@ export function LeadsPageNew() {
     }
   }
 
+  async function loadTeam() {
+    try {
+      const { data } = await api.get('/auth/users');
+      setTeam(Array.isArray(data) ? data : []);
+    } catch {
+      setTeam([]);
+    }
+  }
+
   useEffect(() => {
     void loadLeads();
+    void loadTeam();
   }, []);
 
   function updateStage(stage: LeadStage) {
@@ -291,6 +315,7 @@ export function LeadsPageNew() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
+      const assignedMember = team.find((member) => String(member.id) === form.assigned_to_id);
       const payload = {
         ...form,
         name: form.name.trim(),
@@ -303,6 +328,8 @@ export function LeadsPageNew() {
         last_contact_date: form.last_contact_date || null,
         next_contact_date: form.next_contact_date || null,
         notes: form.notes || null,
+        assigned_to_id: assignedMember ? assignedMember.id : null,
+        assigned_to_name: assignedMember ? assignedMember.full_name : null,
       };
       const { data } = editingId ? await api.patch(`/leads/${editingId}`, payload) : await api.post('/leads', payload);
       const saved = normalizeLead(data);
@@ -377,6 +404,12 @@ export function LeadsPageNew() {
                 {Object.entries(STAGE_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
               </select>
             </Field>
+            <Field label="Responsável pelo atendimento" help="Quem da equipe está conduzindo esse lead.">
+              <select value={form.assigned_to_id} onChange={(event) => setForm((prev) => ({ ...prev, assigned_to_id: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()}>
+                <option value="">Sem responsável</option>
+                {team.map((member) => <option key={member.id} value={member.id}>{member.full_name}</option>)}
+              </select>
+            </Field>
             <Field label="Origem do lead" help="De onde esse contato veio. Manual é para cadastro feito aqui.">
               <select value={form.origin} onChange={(event) => setForm((prev) => ({ ...prev, origin: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()}>
                 {ORIGIN_OPTIONS.map((origin) => <option key={origin} value={origin}>{origin}</option>)}
@@ -434,7 +467,7 @@ export function LeadsPageNew() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                    {['Nome', 'Contato', 'Status', 'Pipeline', 'Valor potencial', 'Origem', 'Próxima ação', ''].map((header) => <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{header}</th>)}
+                    {['Nome', 'Contato', 'Status', 'Pipeline', 'Valor potencial', 'Origem', 'Responsável', 'Próxima ação', ''].map((header) => <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{header}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -446,6 +479,7 @@ export function LeadsPageNew() {
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{STAGE_LABELS[lead.stage] ?? lead.stage}</td>
                       <td className="px-4 py-3"><span style={{ color: lead.value_potential ? 'var(--erp-violet-light)' : 'var(--erp-text-dim)' }}>{lead.value_potential ? money(lead.value_potential) : '-'}</span></td>
                       <td className="px-4 py-3"><div className="flex items-center gap-1.5"><OriginIcon origin={lead.origin} /><span style={{ color: 'var(--erp-text-muted)' }}>{lead.origin ?? '-'}</span></div></td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.assigned_to_name || '-'}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.next_action || '-'}{lead.next_contact_date && <p className="mt-1" style={{ color: 'var(--erp-text-dim)' }}>{dateLabel(lead.next_contact_date)}</p>}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="inline-flex items-center gap-1">

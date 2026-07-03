@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,6 +10,7 @@ from app.database.session import get_db
 from app.models.commercial import Lead, Proposal
 
 router = APIRouter(prefix="/leads", tags=["leads"])
+logger = logging.getLogger(__name__)
 
 VALID_STATUSES = {"novo", "contato", "qualificado", "perdido"}
 VALID_STAGES = {"novo", "contato", "qualificado", "proposta", "negociacao", "fechado", "perdido"}
@@ -58,7 +60,8 @@ def _normalize(payload: dict) -> dict:
     return payload
 
 
-def _database_unavailable(message: str, exc: SQLAlchemyError) -> HTTPException:
+def _database_unavailable(message: str, exc: Exception) -> HTTPException:
+    logger.exception("Lead database operation failed: %s", message)
     return HTTPException(status_code=503, detail=message)
 
 
@@ -66,8 +69,9 @@ def _database_unavailable(message: str, exc: SQLAlchemyError) -> HTTPException:
 def list_leads(soft: bool = Query(default=False), db: Session = Depends(get_db)):
     try:
         return db.query(Lead).order_by(Lead.created_at.desc()).all()
-    except SQLAlchemyError as exc:
+    except Exception as exc:
         if soft:
+            logger.exception("Soft lead list failed; returning empty list.")
             return []
         raise _database_unavailable("Banco de leads indisponivel ou sem schema aplicado.", exc) from exc
 

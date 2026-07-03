@@ -37,14 +37,14 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
   {
     match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'],
     tabs: [
-      { label: 'Funil', path: '/comercial/funil', icon: <Target size={14} /> },
       { label: 'Leads', path: '/comercial/leads', icon: <Users size={14} /> },
       { label: 'Pipeline', path: '/comercial/pipeline', icon: <Kanban size={14} /> },
+      { label: 'Follow-up', path: '/comercial/followup', icon: <Bell size={14} /> },
+      { label: 'Agenda', path: '/comercial/agenda', icon: <Calendar size={14} /> },
+      { label: 'Funil', path: '/comercial/funil', icon: <Target size={14} /> },
       { label: 'Propostas', path: '/comercial/propostas', icon: <FileText size={14} /> },
       { label: 'Clientes', path: '/comercial/clientes', icon: <Building2 size={14} /> },
       { label: 'Contratos', path: '/comercial/contratos', icon: <ScrollText size={14} /> },
-      { label: 'Agenda', path: '/comercial/agenda', icon: <Calendar size={14} /> },
-      { label: 'Follow-up', path: '/comercial/followup', icon: <Bell size={14} /> },
     ],
   },
   {
@@ -95,7 +95,7 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[] }[] = [
 
 const MOBILE_AREAS = [
   { label: 'Visão', path: '/dashboard', icon: <LayoutDashboard size={17} /> },
-  { label: 'Comerc.', path: '/comercial/funil', icon: <Users size={17} /> },
+  { label: 'Comerc.', path: '/comercial/leads', icon: <Users size={17} /> },
   { label: 'Fin.', path: '/financeiro', icon: <DollarSign size={17} /> },
   { label: 'Mkt', path: '/marketing/calendario', icon: <Megaphone size={17} /> },
   { label: 'IA', path: '/ia/chat', icon: <Brain size={17} /> },

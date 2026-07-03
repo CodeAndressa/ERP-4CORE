@@ -1,6 +1,6 @@
 import type { FormEvent, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { Globe, HelpCircle, Mail, Megaphone, Phone, Plus, Save, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { Edit3, Globe, HelpCircle, Mail, Megaphone, Phone, Plus, Save, Search, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { api } from '../services/api';
 import { Card } from '../shared/components/ui/Card';
 import { Badge } from '../shared/components/ui/Badge';
@@ -9,7 +9,7 @@ type LeadStatus = 'novo' | 'contato' | 'qualificado' | 'perdido';
 type LeadStage = 'novo' | 'contato' | 'qualificado' | 'proposta' | 'negociacao' | 'fechado' | 'perdido';
 
 interface Lead {
-  id: number;
+  id: string;
   name: string;
   company?: string | null;
   email?: string | null;
@@ -59,6 +59,8 @@ const NEXT_ACTION_OPTIONS = [
   'Aguardar retorno',
 ] as const;
 
+const ORIGIN_OPTIONS = ['Manual', 'Site', 'Instagram', 'Indicação', 'Marketing'] as const;
+
 const FILTER_TABS: { id: 'all' | LeadStatus; label: string }[] = [
   { id: 'all', label: 'Todos' },
   { id: 'novo', label: 'Novos' },
@@ -89,6 +91,10 @@ const initialForm = {
   next_contact_date: '',
   notes: '',
 };
+
+function inputStyle() {
+  return { background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' };
+}
 
 function parseMoneyInput(value: string) {
   if (!value.trim()) return 0;
@@ -121,7 +127,7 @@ function normalizeStage(value?: string): LeadStage {
 function normalizeLead(item: Record<string, unknown>): Lead {
   const stage = normalizeStage((item.stage as string) || (item.status as string));
   return {
-    id: Number(item.id),
+    id: String(item.id),
     name: String(item.name ?? ''),
     company: (item.company as string) ?? null,
     email: (item.email as string) ?? null,
@@ -136,6 +142,33 @@ function normalizeLead(item: Record<string, unknown>): Lead {
     next_contact_date: (item.next_contact_date as string) ?? null,
     created_at: (item.created_at as string) ?? undefined,
   };
+}
+
+function leadToForm(lead: Lead) {
+  return {
+    name: lead.name ?? '',
+    company: lead.company ?? '',
+    email: lead.email ?? '',
+    phone: lead.phone ?? '',
+    status: lead.status ?? 'novo',
+    stage: lead.stage ?? 'novo',
+    origin: lead.origin ?? 'Manual',
+    value_potential: lead.value_potential ? String(lead.value_potential).replace('.', ',') : '',
+    next_action: lead.next_action ?? '',
+    last_contact_date: lead.last_contact_date ?? '',
+    next_contact_date: lead.next_contact_date ?? '',
+    notes: lead.notes ?? '',
+  };
+}
+
+function Field({ label, help, children, className = '' }: { label: string; help: string; children: ReactNode; className?: string }) {
+  return (
+    <label className={`flex min-w-0 flex-col gap-1 ${className}`}>
+      <span className="text-xs font-semibold" style={{ color: 'var(--erp-text)' }}>{label}</span>
+      {children}
+      <span className="text-[11px] leading-snug" style={{ color: 'var(--erp-text-muted)' }}>{help}</span>
+    </label>
+  );
 }
 
 function EmptyLeads({ filtered }: { filtered: boolean }) {
@@ -155,6 +188,7 @@ export function LeadsPageNew() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | LeadStatus>('all');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState(initialForm);
@@ -179,7 +213,25 @@ export function LeadsPageNew() {
     setForm((prev) => ({ ...prev, stage, status: stageToStatus(stage) }));
   }
 
-  async function createLead(event: FormEvent) {
+  function openCreateForm() {
+    setEditingId(null);
+    setForm(initialForm);
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setEditingId(null);
+    setForm(initialForm);
+    setShowForm(false);
+  }
+
+  function editLead(lead: Lead) {
+    setEditingId(lead.id);
+    setForm(leadToForm(lead));
+    setShowForm(true);
+  }
+
+  async function saveLead(event: FormEvent) {
     event.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
@@ -197,16 +249,16 @@ export function LeadsPageNew() {
         next_contact_date: form.next_contact_date || null,
         notes: form.notes || null,
       };
-      const { data } = await api.post('/leads', payload);
-      setLeads((prev) => [normalizeLead(data), ...prev]);
-      setForm(initialForm);
-      setShowForm(false);
+      const { data } = editingId ? await api.patch(`/leads/${editingId}`, payload) : await api.post('/leads', payload);
+      const saved = normalizeLead(data);
+      setLeads((prev) => editingId ? prev.map((lead) => lead.id === editingId ? saved : lead) : [saved, ...prev]);
+      closeForm();
     } finally {
       setSaving(false);
     }
   }
 
-  async function deleteLead(id: number) {
+  async function deleteLead(id: string) {
     if (!window.confirm('Excluir este lead?')) return;
     await api.delete(`/leads/${id}`);
     setLeads((prev) => prev.filter((lead) => lead.id !== id));
@@ -240,7 +292,7 @@ export function LeadsPageNew() {
             <Search size={14} style={{ color: 'var(--erp-text-muted)' }} />
             <input type="text" placeholder="Buscar lead..." value={search} onChange={(event) => setSearch(event.target.value)} className="flex-1 bg-transparent text-sm outline-none placeholder:text-inherit" style={{ color: 'var(--erp-text)', caretColor: 'var(--erp-violet)' }} />
           </div>
-          <button onClick={() => setShowForm((value) => !value)} className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium" style={{ background: showForm ? 'var(--erp-surface)' : 'var(--erp-violet)', color: showForm ? 'var(--erp-text)' : '#fff', border: '1px solid var(--erp-border)' }}>
+          <button onClick={() => showForm ? closeForm() : openCreateForm()} className="flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium" style={{ background: showForm ? 'var(--erp-surface)' : 'var(--erp-violet)', color: showForm ? 'var(--erp-text)' : '#fff', border: '1px solid var(--erp-border)' }}>
             {showForm ? <X size={14} /> : <Plus size={14} />}
             {showForm ? 'Cancelar' : 'Novo lead'}
           </button>
@@ -249,26 +301,50 @@ export function LeadsPageNew() {
 
       {showForm && (
         <Card padding="lg">
-          <form onSubmit={createLead} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <input required placeholder="Nome do contato" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <input placeholder="Empresa" value={form.company} onChange={(event) => setForm((prev) => ({ ...prev, company: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <input placeholder="E-mail" type="email" value={form.email} onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <input placeholder="Telefone" value={form.phone} onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <select value={form.stage} onChange={(event) => updateStage(event.target.value as LeadStage)} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} title="Etapa do funil">
-              {Object.entries(STAGE_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-            </select>
-            <input placeholder="Origem" value={form.origin} onChange={(event) => setForm((prev) => ({ ...prev, origin: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <input placeholder="Valor potencial, ex: 159,99" inputMode="decimal" value={form.value_potential} onChange={(event) => setForm((prev) => ({ ...prev, value_potential: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <select value={form.next_action} onChange={(event) => setForm((prev) => ({ ...prev, next_action: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} title="Próxima ação">
-              <option value="">Próxima ação</option>
-              {NEXT_ACTION_OPTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
-            </select>
-            <input placeholder="Último contato" type="date" value={form.last_contact_date} onChange={(event) => setForm((prev) => ({ ...prev, last_contact_date: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <input placeholder="Próximo contato" type="date" value={form.next_contact_date} onChange={(event) => setForm((prev) => ({ ...prev, next_contact_date: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <textarea placeholder="Notas" value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} className="min-h-[72px] rounded-xl px-3 py-2 text-sm outline-none lg:col-span-3" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }} />
-            <button type="submit" disabled={saving} className="flex h-[72px] items-center justify-center gap-2 rounded-xl text-sm font-medium disabled:opacity-60" style={{ background: 'var(--erp-violet)', color: '#fff' }}>
+          <form onSubmit={saveLead} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Nome do contato" help="Pessoa principal para falar sobre a oportunidade.">
+              <input required placeholder="Ex: Ana Souza" value={form.name} onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()} />
+            </Field>
+            <Field label="Empresa" help="Nome da empresa ou cliente potencial.">
+              <input placeholder="Ex: ACME Ltda" value={form.company} onChange={(event) => setForm((prev) => ({ ...prev, company: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()} />
+            </Field>
+            <Field label="E-mail" help="Canal para propostas, materiais e retorno formal.">
+              <input placeholder="contato@empresa.com" type="email" value={form.email} onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()} />
+            </Field>
+            <Field label="Telefone" help="WhatsApp ou telefone para contato direto.">
+              <input placeholder="(00) 00000-0000" value={form.phone} onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()} />
+            </Field>
+            <Field label="Etapa do pipeline" help="Onde o lead está no processo comercial.">
+              <select value={form.stage} onChange={(event) => updateStage(event.target.value as LeadStage)} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()}>
+                {Object.entries(STAGE_LABELS).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              </select>
+            </Field>
+            <Field label="Origem do lead" help="De onde esse contato veio. Manual é para cadastro feito aqui.">
+              <select value={form.origin} onChange={(event) => setForm((prev) => ({ ...prev, origin: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()}>
+                {ORIGIN_OPTIONS.map((origin) => <option key={origin} value={origin}>{origin}</option>)}
+              </select>
+            </Field>
+            <Field label="Valor potencial" help="Estimativa de receita se esse lead fechar.">
+              <input placeholder="Ex: 159,99" inputMode="decimal" value={form.value_potential} onChange={(event) => setForm((prev) => ({ ...prev, value_potential: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()} />
+            </Field>
+            <Field label="Próxima ação" help="O próximo passo planejado para mover o lead.">
+              <select value={form.next_action} onChange={(event) => setForm((prev) => ({ ...prev, next_action: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()}>
+                <option value="">Escolha uma ação</option>
+                {NEXT_ACTION_OPTIONS.map((action) => <option key={action} value={action}>{action}</option>)}
+              </select>
+            </Field>
+            <Field label="Último contato" help="Quando você falou com esse lead pela última vez.">
+              <input type="date" value={form.last_contact_date} onChange={(event) => setForm((prev) => ({ ...prev, last_contact_date: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()} />
+            </Field>
+            <Field label="Próximo contato" help="Data que alimenta agenda e follow-up comercial.">
+              <input type="date" value={form.next_contact_date} onChange={(event) => setForm((prev) => ({ ...prev, next_contact_date: event.target.value }))} className="rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()} />
+            </Field>
+            <Field label="Notas" help="Contexto da conversa, dores, combinados e observações." className="lg:col-span-3">
+              <textarea placeholder="Ex: pediu retorno sobre portaria remota na próxima semana" value={form.notes} onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))} className="min-h-[78px] rounded-xl px-3 py-2 text-sm outline-none" style={inputStyle()} />
+            </Field>
+            <button type="submit" disabled={saving} className="flex min-h-[78px] items-center justify-center gap-2 rounded-xl text-sm font-medium disabled:opacity-60" style={{ background: 'var(--erp-violet)', color: '#fff' }}>
               <Save size={14} />
-              {saving ? 'Salvando...' : 'Salvar lead'}
+              {saving ? 'Salvando...' : editingId ? 'Salvar alterações' : 'Salvar lead'}
             </button>
           </form>
         </Card>
@@ -296,7 +372,7 @@ export function LeadsPageNew() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                  {['Nome', 'Contato', 'Status', 'Funil', 'Valor potencial', 'Origem', 'Próxima ação', ''].map((header) => <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{header}</th>)}
+                  {['Nome', 'Contato', 'Status', 'Pipeline', 'Valor potencial', 'Origem', 'Próxima ação', ''].map((header) => <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{header}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -309,7 +385,12 @@ export function LeadsPageNew() {
                     <td className="px-4 py-3"><span style={{ color: lead.value_potential ? 'var(--erp-violet-light)' : 'var(--erp-text-dim)' }}>{lead.value_potential ? money(lead.value_potential) : '-'}</span></td>
                     <td className="px-4 py-3"><div className="flex items-center gap-1.5"><OriginIcon origin={lead.origin} /><span style={{ color: 'var(--erp-text-muted)' }}>{lead.origin ?? '-'}</span></div></td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{lead.next_action || '-'}{lead.next_contact_date && <p className="mt-1" style={{ color: 'var(--erp-text-dim)' }}>{new Date(lead.next_contact_date + 'T12:00:00').toLocaleDateString('pt-BR')}</p>}</td>
-                    <td className="px-4 py-3 text-right"><button onClick={() => void deleteLead(lead.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: '#f87171', border: '1px solid var(--erp-border)' }} title="Excluir lead"><Trash2 size={14} /></button></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <button onClick={() => editLead(lead)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: 'var(--erp-violet-light)', border: '1px solid var(--erp-border)' }} title="Editar lead"><Edit3 size={14} /></button>
+                        <button onClick={() => void deleteLead(lead.id)} className="inline-flex h-8 w-8 items-center justify-center rounded-lg" style={{ color: '#f87171', border: '1px solid var(--erp-border)' }} title="Excluir lead"><Trash2 size={14} /></button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -177,7 +177,7 @@ export function NotificationsMenu() {
     setError(null);
     try {
       const [leadResult, financeResult] = await Promise.allSettled([
-        api.get('/leads'),
+        api.get('/leads?soft=true'),
         api.get('/financial/overview?days=30'),
       ]);
 

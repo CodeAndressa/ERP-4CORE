@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -63,10 +63,12 @@ def _database_unavailable(message: str, exc: SQLAlchemyError) -> HTTPException:
 
 
 @router.get("")
-def list_leads(db: Session = Depends(get_db)):
+def list_leads(soft: bool = Query(default=False), db: Session = Depends(get_db)):
     try:
         return db.query(Lead).order_by(Lead.created_at.desc()).all()
     except SQLAlchemyError as exc:
+        if soft:
+            return []
         raise _database_unavailable("Banco de leads indisponivel ou sem schema aplicado.", exc) from exc
 
 

@@ -164,7 +164,7 @@ export default function DashboardPage() {
       .finally(() => setSiteLoading(false));
 
     Promise.allSettled([
-      api.get<Lead[] | { data?: Lead[]; leads?: Lead[] }>('/leads'),
+      api.get<Lead[] | { data?: Lead[]; leads?: Lead[] }>('/leads?soft=true'),
       api.get<Client[] | { data?: Client[] }>('/clients'),
       api.get<Post[]>('/marketing/posts'),
       api.get<IgProfile>('/marketing/meta/instagram/profile'),

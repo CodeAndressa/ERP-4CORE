@@ -87,6 +87,28 @@ def _relax_not_null_except(engine: Engine, table: str, required: set[str]) -> No
             conn.execute(text(f'ALTER TABLE {table} ALTER COLUMN {column} DROP NOT NULL'))
 
 
+def _drop_check_constraints(engine: Engine, table: str) -> None:
+    # A tabela leads em producao carrega CHECK constraints de um schema
+    # antigo (ex.: leads_status_check restrito a um enum que nao bate mais
+    # com os valores atuais do app). O app ja valida status/stage em
+    # Python antes do INSERT, entao nenhuma CHECK constraint no banco e
+    # necessaria aqui -- removemos todas para nao quebrar por herdar um
+    # enum desatualizado.
+    if _is_sqlite(engine):
+        return
+    inspector = inspect(engine)
+    if table not in inspector.get_table_names():
+        return
+    constraints = inspector.get_check_constraints(table)
+    if not constraints:
+        return
+    with engine.begin() as conn:
+        for constraint in constraints:
+            name = constraint.get('name')
+            if name:
+                conn.execute(text(f'ALTER TABLE {table} DROP CONSTRAINT IF EXISTS "{name}"'))
+
+
 def _drop_legacy_commercial_tables(engine: Engine) -> None:
     sqlite = _is_sqlite(engine)
     with engine.begin() as conn:
@@ -126,5 +148,6 @@ def ensure_runtime_schema(engine: Engine) -> bool:
         _ensure_columns(engine, 'leads', LEAD_COLUMNS)
         _ensure_columns(engine, 'proposals', PROPOSAL_COLUMNS)
         _relax_not_null_except(engine, 'leads', LEAD_REQUIRED_COLUMNS)
+        _drop_check_constraints(engine, 'leads')
 
     return recreated_commercial

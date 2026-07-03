@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, MoreHorizontal, ScrollText, Settings2, Target, Users } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
+import { NotificationsMenu } from './NotificationsMenu';
 import { AIDrawer } from '../shared/components/ai/AIDrawer';
 import { useUIStore } from '../core/store/useUIStore';
 import { useAuthStore } from '../core/store/useAuthStore';
@@ -354,7 +355,7 @@ export default function AppLayout() {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <button onClick={openCommand} className="hidden items-center gap-2 rounded-full px-3 py-1.5 text-xs transition sm:flex" style={{ border: '1px solid var(--erp-border)', background: '#fff', color: 'var(--erp-text-muted)' }}><Search size={13} /><span>Buscar</span><kbd className="ml-1 rounded-full px-1.5 py-0.5 text-[10px]" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)' }}>Ctrl K</kbd></button>
             <button onClick={() => openAIDrawer(title)} className="hidden items-center gap-1.5 rounded-full border border-violet-500/25 bg-white px-3 py-1.5 text-xs font-semibold text-violet-600 transition hover:bg-violet-50 sm:flex"><Sparkles size={13} /><span className="hidden sm:inline">Analisar com IA</span></button>
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white transition-colors sm:h-8 sm:w-8" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }} aria-label="Notificações"><Bell size={16} /><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-violet-500" /></button>
+            <NotificationsMenu />
             <button onClick={logout} className="flex h-9 w-9 items-center justify-center rounded-full bg-white transition-colors hover:text-violet-600 sm:h-8 sm:w-8" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }} title="Sair" aria-label="Sair"><LogOut size={15} /></button>
           </div>
         </header>

@@ -4,6 +4,7 @@ import { type FinancePeriod, type PeriodPreset, getPeriodRange } from './finance
 
 const OPTIONS: { label: string; value: PeriodPreset }[] = [
   { label: 'Hoje', value: 'today' },
+  { label: 'Últimos 30 dias', value: 'last30' },
   { label: 'Este mês', value: 'month' },
   { label: 'Este ano', value: 'year' },
   { label: 'Desde o início', value: 'all' },
@@ -29,7 +30,7 @@ export default function FinancePeriodFilter({ value, onApply, className = '' }: 
   }
 
   function clear() {
-    const next: FinancePeriod = { preset: 'today' };
+    const next: FinancePeriod = { preset: 'last30' };
     setDraft(next);
     onApply(next);
     setOpen(false);

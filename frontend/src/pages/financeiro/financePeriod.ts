@@ -1,4 +1,4 @@
-export type PeriodPreset = 'today' | 'month' | 'year' | 'all' | 'custom';
+export type PeriodPreset = 'today' | 'last30' | 'month' | 'year' | 'all' | 'custom';
 
 export type FinancePeriod = {
   preset: PeriodPreset;
@@ -6,7 +6,7 @@ export type FinancePeriod = {
   endDate?: string;
 };
 
-export const DEFAULT_PERIOD: FinancePeriod = { preset: 'today' };
+export const DEFAULT_PERIOD: FinancePeriod = { preset: 'last30' };
 
 function toIso(date: Date) {
   const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -22,6 +22,11 @@ function daysBetween(start: string, end: string) {
 export function getPeriodRange(period: FinancePeriod) {
   const now = new Date();
   const today = toIso(now);
+
+  if (period.preset === 'last30') {
+    const startDate = toIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29));
+    return { label: 'Últimos 30 dias', startDate, endDate: today, days: 30 };
+  }
 
   if (period.preset === 'month') {
     const startDate = toIso(new Date(now.getFullYear(), now.getMonth(), 1));

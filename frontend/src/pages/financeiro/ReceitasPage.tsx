@@ -14,6 +14,7 @@ interface Payment {
   value: number;
   due_date?: string;
   status?: string;
+  payment_method?: string;
 }
 interface Overview {
   received_value?: number;
@@ -287,7 +288,7 @@ export default function ReceitasPage() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                {['Cliente', 'Descrição', 'Valor', 'Data', 'Status'].map((h) => (
+                {['Cliente', 'Descrição', 'Forma de pagamento', 'Valor', 'Data', 'Status'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -297,12 +298,13 @@ export default function ReceitasPage() {
                 <tr key={p.id} style={{ borderBottom: i < received.length - 1 ? '1px solid var(--erp-border)' : undefined }}>
                   <td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{p.customer ?? '-'}</td>
                   <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--erp-text-muted)' }}>{p.description ?? '-'}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{p.payment_method ?? '-'}</td>
                   <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: 'var(--erp-emerald)' }}>{currency(p.value, 2)}</td>
                   <td className="px-4 py-3"><span className="flex items-center gap-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}><Calendar size={10} />{formatDate(p.due_date)}</span></td>
                   <td className="px-4 py-3"><span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'rgba(4,120,87,0.12)', color: 'var(--erp-emerald)' }}>Recebido</span></td>
                 </tr>
               ))}
-              {!loading && received.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum pagamento recebido no período</td></tr>}
+              {!loading && received.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum pagamento recebido no período</td></tr>}
             </tbody>
           </table>
         </div>

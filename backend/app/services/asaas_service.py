@@ -15,6 +15,21 @@ class AsaasUnavailable(Exception):
     pass
 
 
+BILLING_TYPE_LABELS = {
+    'BOLETO': 'Boleto',
+    'CREDIT_CARD': 'Cartão de crédito',
+    'DEBIT_CARD': 'Cartão de débito',
+    'PIX': 'Pix',
+    'TRANSFER': 'Transferência',
+    'DEPOSIT': 'Depósito',
+    'UNDEFINED': 'A definir',
+}
+
+
+def _payment_method_label(billing_type: str | None) -> str:
+    return BILLING_TYPE_LABELS.get((billing_type or '').upper(), billing_type or 'Outro')
+
+
 _CACHE_TTL_SECONDS = 60 * 60
 _CACHE: dict[tuple[str, tuple[tuple[str, Any], ...]], tuple[float, dict[str, Any]]] = {}
 
@@ -61,6 +76,13 @@ class AsaasService:
     async def payments(self, limit: int = 100) -> dict[str, Any]:
         return await self._get('payments', {'limit': limit, 'offset': 0, 'sort': 'dueDate', 'order': 'desc'})
 
+    async def _customers_page(self, limit: int = 100) -> dict[str, Any]:
+        return await self._get('customers', {'limit': limit, 'offset': 0})
+
+    async def balance(self) -> float:
+        result = await self._get('finance/balance')
+        return float(result.get('balance', 0) or 0)
+
     async def subscriptions(self) -> list[dict[str, Any]]:
         result = await self._get('subscriptions', {'limit': 100})
         all_subs = result.get('data', [])
@@ -77,11 +99,18 @@ class AsaasService:
         received = [item for item in payments if item.get('status') in received_states]
         pending = [item for item in payments if item.get('status') in open_states]
         overdue = [item for item in payments if item.get('status') in overdue_states]
-        customers = await self._get('customers', {'limit': 1})
+        customers = await self._customers_page()
+        customer_names = {
+            item.get('id'): item.get('name')
+            for item in customers.get('data', [])
+            if item.get('id') and item.get('name')
+        }
+        account_balance = await self.balance()
         return {
             'source': 'asaas',
             'updated_at': datetime.now().isoformat(timespec='seconds'),
             'cache_ttl_seconds': _CACHE_TTL_SECONDS,
+            'account_balance': account_balance,
             'customers_total': customers.get('totalCount', 0),
             'payments_total': result.get('totalCount', len(payments)),
             'sample_size': len(payments),
@@ -95,12 +124,13 @@ class AsaasService:
             'payments': [
                 {
                     'id': item.get('id'),
-                    'customer': item.get('customerName') or 'Cliente',
+                    'customer': item.get('customerName') or customer_names.get(item.get('customer')) or 'Cliente',
                     'description': item.get('description') or 'Cobrança ASAAS',
                     'value': item.get('value', 0),
                     'status': item.get('status'),
                     'due_date': item.get('dueDate'),
                     'payment_date': item.get('paymentDate'),
+                    'payment_method': _payment_method_label(item.get('billingType')),
                 }
                 for item in payments[:20]
             ],
@@ -149,15 +179,22 @@ class AsaasService:
         base['received_count'] = len(received)
         base['pending_count'] = len(pending)
         base['overdue_count'] = len(overdue)
+        customers = await self._customers_page()
+        customer_names = {
+            item.get('id'): item.get('name')
+            for item in customers.get('data', [])
+            if item.get('id') and item.get('name')
+        }
         base['payments'] = [
             {
                 'id': item.get('id'),
-                'customer': item.get('customerName') or 'Cliente',
+                'customer': item.get('customerName') or customer_names.get(item.get('customer')) or 'Cliente',
                 'description': item.get('description') or 'Cobrança ASAAS',
                 'value': item.get('value', 0),
                 'status': item.get('status'),
                 'due_date': item.get('dueDate'),
                 'payment_date': item.get('paymentDate'),
+                'payment_method': _payment_method_label(item.get('billingType')),
             }
             for item in filtered[:20]
         ]

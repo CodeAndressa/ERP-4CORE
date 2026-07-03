@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, ChevronDown, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, MoreHorizontal, ScrollText, Settings2, Target, Users } from 'lucide-react';
@@ -116,6 +116,15 @@ const MOBILE_MORE = [
 
 function pathActive(pathname: string, match: string[]) {
   return match.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center gap-2">
+      <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: 'var(--erp-border)', borderTopColor: 'var(--erp-violet)' }} />
+      <span className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Carregando...</span>
+    </div>
+  );
 }
 
 function MobileBottomNav({ pathname }: { pathname: string }) {
@@ -425,7 +434,7 @@ export default function AppLayout() {
             <button onClick={logout} className="flex h-9 w-9 items-center justify-center rounded-full bg-white transition-colors hover:text-violet-600 sm:h-8 sm:w-8" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }} title="Sair" aria-label="Sair"><LogOut size={15} /></button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto"><div className="px-3 pb-24 pt-3 sm:p-6 lg:p-8"><Outlet /></div></main>
+        <main className="flex-1 overflow-auto"><div className="px-3 pb-24 pt-3 sm:p-6 lg:p-8"><Suspense fallback={<RouteFallback />}><Outlet /></Suspense></div></main>
       </div>
       <MobileBottomNav pathname={pathname} />
       <AIDrawer />

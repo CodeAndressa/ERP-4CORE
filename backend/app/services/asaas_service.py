@@ -88,7 +88,6 @@ class AsaasService:
         # resto da Visao Geral, que ja funcionava antes desse campo existir.
         try:
             result = await self._get('finance/balance')
-            logger.warning("ASAAS balance raw response: %s", result)
             return float(result.get('balance', 0) or 0)
         except (AsaasUnavailable, TypeError, ValueError) as exc:
             logger.warning("ASAAS balance fetch failed: %s", exc)

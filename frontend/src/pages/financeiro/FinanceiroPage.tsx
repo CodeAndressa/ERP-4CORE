@@ -10,7 +10,7 @@ import FinancePeriodFilter from './FinancePeriodFilter';
 import { DEFAULT_PERIOD, buildOverviewUrl, isInFinancePeriod, type FinancePeriod } from './financePeriod';
 
 export type AsaasData = {
-  account_balance?: number;
+  account_balance?: number | null;
   received_value: number;
   pending_value: number;
   overdue_value: number;
@@ -164,7 +164,7 @@ function FinanceiroCockpit() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Saldo em conta" value={loading ? '...' : currency(data?.account_balance ?? 0, 2)} detail="Saldo atual na ASAAS, fora do período selecionado" tone="violet" icon={<Wallet size={16} />} />
+        <MetricCard label="Saldo em conta" value={loading ? '...' : data?.account_balance != null ? currency(data.account_balance, 2) : '—'} detail="Saldo atual na ASAAS, fora do período selecionado" tone="violet" icon={<Wallet size={16} />} />
         <MetricCard label="Receita realizada" value={loading ? '...' : currency(received + directSales, 2)} detail={`${currency(received, 2)} ASAAS + ${currency(directSales, 2)} venda direta`} tone="emerald" icon={<ArrowUpRight size={16} />} />
         <MetricCard label="Custos controlados" value={loading ? '...' : currency(totalCosts, 2)} detail={`${currency(fixedCosts, 2)} fixos + ${currency(recurringCosts, 2)} recorrentes`} tone="rose" icon={<ArrowDownRight size={16} />} />
         <MetricCard label="Resultado líquido" value={loading ? '...' : currency(net, 2)} detail={`${margin.toFixed(1)}% margem operacional`} tone={net >= 0 ? 'cyan' : 'amber'} icon={<Banknote size={16} />} />

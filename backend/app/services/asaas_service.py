@@ -79,9 +79,15 @@ class AsaasService:
     async def _customers_page(self, limit: int = 100) -> dict[str, Any]:
         return await self._get('customers', {'limit': limit, 'offset': 0})
 
-    async def balance(self) -> float:
-        result = await self._get('finance/balance')
-        return float(result.get('balance', 0) or 0)
+    async def balance(self) -> float | None:
+        # Endpoint separado da conta ASAAS: se a chave de API nao tiver
+        # permissao pra isso (ou o endpoint mudar), nao pode derrubar o
+        # resto da Visao Geral, que ja funcionava antes desse campo existir.
+        try:
+            result = await self._get('finance/balance')
+            return float(result.get('balance', 0) or 0)
+        except (AsaasUnavailable, TypeError, ValueError):
+            return None
 
     async def subscriptions(self) -> list[dict[str, Any]]:
         result = await self._get('subscriptions', {'limit': 100})

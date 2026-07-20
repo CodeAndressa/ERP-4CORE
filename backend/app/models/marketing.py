@@ -14,6 +14,7 @@ class MarketingContent(Base):
     image_prompt = Column(Text, nullable=False, default="")
     channel = Column(String(30), nullable=False, default="instagram")
     format = Column(String(30), nullable=False, default="image")
+    layout = Column(String(20), nullable=False, default="feed")
     status = Column(String(40), nullable=False, default="draft", index=True)
     scheduled_at = Column(DateTime(timezone=True), nullable=True, index=True)
     approved_at = Column(DateTime(timezone=True), nullable=True)

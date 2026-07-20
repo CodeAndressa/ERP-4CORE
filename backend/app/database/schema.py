@@ -53,6 +53,12 @@ DUNNING_LOG_COLUMNS = {
     'resolved_payment_date': "VARCHAR(20) NOT NULL DEFAULT ''",
 }
 
+# Adicionada depois que marketing_content já existia em produção — sem isso,
+# create_all() não altera tabela existente, só cria as que faltam.
+MARKETING_CONTENT_COLUMNS = {
+    'layout': "VARCHAR(20) NOT NULL DEFAULT 'feed'",
+}
+
 
 def _dialect(engine: Engine) -> str:
     return engine.dialect.name
@@ -163,5 +169,6 @@ def ensure_runtime_schema(engine: Engine) -> bool:
         _drop_check_constraints(engine, 'leads')
 
     _ensure_columns(engine, 'dunning_log', DUNNING_LOG_COLUMNS)
+    _ensure_columns(engine, 'marketing_content', MARKETING_CONTENT_COLUMNS)
 
     return recreated_commercial

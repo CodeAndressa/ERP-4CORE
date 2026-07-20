@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 import io
+import secrets
 from typing import Literal
+from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -14,6 +16,7 @@ from app.models.marketing import MarketingContent
 from app.services.marketing_asset_service import art_response, read_art_bytes, signed_art_url, store_generated_art
 from app.services.marketing_canva_service import build_canva_pptx
 from app.services.marketing_content_service import (
+    FALLBACK_TOPIC_SUGGESTIONS,
     generate_art,
     generate_caption_only,
     generate_copy_and_prompt,
@@ -27,7 +30,9 @@ router = APIRouter(prefix="/marketing/content", tags=["marketing-content"])
 
 ALLOWED_CHANNELS = {"instagram", "facebook", "both"}
 ALLOWED_FORMATS = {"image"}
+ALLOWED_LAYOUTS = {"feed", "story"}
 EDITABLE_STATUSES = {"draft", "awaiting_approval", "rejected", "failed", "approved", "scheduled"}
+BRAZIL_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 class ContentCreate(BaseModel):
@@ -35,6 +40,7 @@ class ContentCreate(BaseModel):
     brief: str = Field(default="", max_length=4000)
     channel: Literal["instagram", "facebook", "both"] = "instagram"
     format: Literal["image"] = "image"
+    layout: Literal["feed", "story"] = "feed"
     scheduled_at: datetime | None = None
 
 
@@ -88,6 +94,7 @@ def _serialize(item: MarketingContent) -> dict:
         "image_prompt": item.image_prompt,
         "channel": item.channel,
         "format": item.format,
+        "layout": item.layout,
         "status": item.status,
         "scheduled_at": _iso(item.scheduled_at),
         "approved_at": _iso(item.approved_at),
@@ -124,12 +131,17 @@ async def _publish(item: MarketingContent, db: Session) -> MarketingContent:
     try:
         image_url = await signed_art_url(item.art_path)
         meta = MetaMarketingService()
-        if item.channel in {"instagram", "both"}:
-            result = await meta.publish_instagram_image(image_url, item.caption)
+        if item.layout == "story":
+            result = await meta.publish_instagram_story(image_url)
             item.meta_container_id = result["container_id"]
             item.instagram_media_id = result["media_id"]
-        if item.channel in {"facebook", "both"}:
-            item.facebook_post_id = await meta.publish_facebook_image(image_url, item.caption)
+        else:
+            if item.channel in {"instagram", "both"}:
+                result = await meta.publish_instagram_image(image_url, item.caption)
+                item.meta_container_id = result["container_id"]
+                item.instagram_media_id = result["media_id"]
+            if item.channel in {"facebook", "both"}:
+                item.facebook_post_id = await meta.publish_facebook_image(image_url, item.caption)
         item.status = "published"
         item.published_at = datetime.now(timezone.utc)
     except HTTPException as exc:
@@ -166,6 +178,7 @@ def create_content(payload: ContentCreate, db: Session = Depends(get_db)):
         brief=payload.brief.strip(),
         channel=payload.channel,
         format=payload.format,
+        layout=payload.layout,
         scheduled_at=_utc(payload.scheduled_at),
         status="draft",
     )
@@ -222,6 +235,81 @@ async def process_due(db: Session = Depends(get_db)):
         except HTTPException as exc:
             failed.append({"id": item.id, "error": str(exc.detail)})
     return {"processed": len(due), "published": published, "failed": failed}
+
+
+@router.post("/stories/ensure-daily")
+async def ensure_daily_story(request: Request, db: Session = Depends(get_db)):
+    """Cron diário — se não houver post de feed agendado/publicado pra hoje,
+    gera um rascunho de Story por IA e deixa esperando aprovação no Estúdio.
+    Não publica sozinho: a usuária revisa e agenda como qualquer outro item."""
+    cron_secret = settings.marketing_cron_secret or settings.cron_secret
+    authorization = request.headers.get('authorization', '')
+    if not cron_secret or not secrets.compare_digest(authorization, f'Bearer {cron_secret}'):
+        raise HTTPException(403, "Secret inválido.")
+
+    today = datetime.now(BRAZIL_TZ).date()
+    start = datetime.combine(today, time.min, tzinfo=BRAZIL_TZ).astimezone(timezone.utc)
+    end = datetime.combine(today, time.max, tzinfo=BRAZIL_TZ).astimezone(timezone.utc)
+
+    has_feed_today = (
+        db.query(MarketingContent)
+        .filter(
+            MarketingContent.layout == "feed",
+            MarketingContent.status.in_(["scheduled", "publishing", "published"]),
+            MarketingContent.scheduled_at.isnot(None),
+            MarketingContent.scheduled_at >= start,
+            MarketingContent.scheduled_at <= end,
+        )
+        .first()
+    )
+    if has_feed_today:
+        return {"created": False, "reason": "já existe um post de feed para hoje"}
+
+    has_story_today = (
+        db.query(MarketingContent)
+        .filter(
+            MarketingContent.layout == "story",
+            MarketingContent.created_at >= start,
+            MarketingContent.created_at <= end,
+        )
+        .first()
+    )
+    if has_story_today:
+        return {"created": False, "reason": "o story de hoje já foi gerado"}
+
+    existing_titles = [row[0] for row in db.query(MarketingContent.title).order_by(MarketingContent.created_at.desc()).limit(40).all()]
+    try:
+        recent = await MetaMarketingService().instagram_media()
+        captions = [str(post.get("caption", ""))[:600] for post in recent if post.get("caption")]
+    except Exception:
+        captions = []
+    suggestions = await suggest_content_topics(captions, existing_titles)
+    topic = suggestions[0] if suggestions else FALLBACK_TOPIC_SUGGESTIONS[0]
+
+    item = MarketingContent(
+        title=topic["title"][:180],
+        brief=topic.get("brief", "")[:4000],
+        channel="instagram",
+        format="image",
+        layout="story",
+        status="generating",
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    try:
+        generated = await generate_copy_and_prompt(item.title, item.brief, captions)
+        item.caption = generated["caption"]
+        item.image_prompt = generated["image_prompt"]
+        db.commit()
+        item.art_path = await generate_art(item.image_prompt, generated["headline"])
+        item.status = "awaiting_approval"
+    except HTTPException as exc:
+        item.status = "failed"
+        item.error_message = str(exc.detail)
+    db.commit()
+    db.refresh(item)
+    return {"created": True, "id": item.id}
 
 
 @router.get("/{content_id}")
@@ -298,6 +386,8 @@ async def upload_edited_art(
 @router.post("/{content_id}/generate")
 async def generate_content(content_id: int, db: Session = Depends(get_db)):
     item = _get(db, content_id)
+    if item.layout != "story":
+        raise HTTPException(409, "GeraÃ§Ã£o de arte por IA agora Ã© sÃ³ para Stories. Publicações de feed usam arte enviada pronta.")
     if item.status in {"publishing", "published"}:
         raise HTTPException(409, "Uma publicaÃ§Ã£o enviada nÃ£o pode ser regenerada.")
     item.status = "generating"

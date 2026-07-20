@@ -77,6 +77,10 @@ async def require_authentication(request: Request, call_next):
         and bool(marketing_cron_secret)
         and secrets.compare_digest(cron_authorization, f'Bearer {marketing_cron_secret}')
     ) or (
+        request.url.path == '/marketing/content/stories/ensure-daily'
+        and bool(marketing_cron_secret)
+        and secrets.compare_digest(cron_authorization, f'Bearer {marketing_cron_secret}')
+    ) or (
         request.url.path == '/financial/collections/run'
         and bool(settings.collections_cron_secret)
         and secrets.compare_digest(cron_authorization, f'Bearer {settings.collections_cron_secret}')

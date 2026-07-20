@@ -382,6 +382,44 @@ class MetaMarketingService:
             raise HTTPException(published.status_code, f"Falha ao publicar no Instagram: {published.text[:300]}")
         return {"container_id": container_id, "media_id": published.json().get("id", "")}
 
+    async def publish_instagram_story(self, image_url: str) -> dict[str, str]:
+        """Publica um Story — a API da Meta nao aceita legenda para media_type=STORIES."""
+        ig_id = await self.get_instagram_account_id()
+        _, token = await self._page_token_async(None, None)
+        async with httpx.AsyncClient(timeout=40.0) as client:
+            created = await client.post(
+                f"{self.base_url}/{ig_id}/media",
+                data={"access_token": token, "image_url": image_url, "media_type": "STORIES"},
+            )
+            if created.status_code >= 400:
+                raise HTTPException(created.status_code, f"Meta recusou o story: {created.text[:300]}")
+            container_id = created.json().get("id", "")
+            if not container_id:
+                raise HTTPException(502, "A Meta não retornou o contêiner do story.")
+
+            for _ in range(10):
+                status = await client.get(
+                    f"{self.base_url}/{container_id}",
+                    params={"access_token": token, "fields": "status_code,status"},
+                )
+                status_payload = status.json() if status.status_code < 400 else {}
+                status_code = status_payload.get("status_code")
+                if status_code == "FINISHED":
+                    break
+                if status_code in {"ERROR", "EXPIRED"}:
+                    raise HTTPException(502, f"A Meta não processou o story: {status_payload.get('status', status_code)}")
+                await asyncio.sleep(2)
+            else:
+                raise HTTPException(504, "A Meta demorou para processar o story. Tente novamente em instantes.")
+
+            published = await client.post(
+                f"{self.base_url}/{ig_id}/media_publish",
+                data={"access_token": token, "creation_id": container_id},
+            )
+        if published.status_code >= 400:
+            raise HTTPException(published.status_code, f"Falha ao publicar o story: {published.text[:300]}")
+        return {"container_id": container_id, "media_id": published.json().get("id", "")}
+
     async def publish_facebook_image(self, image_url: str, caption: str) -> str:
         page_id, token = await self._page_token_async(None, None)
         async with httpx.AsyncClient(timeout=40.0) as client:

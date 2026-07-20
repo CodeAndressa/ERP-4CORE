@@ -275,9 +275,11 @@ def _cloudflare_error(response: httpx.Response) -> HTTPException:
     return HTTPException(502, f"Falha ao gerar a arte na Cloudflare: {detail}")
 
 
-def _crop_to_instagram_portrait(content: bytes) -> bytes:
+def _crop_to_story(content: bytes) -> bytes:
+    """A arte por IA agora só alimenta Stories (9:16) — os posts de feed usam
+    arte enviada pronta pela usuária, sem passar por geração/recorte aqui."""
     source = Image.open(io.BytesIO(content)).convert("RGB")
-    target_ratio = 4 / 5
+    target_ratio = 9 / 16
     width, height = source.size
     crop_height = min(height, round(width / target_ratio))
     crop_width = min(width, round(height * target_ratio))
@@ -397,8 +399,8 @@ async def _generate_cloudflare_art(prompt: str, headline: str) -> bytes:
                     "fake certification, generic blue corporate style, stock photo smile, handshake, "
                     "analog clock, calendar, clutter, tiny typography, malformed hands, distorted device"
                 ),
-                "width": 768,
-                "height": 960,
+                "width": 720,
+                "height": 1280,
                 "num_steps": 20,
                 "guidance": 6,
             },
@@ -424,7 +426,7 @@ async def _generate_cloudflare_art(prompt: str, headline: str) -> bytes:
             if encoded.startswith("data:"):
                 encoded = encoded.split(",", 1)[1]
             content = base64.b64decode(encoded)
-        cropped = _crop_to_instagram_portrait(content)
+        cropped = _crop_to_story(content)
         async with httpx.AsyncClient(timeout=30.0) as client:
             logo_response = await client.get(BRAND_LOGO_URL)
         if logo_response.status_code >= 400:
@@ -454,7 +456,7 @@ async def _generate_openai_art(prompt: str, headline: str) -> bytes:
         raise _openai_error(response)
     try:
         encoded = response.json()["data"][0]["b64_json"]
-        cropped = _crop_to_instagram_portrait(base64.b64decode(encoded))
+        cropped = _crop_to_story(base64.b64decode(encoded))
         async with httpx.AsyncClient(timeout=30.0) as client:
             logo_response = await client.get(BRAND_LOGO_URL)
         if logo_response.status_code >= 400:

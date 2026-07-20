@@ -104,8 +104,9 @@ RH/DP, risco e conformidade, controle de ponto, controle de acesso, produto e
 autoridade consultiva.
 
 Use o historico recente para manter a voz da marca, mas nao repita titulos nem o
-mesmo angulo. Cada ideia precisa funcionar como uma unica arte 4:5, sem depender
-de carrossel, estatistica nao fornecida, noticia ou data sazonal.
+mesmo angulo. Cada ideia sera desenvolvida como um unico Instagram Story vertical
+(9:16), sem depender de carrossel, estatistica nao fornecida, noticia ou data
+sazonal.
 
 Responda somente JSON valido no formato:
 {{"suggestions":[{{
@@ -137,10 +138,12 @@ def build_image_prompt(headline: str, visual_concept: str) -> str:
             "realistic biometric time clock and a discreet warning indicator."
         )
     return f"""
-Create a premium vertical 4:5 background image for a 4Core Instagram campaign.
+Create a premium vertical 9:16 background image for a 4Core Instagram Story.
 4Core is a Brazilian B2B company specialized in time-attendance, access control
 and labor compliance. Typography and the official logo will be added later by the
 application, so generate the photographic background and graphic atmosphere only.
+Keep the main subject and safe text area within the center 80% of the frame —
+Instagram Stories crop and overlay UI near the very top and bottom edges.
 
 MANDATORY SUBJECT — make this unmistakably dominant:
 {clean_concept}

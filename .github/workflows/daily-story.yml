@@ -1,0 +1,24 @@
+name: Story diario para dias sem post agendado
+
+on:
+  schedule:
+    - cron: "0 11 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: daily-story
+  cancel-in-progress: false
+
+jobs:
+  ensure-daily-story:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gerar rascunho de Story se hoje nao tiver post agendado
+        env:
+          MARKETING_CRON_SECRET: ${{ secrets.MARKETING_CRON_SECRET }}
+        run: |
+          test -n "$MARKETING_CRON_SECRET"
+          curl --fail-with-body --silent --show-error --retry 2 \
+            --request POST \
+            --header "Authorization: Bearer $MARKETING_CRON_SECRET" \
+            https://4core-backend.vercel.app/marketing/content/stories/ensure-daily

@@ -115,12 +115,38 @@ function EmptyBlock({ label }: { label: string }) {
   );
 }
 
-function SummaryLine({ label, value }: { label: string; value: string }) {
+function KpiCell({ label, primaryLabel, primaryValue, lines, to, loading }: { label: string; primaryLabel: string; primaryValue: string; lines: { label: string; value: string }[]; to: string; loading: boolean }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-full border border-violet-100 bg-white px-3 py-2">
-      <span className="truncate text-xs text-slate-600">{label}</span>
-      <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-950">{value}</span>
-    </div>
+    <Link
+      to={to}
+      className="group flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 transition-colors hover:bg-[var(--erp-surface-2)] sm:px-5 sm:py-5"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{label}</span>
+        <ArrowRight size={13} className="opacity-0 transition-opacity group-hover:opacity-100" style={{ color: 'var(--erp-violet)' }} />
+      </div>
+      {loading ? (
+        <div className="space-y-2">
+          <div className="h-7 w-24 animate-pulse rounded-lg" style={{ background: 'var(--erp-surface-2)' }} />
+          <div className="h-3 w-32 animate-pulse rounded-lg" style={{ background: 'var(--erp-surface-2)' }} />
+        </div>
+      ) : (
+        <>
+          <div>
+            <p className="text-2xl font-bold tabular-nums leading-tight" style={{ color: 'var(--erp-text)' }}>{primaryValue}</p>
+            <p className="mt-0.5 text-xs" style={{ color: 'var(--erp-text-dim)' }}>{primaryLabel}</p>
+          </div>
+          <div className="mt-auto space-y-1 border-t pt-2.5" style={{ borderColor: 'var(--erp-border)' }}>
+            {lines.map((line) => (
+              <div key={line.label} className="flex items-center justify-between gap-3 text-xs">
+                <span style={{ color: 'var(--erp-text-muted)' }}>{line.label}</span>
+                <span className="shrink-0 font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>{line.value}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </Link>
   );
 }
 
@@ -213,7 +239,6 @@ export default function DashboardPage() {
 
   const siteSummary = site?.summary;
   const visitors = siteSummary?.unique_visitors ?? siteSummary?.visitors ?? 0;
-  const pageviews = siteSummary?.pageviews ?? 0;
   const conversion = siteSummary?.conversion_rate ?? 0;
   const siteLeads = siteSummary?.leads ?? 0;
   const siteDaily = site?.daily?.slice(-14) ?? [];
@@ -303,47 +328,54 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      <div className="grid gap-4 xl:grid-cols-4">
-        <Card padding="lg">
-          <CardHeader title="Resumo financeiro" subtitle="ASAAS em tempo real" action={<Link to="/financeiro" className="text-xs font-medium text-violet-700">Abrir</Link>} />
-          <div className="mt-4 space-y-2">
-            <SummaryLine label="Recebido" value={asaas ? money(asaas.received_value) : '-'} />
-            <SummaryLine label="A receber" value={asaas ? money(asaas.pending_value) : '-'} />
-            <SummaryLine label="Em atraso" value={asaas ? money(asaas.overdue_value) : '-'} />
-            <SummaryLine label="Recorrente" value={asaas ? money(asaas.recurring_value) : '-'} />
-          </div>
-        </Card>
-
-        <Card padding="lg">
-          <CardHeader title="Comercial" subtitle="Clientes, leads e pipeline" action={<Link to="/comercial" className="text-xs font-medium text-violet-700">Abrir</Link>} />
-          <div className="mt-4 space-y-2">
-            <SummaryLine label="Clientes" value={fmt.format(clientCount)} />
-            <SummaryLine label="Leads totais" value={fmt.format(leads.length)} />
-            <SummaryLine label="Leads abertos" value={fmt.format(openLeads)} />
-            <SummaryLine label="Pipeline estimado" value={money(leadPipeline)} />
-          </div>
-        </Card>
-
-        <Card padding="lg">
-          <CardHeader title="Site e métricas" subtitle="Visitas e conversão" action={<Link to="/site-metrics" className="text-xs font-medium text-violet-700">Abrir</Link>} />
-          <div className="mt-4 space-y-2">
-            <SummaryLine label="Visitantes" value={fmt.format(visitors)} />
-            <SummaryLine label="Pageviews" value={fmt.format(pageviews)} />
-            <SummaryLine label="Conversão" value={`${conversion.toFixed(1)}%`} />
-            <SummaryLine label="Leads via site" value={fmt.format(siteLeads)} />
-          </div>
-        </Card>
-
-        <Card padding="lg">
-          <CardHeader title="Instagram" subtitle={igProfile?.username ? `@${igProfile.username}` : 'Marketing digital'} action={<Link to="/marketing/metricas" className="text-xs font-medium text-violet-700">Métricas</Link>} />
-          <div className="mt-4 space-y-2">
-            <SummaryLine label="Seguidores" value={igProfile ? fmt.format(igProfile.followers_count ?? 0) : '—'} />
-            <SummaryLine label="Publicações" value={igProfile ? fmt.format(igProfile.media_count ?? 0) : '—'} />
-            <SummaryLine label="Posts (calendário)" value={fmt.format(postCounts.total)} />
-            <SummaryLine label="Agendados" value={fmt.format(postCounts.scheduled)} />
-          </div>
-        </Card>
-      </div>
+      <Card padding="sm" className="overflow-hidden !p-0">
+        <div className="grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4" style={{ borderColor: 'var(--erp-border)' }}>
+          <KpiCell
+            label="Financeiro"
+            primaryLabel="Recebido no período"
+            primaryValue={asaas ? money(asaas.received_value) : '—'}
+            lines={[
+              { label: 'A receber', value: asaas ? money(asaas.pending_value) : '—' },
+              { label: 'Em atraso', value: asaas ? money(asaas.overdue_value) : '—' },
+            ]}
+            to="/financeiro"
+            loading={asaasLoading}
+          />
+          <KpiCell
+            label="Comercial"
+            primaryLabel="Pipeline estimado"
+            primaryValue={money(leadPipeline)}
+            lines={[
+              { label: 'Clientes', value: fmt.format(clientCount) },
+              { label: 'Leads abertos', value: fmt.format(openLeads) },
+            ]}
+            to="/comercial"
+            loading={secondaryLoading}
+          />
+          <KpiCell
+            label="Site"
+            primaryLabel="Visitantes (14d)"
+            primaryValue={fmt.format(visitors)}
+            lines={[
+              { label: 'Conversão', value: `${conversion.toFixed(1)}%` },
+              { label: 'Leads via site', value: fmt.format(siteLeads) },
+            ]}
+            to="/site-metrics"
+            loading={siteLoading}
+          />
+          <KpiCell
+            label="Instagram"
+            primaryLabel={igProfile?.username ? `@${igProfile.username}` : 'Marketing digital'}
+            primaryValue={igProfile ? fmt.format(igProfile.followers_count ?? 0) : '—'}
+            lines={[
+              { label: 'Publicações', value: igProfile ? fmt.format(igProfile.media_count ?? 0) : '—' },
+              { label: 'Agendados', value: fmt.format(postCounts.scheduled) },
+            ]}
+            to="/marketing/metricas"
+            loading={secondaryLoading}
+          />
+        </div>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2" padding="lg">

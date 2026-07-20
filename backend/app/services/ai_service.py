@@ -173,11 +173,14 @@ class AIService:
             return await self._site_context()
         return await self._operacao_context(db)
 
-    async def analyze(self, scope: str, instructions: str, db: Session) -> dict[str, Any]:
+    async def analyze(self, scope: str, instructions: str, db: Session, include_actions: bool = False) -> dict[str, Any]:
         if not settings.groq_api_key:
             raise AIUnavailable("Configure GROQ_API_KEY no backend.")
         context = await self._context(scope, db)
-        system = """Você é a consultora estratégica interna da 4Core. Responda de forma direta e objetiva, em português do Brasil, baseada apenas nos dados reais fornecidos em "connected_data" para a área "scope" selecionada. Não invente métricas, clientes ou resultados que não estejam no contexto. Quando o contexto vier com "error" ou vazio, declare isso objetivamente. Sem listas de ações recomendadas, sugestões de orçamento ou ideias de conteúdo — só a resposta direta à pergunta. Responda APENAS JSON válido neste formato: {"headline": string, "summary": string}. headline é um título curto (até 8 palavras); summary é a resposta objetiva, em 1 a 3 frases."""
+        if include_actions:
+            system = """Você é a consultora estratégica interna da 4Core. Gere recomendações objetivas em português do Brasil, baseadas apenas nos dados reais fornecidos em "connected_data" para a área "scope" selecionada. Não invente métricas, clientes ou resultados que não estejam no contexto. Quando o contexto vier com "error" ou vazio, declare isso e proponha o próximo dado necessário, em vez de generalizar. Responda APENAS JSON válido neste formato: {"headline": string, "summary": string, "actions": [{"area": string, "priority": "alta|media|baixa", "title": string, "rationale": string, "recommended_action": string}]}. Retorne no máximo 5 actions."""
+        else:
+            system = """Você é a consultora estratégica interna da 4Core. Responda de forma direta e objetiva, em português do Brasil, baseada apenas nos dados reais fornecidos em "connected_data" para a área "scope" selecionada. Não invente métricas, clientes ou resultados que não estejam no contexto. Quando o contexto vier com "error" ou vazio, declare isso objetivamente. Sem listas de ações recomendadas, sugestões de orçamento ou ideias de conteúdo — só a resposta direta à pergunta. Responda APENAS JSON válido neste formato: {"headline": string, "summary": string}. headline é um título curto (até 8 palavras); summary é a resposta objetiva, em 1 a 3 frases."""
         user = json.dumps({"scope": scope, "instructions": instructions or "Faça uma análise acionável do contexto disponível.", "connected_data": context}, ensure_ascii=False)
         payload = {"model": settings.groq_model, "temperature": 0.35, "response_format": {"type": "json_object"}, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
         headers = {"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"}

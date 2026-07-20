@@ -26,7 +26,7 @@ export default function ResumosPage() {
     const t = RESUMO_TYPES.find((x) => x.id === type)!;
     setLoading(true);
     setError(null);
-    api.post<{ analysis: Analysis }>('/ai/analyze', { scope: 'operacao', instructions: t.prompt })
+    api.post<{ analysis: Analysis }>('/ai/analyze', { scope: 'operacao', instructions: t.prompt, include_actions: true })
       .then(({ data: d }) => {
         setData(d.analysis);
         setGeneratedAt(new Date().toLocaleString('pt-BR'));
@@ -85,6 +85,13 @@ export default function ResumosPage() {
           {[1, 2].map((i) => (
             <div key={i} className="h-24 animate-pulse rounded-2xl" style={{ background: 'var(--erp-surface-2)' }} />
           ))}
+        </div>
+      )}
+
+      {!data && !loading && !error && (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl py-14 text-center" style={{ border: '1px dashed var(--erp-border)' }}>
+          <FileText size={24} style={{ color: 'var(--erp-text-dim)' }} />
+          <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Escolha um tipo de resumo e clique em "Gerar resumo" para começar.</p>
         </div>
       )}
 

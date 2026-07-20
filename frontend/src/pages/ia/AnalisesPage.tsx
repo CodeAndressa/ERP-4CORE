@@ -29,7 +29,7 @@ export default function AnalisesPage() {
     setLoading(true);
     setError(null);
     setData(null);
-    api.post<{ analysis: Analysis }>('/ai/analyze', { scope, instructions: s.prompt })
+    api.post<{ analysis: Analysis }>('/ai/analyze', { scope, instructions: s.prompt, include_actions: true })
       .then(({ data: d }) => setData(d.analysis))
       .catch((e) => setError(e?.response?.data?.detail || 'Falha ao gerar análise'))
       .finally(() => setLoading(false));
@@ -88,6 +88,13 @@ export default function AnalisesPage() {
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 animate-pulse rounded-2xl" style={{ background: 'var(--erp-surface-2)' }} />
           ))}
+        </div>
+      )}
+
+      {!data && !loading && !error && (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl py-14 text-center" style={{ border: '1px dashed var(--erp-border)' }}>
+          <Brain size={24} style={{ color: 'var(--erp-text-dim)' }} />
+          <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Selecione uma área e clique em "Gerar análise" para começar.</p>
         </div>
       )}
 

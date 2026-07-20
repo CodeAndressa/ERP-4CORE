@@ -94,7 +94,7 @@ export default function MainMenu() {
       />
 
       <div
-        className={`relative flex flex-shrink-0 items-center ${sidebarCollapsed ? 'justify-center px-2 py-6' : 'gap-2.5 px-5 py-6'}`}
+        className={`relative flex flex-shrink-0 ${sidebarCollapsed ? 'flex-col items-center gap-3 px-2 py-5' : 'items-center gap-2.5 px-5 py-6'}`}
         style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
         <img
@@ -102,21 +102,20 @@ export default function MainMenu() {
           alt="4Core"
           className={sidebarCollapsed ? 'h-8 w-8 object-contain' : 'h-8 w-auto max-w-[150px] object-contain'}
         />
+        <button
+          onClick={toggleSidebar}
+          title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          aria-label={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-transform duration-200 hover:scale-110 ${sidebarCollapsed ? '' : 'ml-auto'}`}
+          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(155,53,255,0.35)', color: '#e6ddff' }}
+        >
+          {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
+        </button>
       </div>
 
       <nav className={`relative flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${sidebarCollapsed ? 'space-y-1.5' : 'space-y-1'}`}>
         {AREAS.map((area) => <AreaButton key={area.path} area={area} collapsed={sidebarCollapsed} />)}
       </nav>
-
-      <button
-        onClick={toggleSidebar}
-        title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
-        aria-label={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
-        className="absolute -right-3 top-9 z-10 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full transition-transform duration-200 hover:scale-110"
-        style={{ background: '#2b165c', border: '1px solid rgba(155,53,255,0.45)', color: '#e6ddff', boxShadow: '0 4px 10px rgba(0,0,0,0.35)' }}
-      >
-        {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
-      </button>
     </motion.aside>
   );
 }

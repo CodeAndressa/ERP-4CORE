@@ -30,7 +30,7 @@ export default function SugestoesPage() {
   function load() {
     setLoading(true);
     setError(null);
-    api.post<{ analysis: Analysis }>('/ai/analyze', { scope: 'operacao', instructions: 'Liste as principais sugestões e prioridades para a operação agora.' })
+    api.post<{ analysis: Analysis }>('/ai/analyze', { scope: 'operacao', instructions: 'Liste as principais sugestões e prioridades para a operação agora.', include_actions: true })
       .then(({ data: d }) => setData(d.analysis))
       .catch((e) => setError(e?.response?.data?.detail || 'Falha ao gerar sugestões'))
       .finally(() => setLoading(false));

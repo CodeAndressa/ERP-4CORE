@@ -13,12 +13,13 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 class AnalyzeRequest(BaseModel):
     scope: Literal["operacao", "financeiro", "comercial", "marketing", "site", "clientes", "propostas"] = "operacao"
     instructions: str = Field(default="", max_length=2000)
+    include_actions: bool = False
 
 
 @router.post("/analyze")
 async def analyze_operation(payload: AnalyzeRequest, db: Session = Depends(get_db)):
     try:
-        return await AIService().analyze(payload.scope, payload.instructions, db)
+        return await AIService().analyze(payload.scope, payload.instructions, db, payload.include_actions)
     except AIUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:

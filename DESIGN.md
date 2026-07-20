@@ -19,6 +19,10 @@ colors:
   warning: "#b45309"
   danger: "#be123c"
   info: "#0891b2"
+  sidebar-plum-deep: "#12081f"
+  sidebar-plum-mid: "#1c0f42"
+  sidebar-violet-active: "#4a2a94"
+  sidebar-glow: "#7b00ff"
 typography:
   heading:
     fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
@@ -179,8 +183,8 @@ O sistema é flat por padrão: profundidade vem de troca de superfície (branco 
 - **Error:** substitui o texto de ajuda abaixo do campo por mensagem em Danger (`#be123c`); a borda do campo não fica vermelha sozinha (não depender só de cor).
 
 ### Navigation
-- **Style:** sidebar fixa em desktop (240px expandida / 64px recolhida, transição spring), item ativo com fundo Índigo Executivo sólido e texto branco, item inativo em Tinta Suave com hover em Índigo Suave. Em mobile, navegação inferior fixa com o mesmo vocabulário de estado ativo/inativo.
-- **Typography:** Label (600, 0.75–0.8125rem), ícone 16px alinhado à esquerda do texto.
+- **Style:** sidebar fixa em desktop (240px expandida / 64px recolhida, transição spring). **Exceção Committed deliberada** (a única do sistema): a sidebar usa um degradê escuro próprio — ameixa quase preta (`sidebar-plum-deep` → `sidebar-plum-mid` → Índigo Executivo) — em vez das superfícies quase-brancas do resto do app, com um glow radial sutil de violeta elétrico (`sidebar-glow`, `#7B00FF`) atrás da logo. Essa paleta estende a identidade visual já usada nas artes de Instagram da 4Core (ver `marketing_brand_system.py`), então não é uma cor nova — é a mesma marca em outro contexto. Item ativo usa um gradiente `sidebar-violet-active → executive-indigo` com glow sutil (`box-shadow` em violeta, nunca stripe lateral); item inativo em lavanda clara a 62% de opacidade (contraste ~5.9:1 confirmado); hover acrescenta um véu branco a 7% de opacidade. Em mobile, navegação inferior fixa continua na superfície clara padrão, com o mesmo vocabulário de estado ativo/inativo do resto do app.
+- **Typography:** Label (600, 0.75–0.8125rem), ícone 18px alinhado à esquerda do texto (sidebar desktop); 16px no restante da navegação.
 
 ## 6. Do's and Don'ts
 

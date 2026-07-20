@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, ChevronLeft, ChevronRight, RefreshCw, Sparkles } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw, Sparkles, X } from 'lucide-react';
 import { Card } from '../../shared/components/ui/Card';
 import { api } from '../../services/api';
 
 interface ApiPost { id: string | number; date?: string }
 interface ContentItem { id: number; title: string; channel: string; scheduled_at: string | null; status: string }
+interface ExternalItem { id: number; title: string; channel: string; scheduled_at: string; notes: string }
+interface ScheduledEntry { id: number; title: string; channel: string; source: 'erp' | 'external' }
 
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -38,31 +40,43 @@ const WEEKDAY_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 export default function CalendarioPage() {
   const [publishedDates, setPublishedDates] = useState<Set<string>>(new Set());
-  const [scheduledByDate, setScheduledByDate] = useState<Record<string, ContentItem[]>>({});
+  const [scheduledByDate, setScheduledByDate] = useState<Record<string, ScheduledEntry[]>>({});
   const [loading, setLoading] = useState(true);
   const [viewMonth, setViewMonth] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', date: '', time: '12:00', channel: 'instagram' });
+  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    let active = true;
+  function load() {
     setLoading(true);
-    Promise.all([
+    return Promise.all([
       api.get<ApiPost[]>('/marketing/posts').catch(() => ({ data: [] as ApiPost[] })),
       api.get<{ items: ContentItem[] }>('/marketing/content', { params: { status: 'scheduled' } }).catch(() => ({ data: { items: [] as ContentItem[] } })),
-    ]).then(([postsRes, contentRes]) => {
-      if (!active) return;
+      api.get<{ items: ExternalItem[] }>('/marketing/scheduled-external').catch(() => ({ data: { items: [] as ExternalItem[] } })),
+    ]).then(([postsRes, contentRes, externalRes]) => {
       const posts = Array.isArray(postsRes.data) ? postsRes.data : [];
       setPublishedDates(new Set(posts.map((p) => p.date).filter((d): d is string => Boolean(d))));
 
-      const map: Record<string, ContentItem[]> = {};
+      const map: Record<string, ScheduledEntry[]> = {};
       for (const item of contentRes.data?.items ?? []) {
         if (!item.scheduled_at) continue;
         const day = item.scheduled_at.slice(0, 10);
-        (map[day] ??= []).push(item);
+        (map[day] ??= []).push({ id: item.id, title: item.title, channel: item.channel, source: 'erp' });
+      }
+      for (const item of externalRes.data?.items ?? []) {
+        const day = item.scheduled_at.slice(0, 10);
+        (map[day] ??= []).push({ id: item.id, title: item.title, channel: item.channel, source: 'external' });
       }
       setScheduledByDate(map);
-    }).finally(() => { if (active) setLoading(false); });
+    }).finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    let active = true;
+    load().then(() => { if (!active) return; });
     return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cells = useMemo(() => monthGrid(viewMonth), [viewMonth]);
@@ -76,13 +90,97 @@ export default function CalendarioPage() {
   const selectedScheduled = selectedDate ? scheduledByDate[selectedDate] ?? [] : [];
   const selectedPublished = selectedDate ? publishedDates.has(selectedDate) : false;
 
+  async function saveExternal() {
+    if (!form.title.trim() || !form.date) return;
+    setSaving(true);
+    try {
+      await api.post('/marketing/scheduled-external', {
+        title: form.title.trim(),
+        channel: form.channel,
+        scheduled_at: `${form.date}T${form.time}:00`,
+      });
+      setForm({ title: '', date: '', time: '12:00', channel: 'instagram' });
+      setShowForm(false);
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeExternal(id: number) {
+    await api.delete(`/marketing/scheduled-external/${id}`);
+    await load();
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <CalendarDays size={16} style={{ color: 'var(--erp-violet-light)' }} />
-        <h1 className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>Calendário</h1>
-        {loading && <RefreshCw size={12} className="animate-spin" style={{ color: 'var(--erp-text-muted)' }} />}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <CalendarDays size={16} style={{ color: 'var(--erp-violet-light)' }} />
+          <h1 className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>Calendário</h1>
+          {loading && <RefreshCw size={12} className="animate-spin" style={{ color: 'var(--erp-text-muted)' }} />}
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold"
+          style={{ background: showForm ? 'var(--erp-surface-2)' : 'var(--erp-violet)', color: showForm ? 'var(--erp-text)' : '#fff' }}
+        >
+          {showForm ? <X size={12} /> : <Plus size={12} />}
+          {showForm ? 'Cancelar' : 'Registrar agendamento externo'}
+        </button>
       </div>
+
+      {showForm && (
+        <Card padding="sm">
+          <p className="mb-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
+            Pra posts agendados fora do ERP (ex.: Meta Business Suite) — a Meta não deixa a gente buscar isso automaticamente.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto]">
+            <input
+              type="text"
+              placeholder="Título do post"
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              className="rounded-lg px-2.5 py-2 text-xs outline-none"
+              style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+            />
+            <input
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+              className="rounded-lg px-2.5 py-2 text-xs outline-none"
+              style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+            />
+            <input
+              type="time"
+              value={form.time}
+              onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
+              className="rounded-lg px-2.5 py-2 text-xs outline-none"
+              style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+            />
+            <select
+              value={form.channel}
+              onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value }))}
+              className="rounded-lg px-2.5 py-2 text-xs outline-none"
+              style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+            >
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="both">Ambos</option>
+            </select>
+            <button
+              type="button"
+              onClick={saveExternal}
+              disabled={saving || !form.title.trim() || !form.date}
+              className="rounded-lg px-3 py-2 text-xs font-semibold"
+              style={{ background: 'var(--erp-violet)', color: '#fff', opacity: saving || !form.title.trim() || !form.date ? 0.6 : 1 }}
+            >
+              Salvar
+            </button>
+          </div>
+        </Card>
+      )}
 
       <Card padding="sm">
         <div className="flex items-center justify-between px-1 pb-2 pt-1">
@@ -162,17 +260,29 @@ export default function CalendarioPage() {
                 </div>
               )}
               {selectedScheduled.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
+                <div key={`${item.source}-${item.id}`} className="flex items-center justify-between gap-2 text-xs">
                   <span className="flex min-w-0 items-center gap-2" style={{ color: 'var(--erp-text)' }}>
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'var(--erp-violet)' }} />
                     <span className="truncate">{item.title}</span>
+                    {item.source === 'external' && (
+                      <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide" style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-text-dim)' }}>
+                        Manual
+                      </span>
+                    )}
                   </span>
-                  <span className="shrink-0 text-[9px] uppercase tracking-wide" style={{ color: 'var(--erp-text-dim)' }}>{item.channel}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <span className="text-[9px] uppercase tracking-wide" style={{ color: 'var(--erp-text-dim)' }}>{item.channel}</span>
+                    {item.source === 'external' && (
+                      <button type="button" onClick={() => removeExternal(item.id)} aria-label="Remover" style={{ color: 'var(--erp-text-dim)' }}>
+                        <X size={11} />
+                      </button>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>
           )}
-          {selectedScheduled.length > 0 && (
+          {selectedScheduled.some((item) => item.source === 'erp') && (
             <Link to="/marketing/estudio" className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: 'var(--erp-violet-light)' }}>
               <Sparkles size={11} /> Editar no Estúdio
             </Link>

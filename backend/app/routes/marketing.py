@@ -321,3 +321,60 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db)):
             ))
     db.commit()
     return {"status": "ok"}
+
+
+# ─── Agendamentos externos (registrados à mão — ex.: Meta Business Suite) ────
+# A Meta não expõe via Graph API o que foi agendado pelo composer do Business
+# Suite pra apps de terceiros (testado e confirmado em 2026-07-20). Isto é só
+# um registro manual pro Calendário mostrar, não dispara publicação nenhuma.
+
+class ExternalScheduledPostCreate(BaseModel):
+    title: str = Field(min_length=3, max_length=180)
+    channel: Literal["instagram", "facebook", "both"] = "instagram"
+    scheduled_at: datetime
+    notes: str = Field(default="", max_length=500)
+
+
+def _serialize_external(item: ExternalScheduledPost) -> dict:
+    scheduled = item.scheduled_at
+    if scheduled.tzinfo is None:
+        scheduled = scheduled.replace(tzinfo=timezone.utc)
+    return {
+        "id": item.id,
+        "title": item.title,
+        "channel": item.channel,
+        "scheduled_at": scheduled.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "notes": item.notes,
+    }
+
+
+@router.get("/scheduled-external")
+def list_external_scheduled(db: Session = Depends(get_db)):
+    items = db.query(ExternalScheduledPost).order_by(ExternalScheduledPost.scheduled_at.asc()).all()
+    return {"items": [_serialize_external(item) for item in items]}
+
+
+@router.post("/scheduled-external", status_code=201)
+def create_external_scheduled(payload: ExternalScheduledPostCreate, db: Session = Depends(get_db)):
+    scheduled_at = payload.scheduled_at
+    if scheduled_at.tzinfo is None:
+        scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+    item = ExternalScheduledPost(
+        title=payload.title.strip(),
+        channel=payload.channel,
+        scheduled_at=scheduled_at,
+        notes=payload.notes.strip(),
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return _serialize_external(item)
+
+
+@router.delete("/scheduled-external/{item_id}", status_code=204)
+def delete_external_scheduled(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(ExternalScheduledPost).filter(ExternalScheduledPost.id == item_id).first()
+    if not item:
+        raise HTTPException(404, "Registro não encontrado.")
+    db.delete(item)
+    db.commit()

@@ -62,31 +62,47 @@ export default function MensagensPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const selectedRef = useRef<Conversation | null>(null);
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
 
-  function loadConversations() {
-    setLoadingConversations(true);
-    setError('');
-    api.get<{ user_id?: string; configured: boolean }>('/marketing/meta/instagram-login/status')
+  function loadConversations(silent = false) {
+    if (!silent) setLoadingConversations(true);
+    if (!silent) setError('');
+    return api.get<{ user_id?: string; configured: boolean }>('/marketing/meta/instagram-login/status')
       .then(({ data }) => {
         setConfigured(data.configured);
-        if (!data.configured) { setLoadingConversations(false); return; }
+        if (!data.configured) return;
         return api.get<{ conversations: Conversation[] }>('/marketing/meta/instagram/conversations')
           .then(({ data }) => setConversations(data.conversations ?? []));
       })
-      .catch((err) => setError(err?.response?.data?.detail || 'Não foi possível carregar as conversas.'))
-      .finally(() => setLoadingConversations(false));
+      .catch((err) => { if (!silent) setError(err?.response?.data?.detail || 'Não foi possível carregar as conversas.'); })
+      .finally(() => { if (!silent) setLoadingConversations(false); });
+  }
+
+  function loadMessages(conversationId: string, silent = false) {
+    if (!silent) { setLoadingMessages(true); setMessages([]); }
+    return api.get<{ messages: Message[] }>(`/marketing/meta/instagram/conversations/${conversationId}/messages`)
+      .then(({ data }) => setMessages(data.messages ?? []))
+      .catch(() => { if (!silent) setMessages([]); })
+      .finally(() => { if (!silent) setLoadingMessages(false); });
   }
 
   useEffect(() => { loadConversations(); }, []);
 
+  // Auto-atualiza a lista de conversas e, se houver uma aberta, a thread —
+  // evita depender só do webhook (que pode nao estar assinado/configurado ainda).
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadConversations(true);
+      if (selectedRef.current) loadMessages(selectedRef.current.id, true);
+    }, 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function openConversation(conversation: Conversation) {
     setSelected(conversation);
-    setLoadingMessages(true);
-    setMessages([]);
-    api.get<{ messages: Message[] }>(`/marketing/meta/instagram/conversations/${conversation.id}/messages`)
-      .then(({ data }) => setMessages(data.messages ?? []))
-      .catch(() => setMessages([]))
-      .finally(() => setLoadingMessages(false));
+    loadMessages(conversation.id);
   }
 
   useEffect(() => {
@@ -131,7 +147,7 @@ export default function MensagensPage() {
         <h1 className="text-lg font-bold" style={{ color: 'var(--erp-text)' }}>Mensagens</h1>
         <button
           type="button"
-          onClick={loadConversations}
+          onClick={() => loadConversations()}
           className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--erp-surface-2)]"
           style={{ color: 'var(--erp-text-muted)' }}
           aria-label="Atualizar"

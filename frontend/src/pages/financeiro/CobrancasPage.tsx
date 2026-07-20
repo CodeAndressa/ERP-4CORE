@@ -329,7 +329,6 @@ function DunningHistoryCard() {
   useEffect(() => { load(); }, [load]);
 
   if (loading) return <div className="h-24 animate-pulse rounded-2xl" style={{ background: 'var(--erp-surface-2)' }} />;
-  if (items.length === 0) return null;
 
   return (
     <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: 'var(--erp-border)' }}>
@@ -342,6 +341,11 @@ function DunningHistoryCard() {
           <RefreshCw size={14} />
         </button>
       </div>
+      {items.length === 0 ? (
+        <p className="p-6 text-center text-xs" style={{ color: 'var(--erp-text-muted)' }}>
+          Nenhum disparo registrado ainda. O cron roda uma vez por dia — assim que a primeira rodada real acontecer, aparece aqui.
+        </p>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -379,6 +383,7 @@ function DunningHistoryCard() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }

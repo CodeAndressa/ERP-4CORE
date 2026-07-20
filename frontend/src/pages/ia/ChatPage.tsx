@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ChevronRight, RefreshCw, Send, Sparkles } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Send, Sparkles } from 'lucide-react';
 import { api } from '../../services/api';
 
 type Scope = 'operacao' | 'financeiro' | 'comercial' | 'marketing' | 'site' | 'clientes' | 'propostas';
@@ -24,13 +24,9 @@ const QUICK_PROMPTS: Record<Scope, string[]> = {
   propostas: ['Quais propostas estão paradas há mais tempo?', 'Como melhorar a taxa de fechamento?'],
 };
 
-interface Action { area: string; priority: string; title: string; rationale: string; recommended_action: string }
 interface Analysis {
   headline: string;
   summary: string;
-  actions?: Action[];
-  budget_suggestions?: { title: string; suggestion: string }[];
-  content_ideas?: { title: string; format: string; angle: string }[];
 }
 
 type Message =
@@ -64,32 +60,9 @@ function AnalysisBubble({ message }: { message: Extract<Message, { role: 'assist
           </div>
           <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">4Core IA</span>
         </div>
-        <div className="space-y-4 rounded-[26px] rounded-tl-md border border-violet-100 bg-white p-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-950">{analysis.headline}</p>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">{analysis.summary}</p>
-          </div>
-          {analysis.actions && analysis.actions.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ações recomendadas</p>
-              {analysis.actions.map((action, index) => (
-                <div key={index} className="flex gap-3 rounded-[22px] border border-violet-100 bg-violet-50/45 p-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-wide text-violet-700">{action.area}</span>
-                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${action.priority === 'alta' ? 'bg-rose-50 text-rose-700' : action.priority === 'media' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>{action.priority}</span>
-                    </div>
-                    <p className="text-sm font-medium text-slate-950">{action.title}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-600">{action.rationale}</p>
-                    <div className="mt-2 flex items-start gap-1">
-                      <ChevronRight size={11} className="mt-0.5 flex-shrink-0 text-violet-700" />
-                      <p className="text-xs text-violet-700">{action.recommended_action}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="space-y-1 rounded-[26px] rounded-tl-md border border-violet-100 bg-white p-4">
+          <p className="text-sm font-semibold text-slate-950">{analysis.headline}</p>
+          <p className="mt-1 text-sm leading-relaxed text-slate-600">{analysis.summary}</p>
         </div>
       </div>
     </div>

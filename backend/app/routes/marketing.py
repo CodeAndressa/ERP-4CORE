@@ -1,9 +1,18 @@
 import json
+import secrets
+from datetime import datetime, timezone
+from typing import Literal
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.database.session import get_db
+from app.models.marketing import ExternalScheduledPost, InstagramMessage
+from app.services import instagram_dm_service
 from app.services.meta_marketing_service import MetaMarketingService, mask_token
 
 router = APIRouter(prefix="/marketing", tags=["marketing"])
@@ -217,3 +226,98 @@ async def ai_planning():
         resp.raise_for_status()
 
     return json.loads(resp.json()["choices"][0]["message"]["content"])
+
+
+# ─── Instagram DM (produto "API do Instagram com Login do Instagram") ────────
+# App separado do Facebook Login acima; ver instagram_dm_service.py.
+
+class ConnectInstagramLoginRequest(BaseModel):
+    access_token: str = Field(min_length=10, max_length=4000)
+
+
+@router.post("/meta/instagram-login/connect")
+async def connect_instagram_login(payload: ConnectInstagramLoginRequest):
+    return await instagram_dm_service.connect(payload.access_token)
+
+
+@router.get("/meta/instagram-login/status")
+async def instagram_login_status():
+    return await instagram_dm_service.status()
+
+
+@router.post("/meta/instagram-login/refresh")
+async def refresh_instagram_login():
+    return await instagram_dm_service.refresh()
+
+
+@router.get("/meta/instagram/conversations")
+async def list_instagram_conversations():
+    return {"conversations": await instagram_dm_service.list_conversations()}
+
+
+@router.get("/meta/instagram/conversations/{conversation_id}/messages")
+async def get_conversation_messages(conversation_id: str):
+    return {"messages": await instagram_dm_service.conversation_messages(conversation_id)}
+
+
+class ReplyRequest(BaseModel):
+    recipient_id: str = Field(min_length=1, max_length=64)
+    text: str = Field(min_length=1, max_length=1000)
+
+
+@router.post("/meta/instagram/conversations/{conversation_id}/reply")
+async def send_conversation_reply(conversation_id: str, payload: ReplyRequest):
+    return await instagram_dm_service.send_message(payload.recipient_id, payload.text)
+
+
+# ─── Webhook (chamado direto pela Meta, fora do SPA — ver server.py) ─────────
+
+@router.get("/meta/webhook")
+async def verify_webhook(request: Request):
+    params = request.query_params
+    challenge = params.get("hub.challenge", "")
+    verify_token = params.get("hub.verify_token", "")
+    if (
+        params.get("hub.mode") == "subscribe"
+        and settings.meta_webhook_verify_token
+        and secrets.compare_digest(verify_token, settings.meta_webhook_verify_token)
+    ):
+        return PlainTextResponse(challenge)
+    raise HTTPException(403, "Verificação do webhook falhou.")
+
+
+@router.post("/meta/webhook")
+async def receive_webhook(request: Request, db: Session = Depends(get_db)):
+    body = await request.body()
+    signature = request.headers.get("x-hub-signature-256")
+    if not instagram_dm_service.verify_webhook_signature(settings.instagram_login_app_secret, body, signature):
+        raise HTTPException(403, "Assinatura do webhook inválida.")
+
+    try:
+        payload = json.loads(body or b"{}")
+    except json.JSONDecodeError:
+        return {"status": "ignored"}
+
+    _, my_id = await instagram_dm_service.credentials()
+    for entry in payload.get("entry", []) or []:
+        for event in entry.get("messaging", []) or []:
+            sender_id = str((event.get("sender") or {}).get("id") or "")
+            recipient_id = str((event.get("recipient") or {}).get("id") or "")
+            message = event.get("message") or {}
+            mid = str(message.get("mid") or "")
+            text = str(message.get("text") or "")
+            if not mid or not sender_id:
+                continue
+            if db.query(InstagramMessage).filter(InstagramMessage.mid == mid).first():
+                continue
+            direction = "outbound" if my_id and sender_id == my_id else "inbound"
+            conversation_id = recipient_id if direction == "outbound" else sender_id
+            db.add(InstagramMessage(
+                conversation_id=conversation_id or sender_id,
+                sender_id=sender_id,
+                direction=direction,
+                text=text,
+                mid=mid,
+            ))
+    db.commit()
+    return {"status": "ok"}

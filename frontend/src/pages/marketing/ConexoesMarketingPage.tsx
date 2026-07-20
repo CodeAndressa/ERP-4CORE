@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Copy, ExternalLink, Link2, RefreshCw, ShieldAlert,
-  CheckCircle2, XCircle, Clock, Info,
+  CheckCircle2, XCircle, Clock, Info, MessageCircle,
 } from 'lucide-react';
 import { API_BASE_URL, api } from '../../services/api';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
@@ -37,6 +38,15 @@ interface MetaPage {
   instagram_business_account?: { id: string; username?: string };
 }
 
+interface DmStatus {
+  configured: boolean;
+  user_id?: string;
+  username?: string;
+  token?: string;
+  expires_at?: string | null;
+  exchange_warning?: string;
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
@@ -62,6 +72,10 @@ export default function ConexoesMarketingPage() {
   const [pages, setPages] = useState<MetaPage[]>([]);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [dmStatus, setDmStatus] = useState<DmStatus | null>(null);
+  const [dmToken, setDmToken] = useState('');
+  const [dmBusy, setDmBusy] = useState(false);
+  const [dmMessage, setDmMessage] = useState('');
   const redirectUri = useMemo(() => `${window.location.origin}/marketing/conexoes`, []);
   // Evita dupla execução do callback OAuth (React StrictMode roda effects 2x em dev)
   const callbackFired = useRef(false);
@@ -84,10 +98,51 @@ export default function ConexoesMarketingPage() {
       .catch(() => setIgProfile(null));
   }
 
+  function loadDmStatus() {
+    api.get<DmStatus>('/marketing/meta/instagram-login/status')
+      .then(({ data }) => setDmStatus(data))
+      .catch(() => setDmStatus(null));
+  }
+
   useEffect(() => {
     loadStatus();
     loadIgProfile();
+    loadDmStatus();
   }, []);
+
+  async function connectDm() {
+    if (!dmToken.trim()) return;
+    setDmBusy(true);
+    setDmMessage('');
+    try {
+      const { data } = await api.post<DmStatus>('/marketing/meta/instagram-login/connect', { access_token: dmToken.trim() });
+      setDmStatus(data);
+      setDmToken('');
+      setDmMessage(
+        data.exchange_warning
+          ? `⚠️ Conectado como @${data.username || 'conta do Instagram'}, mas ${data.exchange_warning}`
+          : `✅ Conectado como @${data.username || 'conta do Instagram'}. Token de longa duração salvo.`
+      );
+    } catch (err: any) {
+      setDmMessage(err?.response?.data?.detail || 'Não foi possível validar esse token.');
+    } finally {
+      setDmBusy(false);
+    }
+  }
+
+  async function refreshDmToken() {
+    setDmBusy(true);
+    setDmMessage('');
+    try {
+      const { data } = await api.post<DmStatus>('/marketing/meta/instagram-login/refresh');
+      setDmStatus(data);
+      setDmMessage('✅ Token renovado por mais ~60 dias.');
+    } catch (err: any) {
+      setDmMessage(err?.response?.data?.detail || 'Não foi possível renovar o token agora.');
+    } finally {
+      setDmBusy(false);
+    }
+  }
 
   // Processa callback do OAuth — useRef evita duplo disparo do StrictMode em dev
   useEffect(() => {
@@ -276,6 +331,93 @@ export default function ConexoesMarketingPage() {
             {igConnected ? 'Reconectar via Meta' : 'Conectar via Meta'}
           </button>
         </div>
+      </Card>
+
+      {/* ── Mensagens diretas (Instagram API com Login do Instagram) ───────── */}
+      <Card padding="lg">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl text-white shrink-0"
+            style={{ background: 'linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7)' }}>
+            <MessageCircle size={17} />
+          </div>
+          <CardHeader title="Mensagens diretas" subtitle="Instagram API com Login do Instagram · app separado, só para DMs" />
+        </div>
+
+        <div className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs"
+          style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text-muted)' }}>
+          <Info size={13} className="mt-0.5 shrink-0" />
+          <span>
+            Gere o token em <strong style={{ color: 'var(--erp-text)' }}>developers.facebook.com → seu app → API do Instagram → Gerar tokens de acesso</strong> e
+            cole abaixo. É um produto diferente da conexão de posts/insights acima.
+          </span>
+        </div>
+
+        {dmMessage && (
+          <div className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs font-medium"
+            style={{
+              background: dmMessage.startsWith('✅') ? 'rgba(4,120,87,0.10)' : dmMessage.startsWith('⚠️') ? 'rgba(180,83,9,0.12)' : 'rgba(190,18,60,0.08)',
+              border: `1px solid ${dmMessage.startsWith('✅') ? 'rgba(4,120,87,0.3)' : dmMessage.startsWith('⚠️') ? 'rgba(180,83,9,0.3)' : 'rgba(190,18,60,0.3)'}`,
+              color: dmMessage.startsWith('✅') ? 'var(--erp-emerald)' : dmMessage.startsWith('⚠️') ? 'var(--erp-amber)' : 'var(--erp-rose)',
+            }}>
+            <ShieldAlert size={13} className="mt-0.5 shrink-0" />
+            <span>{dmMessage}</span>
+          </div>
+        )}
+
+        {dmStatus?.configured ? (
+          <div className="mt-3 space-y-2 text-sm" style={{ color: 'var(--erp-text-muted)' }}>
+            <div className="flex items-center gap-2">
+              <StatusBadge ok={true} label="Conectado" />
+              {dmStatus.username && <span style={{ color: 'var(--erp-text)' }}>@{dmStatus.username}</span>}
+            </div>
+            <p className="text-xs">
+              Token: <strong style={{ color: 'var(--erp-text)' }}>{dmStatus.token}</strong>
+              {dmStatus.expires_at && (
+                <> · expira em {new Date(dmStatus.expires_at).toLocaleDateString('pt-BR')}</>
+              )}
+            </p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={refreshDmToken}
+                disabled={dmBusy}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold"
+                style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)', opacity: dmBusy ? 0.6 : 1 }}
+              >
+                {dmBusy ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                Renovar token
+              </button>
+              <Link
+                to="/marketing/mensagens"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold"
+                style={{ background: 'var(--erp-violet)', color: '#fff' }}
+              >
+                <MessageCircle size={13} /> Abrir mensagens
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="password"
+              value={dmToken}
+              onChange={(e) => setDmToken(e.target.value)}
+              placeholder="Cole o token gerado no painel da Meta"
+              className="flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
+              style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
+            />
+            <button
+              type="button"
+              onClick={connectDm}
+              disabled={dmBusy || !dmToken.trim()}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold shrink-0"
+              style={{ background: 'var(--erp-violet)', color: '#fff', opacity: dmBusy || !dmToken.trim() ? 0.6 : 1 }}
+            >
+              {dmBusy ? <RefreshCw size={16} className="animate-spin" /> : <Link2 size={16} />}
+              Conectar
+            </button>
+          </div>
+        )}
       </Card>
 
       {/* ── Facebook Page ──────────────────────────────────────────────────── */}

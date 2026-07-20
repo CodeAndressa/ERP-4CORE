@@ -22,10 +22,10 @@ const COLUMN_CONFIG: { id: IdeiaStatus; label: string; description: string; colo
 ];
 
 const CHANNEL_ICONS: Record<string, React.ReactNode> = {
-  Instagram: <Camera size={11} className="text-pink-400" />,
-  LinkedIn:  <Globe  size={11} className="text-blue-400" />,
-  'E-mail':  <Mail   size={11} className="text-violet-400" />,
-  Stories:   <Layers size={11} className="text-amber-400" />,
+  Instagram: <Camera size={11} style={{ color: 'var(--erp-text-muted)' }} />,
+  LinkedIn:  <Globe  size={11} style={{ color: 'var(--erp-text-muted)' }} />,
+  'E-mail':  <Mail   size={11} style={{ color: 'var(--erp-text-muted)' }} />,
+  Stories:   <Layers size={11} style={{ color: 'var(--erp-text-muted)' }} />,
 };
 
 const NEXT_STATUS: Record<IdeiaStatus, IdeiaStatus | null> = {

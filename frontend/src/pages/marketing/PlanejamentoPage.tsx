@@ -23,24 +23,11 @@ interface AISuggestion {
 
 const PILLARS = ['Educação', 'Cases', 'Autoridade', 'Engajamento', 'Prospecção'];
 
-const SEED_GOALS: Goal[] = [
-  { id: 1, pillar: 'Educação',    goal: 'Publicar 2 artigos de educação continuada DP', metric: 'Posts',    target: '2/mês',  done: false },
-  { id: 2, pillar: 'Cases',       goal: 'Documentar 1 caso de sucesso de cliente',      metric: 'Cases',    target: '1/mês',  done: false },
-  { id: 3, pillar: 'Autoridade',  goal: 'Participar de 1 evento / webinar como speaker', metric: 'Eventos', target: '1/mês',  done: false },
-  { id: 4, pillar: 'Engajamento', goal: 'Taxa de engajamento acima de 4% no Instagram',  metric: 'Taxa %',  target: '≥ 4%',   done: false },
-  { id: 5, pillar: 'Prospecção',  goal: '10 novos leads via conteúdo orgânico',          metric: 'Leads',   target: '10/mês', done: false },
-];
-
-const PILLAR_COLOR: Record<string, string> = {
-  Educação:    'var(--erp-violet)',
-  Cases:       'var(--erp-violet)',
-  Autoridade:  'var(--erp-violet)',
-  Engajamento: 'var(--erp-violet)',
-  Prospecção:  'var(--erp-violet)',
-};
+const CURRENT_MONTH_NAME = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+const CURRENT_MONTH_LABEL = `${CURRENT_MONTH_NAME.charAt(0).toUpperCase()}${CURRENT_MONTH_NAME.slice(1)} ${new Date().getFullYear()}`;
 
 export default function PlanejamentoPage() {
-  const [goals, setGoals] = useState<Goal[]>(SEED_GOALS);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ pillar: PILLARS[0], goal: '', metric: '', target: '' });
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
@@ -107,7 +94,7 @@ export default function PlanejamentoPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <MetricCard label="Mês atual"    value="Julho 2026"            detail="período de planejamento"             tone="violet"  icon={<Calendar size={16} />}   />
+        <MetricCard label="Mês atual"    value={CURRENT_MONTH_LABEL}   detail="período de planejamento"             tone="violet"  icon={<Calendar size={16} />}   />
         <MetricCard label="Objetivos"    value={String(goals.length)}  detail={`${doneCount} concluídos`}           tone="emerald" icon={<Target size={16} />}     />
         <MetricCard label="Conclusão"    value={goals.length > 0 ? `${Math.round((doneCount / goals.length) * 100)}%` : '0%'} detail="progresso do mês" tone="amber" icon={<TrendingUp size={16} />} />
       </div>
@@ -180,12 +167,24 @@ export default function PlanejamentoPage() {
         </Card>
       )}
 
+      {goals.length === 0 && (
+        <Card padding="lg">
+          <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: 'var(--erp-violet-dim)' }}>
+              <Target size={22} style={{ color: 'var(--erp-violet-light)' }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: 'var(--erp-text)' }}>Nenhum objetivo cadastrado este mês</p>
+            <p className="max-w-xs text-xs" style={{ color: 'var(--erp-text-muted)' }}>Use "Novo objetivo" para registrar as metas de {CURRENT_MONTH_LABEL.toLowerCase()} por pilar de conteúdo.</p>
+          </div>
+        </Card>
+      )}
+
       <div className="space-y-4">
         {byPillar.map(({ pillar, goals: pillarGoals }) => (
           <Card key={pillar} padding="lg">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full" style={{ background: PILLAR_COLOR[pillar] ?? 'var(--erp-violet)' }} />
+                <div className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--erp-violet)' }} />
                 <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>{pillar}</p>
               </div>
               <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>

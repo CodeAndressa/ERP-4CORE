@@ -179,11 +179,11 @@ export default function CampanhasPage() {
                       <div>
                         <span className="text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{money(c.spent)}</span>
                         <div className="mt-1 h-1 rounded-full" style={{ background: 'var(--erp-surface-2)', width: 60 }}>
-                          <div className="h-1 rounded-full" style={{ background: '#2b165c', width: `${spentPct}%` }} />
+                          <div className="h-1 rounded-full" style={{ background: 'var(--erp-violet)', width: `${spentPct}%` }} />
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: c.leads > 0 ? '#34d399' : 'var(--erp-text-dim)' }}>{c.leads}</td>
+                    <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: c.leads > 0 ? 'var(--erp-emerald)' : 'var(--erp-text-dim)' }}>{c.leads}</td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
                       {c.start}{c.end ? ` — ${c.end}` : ''}
                     </td>

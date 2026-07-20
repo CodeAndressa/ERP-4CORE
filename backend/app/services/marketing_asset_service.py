@@ -142,4 +142,8 @@ async def signed_art_url(art_path: str, expires_in: int = 3600) -> str:
     signed = response.json().get("signedURL") or response.json().get("signedUrl")
     if not signed:
         raise HTTPException(502, "O Storage nÃ£o retornou a URL temporÃ¡ria da arte.")
-    return f"{base}{signed}" if signed.startswith("/") else signed
+    if signed.startswith("http"):
+        return signed
+    if not signed.startswith("/storage/v1"):
+        signed = f"/storage/v1{signed}" if signed.startswith("/") else f"/storage/v1/{signed}"
+    return f"{base}{signed}"

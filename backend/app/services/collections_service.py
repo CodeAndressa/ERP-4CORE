@@ -15,7 +15,7 @@ import httpx
 from PIL import Image
 from sqlalchemy.orm import Session
 
-from app.models.financial import DunningLog
+from app.models.financial import DunningEvent, DunningLog
 from app.services import email_service
 from app.services.asaas_service import AsaasService
 
@@ -23,6 +23,21 @@ DUNNING_START_DAYS = 3
 DUNNING_INTERVAL_DAYS = 2
 
 _LOGO_CACHE: bytes | None = None
+
+
+MONTHS_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+
+
+def _competencia(due_date: str | None) -> str:
+    """A ASAAS não tem um campo de competência — deriva do mês/ano do
+    vencimento original, que é a convenção mais comum pra mensalidade/serviço."""
+    if not due_date or len(due_date) < 7:
+        return ""
+    try:
+        year, month = due_date[:4], int(due_date[5:7])
+        return f"{MONTHS_PT[month]}/{year}"
+    except (ValueError, IndexError):
+        return ""
 
 
 def _due_for_send(log: DunningLog | None) -> bool:
@@ -167,6 +182,44 @@ async def eligible_overdue_charges() -> list[dict[str, Any]]:
     ]
 
 
+async def customer_payment_pattern(customer_id: str) -> dict[str, Any] | None:
+    """Olha o histórico de pagamentos já recebidos desse cliente no ASAAS e
+    estima o dia em que ele costuma pagar — útil pra saber se vale a pena
+    insistir ou só esperar mais alguns dias."""
+    if not customer_id:
+        return None
+    payments = await AsaasService().payments_by_customer(customer_id)
+    received_states = {"RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"}
+    diffs: list[int] = []
+    days_of_month: list[int] = []
+    for item in payments:
+        if (item.get("status") or "").upper() not in received_states:
+            continue
+        due = item.get("dueDate")
+        paid = item.get("paymentDate") or item.get("clientPaymentDate")
+        if not due or not paid:
+            continue
+        try:
+            due_date = datetime.fromisoformat(due).date()
+            paid_date = datetime.fromisoformat(paid[:10]).date()
+        except ValueError:
+            continue
+        diffs.append((paid_date - due_date).days)
+        days_of_month.append(paid_date.day)
+
+    if not diffs:
+        return {"sample_size": 0}
+
+    avg_days = round(sum(diffs) / len(diffs), 1)
+    usual_day = max(set(days_of_month), key=days_of_month.count)
+    return {
+        "sample_size": len(diffs),
+        "avg_days_after_due": avg_days,
+        "usual_payment_day_of_month": usual_day,
+        "typically_on_time": avg_days <= 0,
+    }
+
+
 async def _resolve_stale_logs(db: Session, current_overdue_ids: set[str]) -> None:
     """Todo payment_id que já recebeu lembrete e não está mais na lista de
     vencidas do ASAAS foi resolvido (pago, cancelado ou estornado) — é assim
@@ -216,9 +269,12 @@ async def run_dunning(db: Session, dry_run: bool, persist: bool = True) -> dict[
                 log = DunningLog(payment_id=payment_id, send_count=0)
                 db.add(log)
             log.customer = charge["customer"]
+            log.customer_id = charge.get("customer_id") or ""
+            log.due_date = charge.get("due_date") or ""
             log.value = charge["value"]
             log.send_count += 1
             log.last_sent_at = datetime.now(timezone.utc)
+            db.add(DunningEvent(payment_id=payment_id, days_overdue=charge["days_overdue"]))
 
         sent.append({
             "payment_id": payment_id,
@@ -243,10 +299,24 @@ async def run_dunning(db: Session, dry_run: bool, persist: bool = True) -> dict[
 
 def history(db: Session) -> list[dict[str, Any]]:
     logs = db.query(DunningLog).order_by(DunningLog.last_sent_at.desc().nullslast()).all()
+    events_by_payment: dict[str, list[DunningEvent]] = {}
+    if logs:
+        payment_ids = [log.payment_id for log in logs]
+        all_events = (
+            db.query(DunningEvent)
+            .filter(DunningEvent.payment_id.in_(payment_ids))
+            .order_by(DunningEvent.sent_at.asc())
+            .all()
+        )
+        for event in all_events:
+            events_by_payment.setdefault(event.payment_id, []).append(event)
+
     return [
         {
             "payment_id": log.payment_id,
             "customer": log.customer,
+            "customer_id": log.customer_id,
+            "competencia": _competencia(log.due_date),
             "value": log.value,
             "send_count": log.send_count,
             "last_sent_at": log.last_sent_at.isoformat() if log.last_sent_at else None,
@@ -254,6 +324,10 @@ def history(db: Session) -> list[dict[str, Any]]:
             "resolved_status": log.resolved_status,
             "resolved_payment_date": log.resolved_payment_date,
             "status": "resolvido" if log.resolved_at else "em cobrança",
+            "events": [
+                {"sent_at": event.sent_at.isoformat(), "days_overdue": event.days_overdue}
+                for event in events_by_payment.get(log.payment_id, [])
+            ],
         }
         for log in logs
     ]

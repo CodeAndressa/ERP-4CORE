@@ -107,6 +107,17 @@ def collections_status():
     }
 
 
+@router.get('/collections/payment-pattern/{customer_id}')
+async def collections_payment_pattern(customer_id: str):
+    """Sob demanda (chamado só quando a usuária expande um cliente) — evita
+    bater no ASAAS pra todo mundo do histórico a cada carregamento da tela."""
+    try:
+        pattern = await collections_service.customer_payment_pattern(customer_id)
+    except AsaasUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return pattern or {"sample_size": 0}
+
+
 @router.get('/collections/history')
 def collections_history(db: Session = Depends(get_db)):
     """Histórico de cobranças automáticas disparadas — inclui quando cada

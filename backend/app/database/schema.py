@@ -45,6 +45,8 @@ PROPOSAL_COLUMNS = {
 # create_all() não altera tabela existente, só cria as que faltam.
 DUNNING_LOG_COLUMNS = {
     'customer': "VARCHAR(200) NOT NULL DEFAULT ''",
+    'customer_id': "VARCHAR(64) NOT NULL DEFAULT ''",
+    'due_date': "VARCHAR(20) NOT NULL DEFAULT ''",
     'value': 'FLOAT DEFAULT 0',
     'resolved_at': 'TIMESTAMPTZ',
     'resolved_status': "VARCHAR(40) NOT NULL DEFAULT ''",

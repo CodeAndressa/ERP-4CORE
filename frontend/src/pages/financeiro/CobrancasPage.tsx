@@ -216,22 +216,75 @@ type DunningPreview = {
   skipped: { payment_id: string; customer: string; days_overdue: number; reason: string }[];
 };
 type CollectionsStatus = { configured: boolean; dry_run: boolean; start_days: number; interval_days: number };
+type DunningEventItem = { sent_at: string; days_overdue: number };
+type DunningHistoryItem = {
+  payment_id: string;
+  customer: string;
+  customer_id: string;
+  competencia: string;
+  value: number;
+  send_count: number;
+  last_sent_at: string | null;
+  resolved_at: string | null;
+  resolved_status: string;
+  resolved_payment_date: string;
+  status: 'em cobrança' | 'resolvido';
+  events: DunningEventItem[];
+};
+type PaymentPattern = { sample_size: number; avg_days_after_due?: number; usual_payment_day_of_month?: number; typically_on_time?: boolean };
+
+function dateTimeLabel(value?: string | null) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+}
+
+function PaymentPatternRow({ customerId }: { customerId: string }) {
+  const [pattern, setPattern] = useState<PaymentPattern | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!customerId) { setLoading(false); return; }
+    api.get<PaymentPattern>(`/financial/collections/payment-pattern/${customerId}`)
+      .then(({ data }) => setPattern(data))
+      .catch(() => setPattern(null))
+      .finally(() => setLoading(false));
+  }, [customerId]);
+
+  if (loading) return <div className="h-4 w-48 animate-pulse rounded-full" style={{ background: 'var(--erp-surface-2)' }} />;
+  if (!pattern || pattern.sample_size === 0) return <p className="text-[11px]" style={{ color: 'var(--erp-text-dim)' }}>Sem histórico de pagamentos suficiente pra estimar um padrão.</p>;
+
+  return (
+    <p className="text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>
+      Baseado em {pattern.sample_size} {pattern.sample_size === 1 ? 'pagamento anterior' : 'pagamentos anteriores'}:{' '}
+      {pattern.typically_on_time
+        ? <span style={{ color: '#047857' }}>costuma pagar em dia (dia {pattern.usual_payment_day_of_month} do mês, em média)</span>
+        : <span style={{ color: '#b45309' }}>costuma pagar {pattern.avg_days_after_due} dias após o vencimento (geralmente dia {pattern.usual_payment_day_of_month})</span>}
+    </p>
+  );
+}
 
 function DunningCard() {
   const [status, setStatus] = useState<CollectionsStatus | null>(null);
   const [preview, setPreview] = useState<DunningPreview | null>(null);
+  const [history, setHistory] = useState<DunningHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
     Promise.all([
       api.get<CollectionsStatus>('/financial/collections/status').catch(() => null),
       api.get<DunningPreview>('/financial/collections/preview').catch(() => null),
-    ]).then(([s, p]) => {
+      api.get<{ items: DunningHistoryItem[] }>('/financial/collections/history').catch(() => null),
+    ]).then(([s, p, h]) => {
       if (s) setStatus(s.data);
       if (p) setPreview(p.data);
+      if (h) setHistory(h.data.items ?? []);
     }).finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   async function openEmailPreview() {
     const { data } = await api.get('/financial/collections/preview-email', { responseType: 'text' });
@@ -242,11 +295,23 @@ function DunningCard() {
   if (loading) return <div className="h-16 animate-pulse rounded-2xl" style={{ background: 'var(--erp-surface-2)' }} />;
   if (!status) return null;
 
+  // Junta o histórico real com quem é elegível hoje mas ainda não tem registro (1º lembrete).
+  const knownIds = new Set(history.map((item) => item.payment_id));
+  const upcoming: DunningHistoryItem[] = (preview?.sent ?? [])
+    .filter((item) => !knownIds.has(item.payment_id))
+    .map((item) => ({
+      payment_id: item.payment_id, customer: item.customer, customer_id: '', competencia: '',
+      value: item.value, send_count: 0, last_sent_at: null, resolved_at: null,
+      resolved_status: '', resolved_payment_date: '', status: 'em cobrança', events: [],
+    }));
+  const rows = [...upcoming, ...history];
+  const pendingIds = new Set((preview?.sent ?? []).map((item) => item.payment_id));
+
   return (
-    <div className="rounded-2xl border bg-white p-4" style={{ borderColor: 'var(--erp-border)' }}>
-      <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-center justify-between gap-3 text-left">
+    <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: 'var(--erp-border)' }}>
+      <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: 'rgba(180,83,9,0.12)', color: '#b45309' }}>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(180,83,9,0.12)', color: '#b45309' }}>
             <Mail size={16} />
           </span>
           <div>
@@ -254,135 +319,105 @@ function DunningCard() {
               Cobrança automática por e-mail {status.dry_run ? <span className="ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase" style={{ background: 'rgba(8,145,178,0.12)', color: 'var(--erp-cyan)' }}>Modo teste</span> : null}
             </p>
             <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-              A partir de {status.start_days} dias de atraso, a cada {status.interval_days} dias · {preview?.total_overdue_eligible ?? 0} cobranças elegíveis hoje
+              A partir de {status.start_days} dias de atraso, a cada {status.interval_days} dias · {preview?.total_overdue_eligible ?? 0} elegíveis hoje · {history.length} no histórico
               {!status.configured && ' · Resend não configurado ainda'}
             </p>
           </div>
         </div>
         <ChevronDown size={16} style={{ color: 'var(--erp-text-dim)', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
       </button>
-      {expanded && preview && (
-        <div className="mt-4 space-y-1.5 border-t pt-3" style={{ borderColor: 'var(--erp-border)' }}>
-          {preview.sent.length === 0 && preview.skipped.length === 0 ? (
-            <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma cobrança vencida elegível agora.</p>
-          ) : (
-            <>
-              {preview.sent.map((item) => (
-                <div key={item.payment_id} className="flex items-center justify-between gap-2 text-xs">
-                  <span style={{ color: 'var(--erp-text)' }}>{item.customer} <span style={{ color: 'var(--erp-text-dim)' }}>({item.customer_email})</span></span>
-                  <span style={{ color: 'var(--erp-text-muted)' }}>{item.days_overdue}d · {item.send_count === 1 ? '1º lembrete' : `${item.send_count}º lembrete`}</span>
-                </div>
-              ))}
-              {preview.skipped.map((item) => (
-                <div key={item.payment_id} className="flex items-center justify-between gap-2 text-xs opacity-60">
-                  <span style={{ color: 'var(--erp-text-muted)' }}>{item.customer}</span>
-                  <span style={{ color: 'var(--erp-text-dim)' }}>{item.reason}</span>
-                </div>
-              ))}
-            </>
-          )}
-          {preview.total_overdue_eligible > 0 && (
-            <button
-              type="button"
-              onClick={openEmailPreview}
-              className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold"
-              style={{ color: 'var(--erp-violet-light)' }}
-            >
+      {expanded && (
+        <div className="border-t" style={{ borderColor: 'var(--erp-border)' }}>
+          <div className="flex items-center justify-between gap-2 px-4 pt-3">
+            <button type="button" onClick={() => void openEmailPreview()} className="inline-flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: 'var(--erp-violet-light)' }}>
               <Mail size={12} /> Ver layout exato do e-mail
             </button>
+            <button type="button" onClick={load} className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors hover:bg-[var(--erp-surface-2)]" aria-label="Atualizar">
+              <RefreshCw size={13} />
+            </button>
+          </div>
+          {rows.length === 0 ? (
+            <p className="p-6 text-center text-xs" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma cobrança elegível nem disparo registrado ainda.</p>
+          ) : (
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: 'var(--erp-border)' }}>
+                    {['', 'Cliente', 'Competência', 'Valor', 'Lembretes', 'Último envio', 'Status'].map((h) => (
+                      <th key={h} className="px-3 py-2 text-left text-xs font-semibold" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: 'var(--erp-border)' }}>
+                  {rows.map((item) => {
+                    const isOpen = expandedRow === item.payment_id;
+                    return (
+                      <>
+                        <tr key={item.payment_id} className="cursor-pointer" onClick={() => setExpandedRow(isOpen ? null : item.payment_id)}>
+                          <td className="px-3 py-2.5"><ChevronRight size={13} style={{ color: 'var(--erp-text-dim)', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} /></td>
+                          <td className="px-3 py-2.5 font-semibold" style={{ color: 'var(--erp-text)' }}>{item.customer}</td>
+                          <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.competencia || '—'}</td>
+                          <td className="px-3 py-2.5 tabular-nums" style={{ color: 'var(--erp-text)' }}>{money(item.value)}</td>
+                          <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.send_count}</td>
+                          <td className="px-3 py-2.5 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{dateTimeLabel(item.last_sent_at)}</td>
+                          <td className="px-3 py-2.5">
+                            {item.status === 'resolvido' ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: '#ecfdf5', color: '#047857' }}>
+                                <CheckCircle2 size={12} /> Pagamento identificado
+                              </span>
+                            ) : pendingIds.has(item.payment_id) ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: 'rgba(4,120,87,0.10)', color: 'var(--erp-emerald)' }}>
+                                Elegível hoje
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: 'rgba(180,83,9,0.12)', color: '#b45309' }}>
+                                <Clock3 size={12} /> Em cobrança
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr key={`${item.payment_id}-detail`}>
+                            <td colSpan={7} className="px-3 pb-3" style={{ background: 'var(--erp-surface-2)' }}>
+                              <div className="space-y-2 p-3">
+                                {item.status === 'resolvido' && (
+                                  <p className="text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>
+                                    Identificado em {dateTimeLabel(item.resolved_at)}{item.resolved_payment_date ? ` · pago em ${dateLabel(item.resolved_payment_date)}` : ''}
+                                  </p>
+                                )}
+                                {item.events.length > 0 ? (
+                                  <div>
+                                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-dim)' }}>Disparos</p>
+                                    <div className="space-y-1">
+                                      {item.events.map((event, i) => (
+                                        <div key={i} className="flex items-center justify-between text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>
+                                          <span>{i + 1}º lembrete</span>
+                                          <span>{dateTimeLabel(event.sent_at)} · {event.days_overdue}d em atraso</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px]" style={{ color: 'var(--erp-text-dim)' }}>Ainda não foi disparado — elegível na próxima rodada do cron.</p>
+                                )}
+                                {item.customer_id && (
+                                  <div className="border-t pt-2" style={{ borderColor: 'var(--erp-border)' }}>
+                                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-dim)' }}>Padrão de pagamento</p>
+                                    <PaymentPatternRow customerId={item.customer_id} />
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-
-type DunningHistoryItem = {
-  payment_id: string;
-  customer: string;
-  value: number;
-  send_count: number;
-  last_sent_at: string | null;
-  resolved_at: string | null;
-  resolved_status: string;
-  resolved_payment_date: string;
-  status: 'em cobrança' | 'resolvido';
-};
-
-function dateTimeLabel(value?: string | null) {
-  if (!value) return '—';
-  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
-}
-
-function DunningHistoryCard() {
-  const [items, setItems] = useState<DunningHistoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    api.get<{ items: DunningHistoryItem[] }>('/financial/collections/history')
-      .then(({ data }) => setItems(data.items ?? []))
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (loading) return <div className="h-24 animate-pulse rounded-2xl" style={{ background: 'var(--erp-surface-2)' }} />;
-
-  return (
-    <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: 'var(--erp-border)' }}>
-      <div className="flex items-center justify-between border-b p-4" style={{ borderColor: 'var(--erp-border)' }}>
-        <div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Histórico da régua de cobrança</p>
-          <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Todo disparo automático, e quando cada pagamento foi identificado</p>
-        </div>
-        <button type="button" onClick={load} className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--erp-surface-2)]" aria-label="Atualizar">
-          <RefreshCw size={14} />
-        </button>
-      </div>
-      {items.length === 0 ? (
-        <p className="p-6 text-center text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-          Nenhum disparo registrado ainda. O cron roda uma vez por dia — assim que a primeira rodada real acontecer, aparece aqui.
-        </p>
-      ) : (
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b" style={{ borderColor: 'var(--erp-border)' }}>
-              {['Cliente', 'Valor', 'Lembretes', 'Último envio', 'Status'].map((h) => (
-                <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y" style={{ borderColor: 'var(--erp-border)' }}>
-            {items.map((item) => (
-              <tr key={item.payment_id}>
-                <td className="px-4 py-3 font-semibold" style={{ color: 'var(--erp-text)' }}>{item.customer}</td>
-                <td className="px-4 py-3 tabular-nums" style={{ color: 'var(--erp-text)' }}>{money(item.value)}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.send_count}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{dateTimeLabel(item.last_sent_at)}</td>
-                <td className="px-4 py-3">
-                  {item.status === 'resolvido' ? (
-                    <div>
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: '#ecfdf5', color: '#047857' }}>
-                        <CheckCircle2 size={12} /> Pagamento identificado
-                      </span>
-                      <p className="mt-1 text-[11px]" style={{ color: 'var(--erp-text-dim)' }}>
-                        {dateTimeLabel(item.resolved_at)}{item.resolved_payment_date ? ` · pago em ${dateLabel(item.resolved_payment_date)}` : ''}
-                      </p>
-                    </div>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: 'rgba(180,83,9,0.12)', color: '#b45309' }}>
-                      <Clock3 size={12} /> Em cobrança
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
       )}
     </div>
   );
@@ -452,7 +487,6 @@ export default function CobrancasPage() {
       {error && <div className="flex items-center gap-2 rounded-xl border p-4 text-sm" style={{ background: '#fff1f2', borderColor: '#fecdd3', color: '#9f1239' }}><AlertCircle size={17} />{error}</div>}
 
       <DunningCard />
-      <DunningHistoryCard />
 
       <div className="flex gap-3 overflow-x-auto pb-1">
         <div className="min-w-[168px] flex-1 rounded-2xl border bg-white p-4" style={{ borderColor: 'var(--erp-border)' }}>

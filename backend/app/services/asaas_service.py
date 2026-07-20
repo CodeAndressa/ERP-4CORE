@@ -122,6 +122,9 @@ class AsaasService:
     async def all_payments(self) -> list[dict[str, Any]]:
         return await self._get_all('payments', {'sort': 'dueDate', 'order': 'desc'})
 
+    async def payments_by_customer(self, customer_id: str) -> list[dict[str, Any]]:
+        return await self._get_all('payments', {'customer': customer_id, 'sort': 'dueDate', 'order': 'desc'})
+
     async def _customers_page(self, limit: int = 100) -> dict[str, Any]:
         return await self._get('customers', {'limit': limit, 'offset': 0})
 

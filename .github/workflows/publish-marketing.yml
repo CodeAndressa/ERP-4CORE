@@ -1,0 +1,24 @@
+name: Publicar conteudos agendados
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: publish-marketing
+  cancel-in-progress: false
+
+jobs:
+  process-due:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acionar fila segura do 4Core
+        env:
+          MARKETING_CRON_SECRET: ${{ secrets.MARKETING_CRON_SECRET }}
+        run: |
+          test -n "$MARKETING_CRON_SECRET"
+          curl --fail-with-body --silent --show-error --retry 2 \
+            --request POST \
+            --header "Authorization: Bearer $MARKETING_CRON_SECRET" \
+            https://4core-backend.vercel.app/marketing/content/process-due

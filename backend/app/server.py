@@ -1,4 +1,5 @@
 import re
+import secrets
 
 from jose import JWTError, jwt
 from fastapi import FastAPI, Request
@@ -10,7 +11,8 @@ from app.database.schema import ensure_runtime_schema
 from app.models.commercial import Lead, Proposal
 from app.models.contracts import Contract, Order
 from app.models.settings import CompanySettings
-from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
+from app.models.marketing import InstagramMessage, MarketingContent
+from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
 
 
@@ -67,7 +69,21 @@ app.add_middleware(
 
 @app.middleware('http')
 async def require_authentication(request: Request, call_next):
-    if request.method == 'OPTIONS' or request.url.path in PUBLIC_PATHS or request.url.path.startswith('/marketing/meta'):
+    cron_authorization = request.headers.get('authorization', '')
+    cron_secret = settings.marketing_cron_secret or settings.cron_secret
+    cron_allowed = (
+        request.url.path == '/marketing/content/process-due'
+        and bool(cron_secret)
+        and secrets.compare_digest(cron_authorization, f'Bearer {cron_secret}')
+    )
+    # O redirect_uri do OAuth Meta aponta para a página do frontend (ConexoesMarketingPage),
+    # que lê o "code" da própria URL e chama /marketing/meta/callback via SPA já autenticado —
+    # nenhuma rota de /marketing/meta/* é atingida por um redirect externo sem token do ERP.
+    # A exceção é o webhook: a Meta chama esse path direto (sem SPA, sem Bearer do ERP), então
+    # ele precisa ficar público — a autenticidade é verificada dentro da própria rota, via
+    # hub.verify_token (GET) e assinatura HMAC X-Hub-Signature-256 (POST), não pelo JWT do ERP.
+    meta_webhook = request.url.path == '/marketing/meta/webhook'
+    if request.method == 'OPTIONS' or request.url.path in PUBLIC_PATHS or cron_allowed or meta_webhook:
         response = await call_next(request)
         return _with_cors(request, response)
 
@@ -100,7 +116,7 @@ def on_startup():
         db.close()
 
 
-for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, settings_routes.router]:
+for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, marketing_content.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, settings_routes.router]:
     app.include_router(router)
 
 

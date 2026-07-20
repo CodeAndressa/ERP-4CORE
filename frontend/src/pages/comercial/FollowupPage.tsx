@@ -35,7 +35,7 @@ interface Lead {
 }
 
 const TYPE_LABELS: Record<ContactType, string> = { ligacao: 'Ligação', email: 'Email', reuniao: 'Reunião', whatsapp: 'WhatsApp' };
-const TYPE_ICONS: Record<ContactType, JSX.Element> = { ligacao: <Phone size={13} className="text-violet-400" />, email: <Mail size={13} style={{ color: 'var(--erp-text-muted)' }} />, reuniao: <Users size={13} style={{ color: 'var(--erp-text-muted)' }} />, whatsapp: <Bell size={13} style={{ color: 'var(--erp-text-muted)' }} /> };
+const TYPE_ICONS: Record<ContactType, JSX.Element> = { ligacao: <Phone size={13} style={{ color: 'var(--erp-text-muted)' }} />, email: <Mail size={13} style={{ color: 'var(--erp-text-muted)' }} />, reuniao: <Users size={13} style={{ color: 'var(--erp-text-muted)' }} />, whatsapp: <Bell size={13} style={{ color: 'var(--erp-text-muted)' }} /> };
 const PRIORITY_CONFIG: Record<Priority, { bg: string; color: string; label: string }> = { alta: { bg: 'rgba(190,18,60,0.12)', color: 'var(--erp-rose)', label: 'Alta' }, media: { bg: 'rgba(180,83,9,0.12)', color: 'var(--erp-amber)', label: 'Média' }, baixa: { bg: 'var(--erp-surface-3)', color: 'var(--erp-text-muted)', label: 'Baixa' } };
 
 function todayIso() {

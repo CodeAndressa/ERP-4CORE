@@ -150,7 +150,7 @@ export default function ContractsPage() {
         <MetricCard label="Volume pedidos" value={money(totalOrders)} detail={`${orders.length} pedidos`} tone="amber" icon={<ShoppingBag size={16} />} />
       </div>
 
-      <div className="inline-flex items-center gap-1 rounded-full border border-violet-100 bg-white p-1">
+      <div className="inline-flex items-center gap-1 rounded-full p-1" style={{ border: '1px solid var(--erp-border)', background: 'var(--erp-surface)' }}>
         {(['contratos', 'pedidos'] as Tab[]).map((t) => (
           <button key={t} onClick={() => { setTab(t); setShowForm(false); }} className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all" style={{ background: tab === t ? 'var(--erp-violet)' : 'transparent', color: tab === t ? '#fff' : 'var(--erp-text-muted)' }}>
             {t === 'contratos' ? <FileSignature size={13} /> : <ShoppingBag size={13} />}
@@ -165,11 +165,11 @@ export default function ContractsPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[
               { label: 'Cliente', key: 'client_name', type: 'text', placeholder: 'Nome do cliente' },
-              { label: 'T?tulo', key: 'title', type: 'text', placeholder: 'Contrato principal' },
+              { label: 'Título', key: 'title', type: 'text', placeholder: 'Contrato principal' },
               { label: 'Valor (R$)', key: 'value', type: 'number', placeholder: '0' },
               { label: 'Início', key: 'start_date', type: 'date', placeholder: '' },
               { label: 'Fim', key: 'end_date', type: 'date', placeholder: '' },
-              { label: 'Observa??es', key: 'notes', type: 'text', placeholder: 'Opcional' },
+              { label: 'Observações', key: 'notes', type: 'text', placeholder: 'Opcional' },
             ].map((f) => (
               <div key={f.key}>
                 <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--erp-text-muted)' }}>{f.label}</label>
@@ -195,7 +195,7 @@ export default function ContractsPage() {
               { label: 'Cliente', key: 'client_name', type: 'text', placeholder: 'Nome do cliente' },
               { label: 'Valor (R$)', key: 'value', type: 'number', placeholder: '0' },
               { label: 'Data', key: 'closed_at', type: 'date', placeholder: '' },
-              { label: 'Descri??o', key: 'description', type: 'text', placeholder: 'Opcional' },
+              { label: 'Descrição', key: 'description', type: 'text', placeholder: 'Opcional' },
             ].map((f) => (
               <div key={f.key}>
                 <label className="mb-1 block text-xs font-medium" style={{ color: 'var(--erp-text-muted)' }}>{f.label}</label>
@@ -223,8 +223,8 @@ export default function ContractsPage() {
                       <td className="px-4 py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-violet-light)' }}>{money(c.value)}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{c.start_date ? <span className="flex items-center gap-1"><Calendar size={10} />{c.start_date}</span> : '-'}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{c.end_date ? <span className="flex items-center gap-1"><Calendar size={10} />{c.end_date}</span> : '-'}</td>
-                      <td className="px-4 py-3">{c.file_name ? <button onClick={() => openContractFile(c.id)} className="inline-flex items-center gap-1 rounded-full border border-violet-100 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-50"><ExternalLink size={11} />Abrir PDF</button> : <span className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Sem arquivo</span>}</td>
-                      <td className="px-4 py-3"><span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{c.asaas_customer_id ? 'ASAAS' : 'Manual'}</span></td><td className="px-4 py-3"><Badge tone={c.status?.toLowerCase() === 'ativo' ? 'emerald' : c.status?.toLowerCase() === 'encerrado' ? 'slate' : 'amber'} dot>{c.status ?? 'N/A'}</Badge></td>
+                      <td className="px-4 py-3">{c.file_name ? <button onClick={() => openContractFile(c.id)} className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors" style={{ border: '1px solid var(--erp-border)', color: 'var(--erp-violet-light)' }}><ExternalLink size={11} />Abrir PDF</button> : <span className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Sem arquivo</span>}</td>
+                      <td className="px-4 py-3"><span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)' }}>{c.asaas_customer_id ? 'ASAAS' : 'Manual'}</span></td><td className="px-4 py-3"><Badge tone={c.status?.toLowerCase() === 'ativo' ? 'emerald' : c.status?.toLowerCase() === 'encerrado' ? 'slate' : 'amber'} dot>{c.status ?? 'N/A'}</Badge></td>
                     </tr>
                   ))}
                   {contracts.length === 0 && <tr><td colSpan={8} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum contrato cadastrado</td></tr>}
@@ -240,9 +240,9 @@ export default function ContractsPage() {
           {loadingO ? <div className="space-y-2 p-4">{[1, 2, 3].map((i) => <div key={i} className="h-12 animate-pulse rounded-full" style={{ background: 'var(--erp-surface-2)' }} />)}</div> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr style={{ borderBottom: '1px solid var(--erp-border)' }}>{['Cliente', 'Valor', 'Data', 'Descri??o', 'Status'].map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>)}</tr></thead>
+                <thead><tr style={{ borderBottom: '1px solid var(--erp-border)' }}>{['Cliente', 'Valor', 'Data', 'Descrição', 'Status'].map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {orders.map((o, i) => <tr key={String(o.id ?? i)} style={{ borderBottom: i < orders.length - 1 ? '1px solid var(--erp-border)' : undefined }}><td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{o.client_name ?? o.client ?? '-'}</td><td className="px-4 py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-violet-light)' }}>{money(o.total ?? o.value)}</td><td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{o.closed_at ?? o.date ?? o.created_at ?? '-'}</td><td className="max-w-xs truncate px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{o.description ?? o.items ?? '-'}</td><td className="px-4 py-3"><Badge tone={['entregue', 'concluido', 'conclu?do'].includes((o.status ?? '').toLowerCase()) ? 'emerald' : ['cancelado'].includes((o.status ?? '').toLowerCase()) ? 'slate' : 'amber'} dot>{o.status ?? 'Pendente'}</Badge></td></tr>)}
+                  {orders.map((o, i) => <tr key={String(o.id ?? i)} style={{ borderBottom: i < orders.length - 1 ? '1px solid var(--erp-border)' : undefined }}><td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{o.client_name ?? o.client ?? '-'}</td><td className="px-4 py-3 font-semibold tabular-nums" style={{ color: 'var(--erp-violet-light)' }}>{money(o.total ?? o.value)}</td><td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{o.closed_at ?? o.date ?? o.created_at ?? '-'}</td><td className="max-w-xs truncate px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{o.description ?? o.items ?? '-'}</td><td className="px-4 py-3"><Badge tone={['entregue', 'concluido', 'concluído'].includes((o.status ?? '').toLowerCase()) ? 'emerald' : ['cancelado'].includes((o.status ?? '').toLowerCase()) ? 'slate' : 'amber'} dot>{o.status ?? 'Pendente'}</Badge></td></tr>)}
                   {orders.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum pedido cadastrado</td></tr>}
                 </tbody>
               </table>

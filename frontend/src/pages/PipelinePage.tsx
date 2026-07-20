@@ -12,6 +12,7 @@ import {
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Flame, Minus, Snowflake, TrendingUp, Users, Trophy } from 'lucide-react';
 import { api } from '../services/api';
+import { MetricCard } from '../shared/components/layout/MetricCard';
 
 type Heat = 'hot' | 'warm' | 'cold';
 type Stage = 'novo' | 'contato' | 'qualificado' | 'proposta' | 'negociacao' | 'fechado' | 'perdido';
@@ -180,9 +181,9 @@ export default function PipelinePage() {
         <div><p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial</p><h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Pipeline de Vendas</h1><p className="mt-1 text-xs sm:hidden" style={{ color: 'var(--erp-text-muted)' }}>Deslize para ver etapas e arraste cards para atualizar o pipeline.</p></div>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'var(--erp-violet-dim)' }}><TrendingUp size={18} style={{ color: 'var(--erp-violet-light)' }} /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Total em pipeline</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{fmt(totalPipeline)}</p></div></div>
-        <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(8,145,178,0.12)' }}><Users size={18} style={{ color: 'var(--erp-cyan)' }} /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Oportunidades abertas</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{openDeals.length}</p></div></div>
-        <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(4,120,87,0.12)' }}><Trophy size={18} style={{ color: 'var(--erp-emerald)' }} /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Maior valor</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{topDeal ? fmt(topDeal.value) : '-'}</p>{topDeal && <p className="text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>{topDeal.name}</p>}</div></div>
+        <MetricCard label="Total em pipeline" value={fmt(totalPipeline)} tone="violet" icon={<TrendingUp size={16} />} />
+        <MetricCard label="Oportunidades abertas" value={String(openDeals.length)} tone="cyan" icon={<Users size={16} />} />
+        <MetricCard label="Maior valor" value={topDeal ? fmt(topDeal.value) : '-'} detail={topDeal?.name} tone="emerald" icon={<Trophy size={16} />} />
       </div>
       {loading ? (
         <div className="-mx-3 flex flex-1 gap-3 overflow-x-auto px-3 pb-4 sm:gap-4">

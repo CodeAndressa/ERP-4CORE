@@ -156,7 +156,7 @@ export default function ClientsPage() {
       <div className="grid gap-4 sm:grid-cols-3">
         <MetricCard label="Clientes" value={loading ? '...' : String(clients.length)} detail="sincronizados · ASAAS" tone="violet" icon={<Users size={16} />} />
         <MetricCard label="Com contrato" value={loading ? '...' : String(clientsWithContracts)} detail="PDF vinculado" tone="emerald" icon={<FileText size={16} />} />
-        <MetricCard label="Fonte" value="ASAAS" detail="dados em tempo real" tone="cyan" icon={<Building2 size={16} />} />
+        <MetricCard label="Sem contrato" value={loading ? '...' : String(clients.length - clientsWithContracts)} detail="ainda sem PDF vinculado" tone="cyan" icon={<Building2 size={16} />} />
       </div>
 
       {(error || success) && (
@@ -196,7 +196,7 @@ export default function ClientsPage() {
                       <td className="px-4 py-3 text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>{client.created_at ? new Date(client.created_at).toLocaleDateString('pt-BR') : '-'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          {latest?.file_name && <button onClick={() => openContractFile(latest.id)} className="rounded-xl border border-violet-100 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-50">Ver PDF</button>}
+                          {latest?.file_name && <button onClick={() => openContractFile(latest.id)} className="rounded-xl px-3 py-1 text-xs font-medium transition-colors" style={{ border: '1px solid var(--erp-border)', color: 'var(--erp-violet-light)' }}>Ver PDF</button>}
                           <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1 text-xs font-semibold text-white" style={{ background: 'var(--erp-violet)' }}>
                             <Upload size={12} />
                             {uploading === client.id ? 'Enviando...' : linked.length ? 'Substituir' : 'Anexar PDF'}

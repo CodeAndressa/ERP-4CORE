@@ -172,14 +172,14 @@ export default function ReceitasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="relative z-[900] flex flex-col gap-3 border-b border-violet-100 pb-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="relative z-[900] flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-center lg:justify-between" style={{ borderColor: 'var(--erp-border)' }}>
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--erp-violet-light)' }}>Financeiro ASAAS</p>
           <h1 className="text-xl font-bold" style={{ color: 'var(--erp-text)' }}>Receita</h1>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <FinancePeriodFilter value={period} onApply={setPeriod} />
-          <button onClick={() => load(true)} className="flex h-11 items-center justify-center gap-1.5 rounded-xl border border-violet-100 bg-white px-4 text-xs font-bold transition hover:border-violet-200 hover:text-violet-700" style={{ color: 'var(--erp-text-muted)' }}>
+          <button onClick={() => load(true)} className="flex h-11 items-center justify-center gap-1.5 rounded-xl bg-white px-4 text-xs font-bold transition-colors" style={{ border: '1px solid var(--erp-border)', color: 'var(--erp-text-muted)' }}>
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             Atualizar
           </button>

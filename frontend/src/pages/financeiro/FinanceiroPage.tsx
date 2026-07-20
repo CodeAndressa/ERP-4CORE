@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertCircle, AlertTriangle, ArrowDownRight, Check, CheckCircle2, Clock3, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, Clock3, RefreshCw, Wallet } from 'lucide-react';
 import { api } from '../../services/api';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
@@ -217,24 +217,6 @@ function FinanceiroCockpit() {
           </table>
         </div>
       </Card>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card padding="lg">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(4,120,87,0.1)', color: 'var(--erp-emerald)' }}><ShieldCheck size={18} /></div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Receita centralizada</p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>ASAAS, pendências, recebidos e venda direta conciliada ficam em Receita.</p>
-        </Card>
-        <Card padding="lg">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(190,18,60,0.1)', color: 'var(--erp-rose)' }}><ArrowDownRight size={18} /></div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Custos fixos manuais</p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Impostos, logística e obrigações previsíveis com cadastro rápido.</p>
-        </Card>
-        <Card padding="lg">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(180,83,9,0.1)', color: 'var(--erp-amber)' }}><RefreshCw size={18} /></div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Recorrências sob controle</p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Software, contabilidade, empréstimos e contratos mensais sem poluir a navegação.</p>
-        </Card>
-      </div>
     </div>
   );
 }

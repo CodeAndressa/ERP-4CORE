@@ -365,7 +365,7 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
 
   return (
     <div className="space-y-6">
-      <div className="relative z-[900] flex flex-col gap-2 border-b border-violet-100 pb-3 sm:flex-row sm:items-center sm:justify-end">
+      <div className="relative z-[900] flex flex-col gap-2 border-b pb-3 sm:flex-row sm:items-center sm:justify-end" style={{ borderColor: 'var(--erp-border)' }}>
         <FinancePeriodFilter value={period} onApply={setPeriod} />
         <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {FILTERS.map((item) => (
@@ -400,7 +400,7 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                  {['Contrato', 'Categoria', 'Fornecedor', 'Parcelas', 'Valor do emprestimo', 'Total com juros', 'Ja pago', 'A pagar', 'Proximo', ''].map((heading) => (
+                  {['Contrato', 'Categoria', 'Fornecedor', 'Parcelas', 'Valor do empréstimo', 'Total com juros', 'Já pago', 'A pagar', 'Próximo', ''].map((heading) => (
                     <th key={heading} className="pb-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--erp-text-dim)' }}>{heading}</th>
                   ))}
                 </tr>

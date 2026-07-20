@@ -219,6 +219,17 @@ export default function MetricasMarketingPage() {
         </div>
       )}
 
+      {loading && (
+        <>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Skeleton className="lg:col-span-2 h-64" />
+            <Skeleton className="h-64" />
+          </div>
+          <Skeleton className="h-56" />
+          <Skeleton className="h-40" />
+        </>
+      )}
+
       {/* Aviso instagram_manage_insights */}
       {!loading && !insightsAvailable && (
         <div className="rounded-xl px-4 py-4 text-sm"

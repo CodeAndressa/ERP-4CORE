@@ -406,7 +406,10 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
                 </tr>
               </thead>
               <tbody className="divide-y" style={{ borderColor: 'var(--erp-border)' }}>
-                {costGroups.map((group) => {
+                {loading && (
+                  <tr><td colSpan={10}><div className="space-y-2 py-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}</div></td></tr>
+                )}
+                {!loading && costGroups.map((group) => {
                   const label = group.filter === 'fixed' ? 'Pontual' : group.filter === 'monthly' ? 'Mensal' : 'Recorrente';
                   const isExpanded = expandedGroups.includes(group.key);
                   const canExpand = group.installments.length > 1;
@@ -590,7 +593,8 @@ export default function CostControlPage({ kind }: { kind?: CostKind }) {
       <Card padding="lg">
         <CardHeader title="Linha mensal" subtitle="Leitura rápida de pressão no caixa" />
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {monthly.map((item) => (
+          {loading && [1, 2, 3, 4, 5].map((i) => <div key={i} className="h-[74px] animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}
+          {!loading && monthly.map((item) => (
             <div key={item.month} className="rounded-xl px-3 py-3" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)' }}>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--erp-text-muted)' }}>{monthLabel(item.month)}</span>

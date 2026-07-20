@@ -348,7 +348,13 @@ export default function DashboardPage() {
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2" padding="lg">
           <CardHeader title="Tráfego do site" subtitle="Visitantes dos últimos 14 dias" action={<Link to="/site-metrics" className="flex items-center gap-1 text-xs font-medium text-violet-700">Detalhar <ArrowRight size={11} /></Link>} />
-          {siteLoading ? <EmptyBlock label="Carregando dados do site..." /> : siteDaily.length ? (
+          {siteLoading ? (
+            <div className="flex h-[180px] items-end gap-2 px-1">
+              {[40, 65, 50, 80, 55, 70, 45, 90, 60, 75, 50, 85, 65, 55].map((h, i) => (
+                <div key={i} className="flex-1 animate-pulse rounded-t-md" style={{ height: `${h}%`, background: 'var(--erp-surface-2)' }} />
+              ))}
+            </div>
+          ) : siteDaily.length ? (
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={siteDaily} margin={{ top: 8, right: 4, bottom: 0, left: 0 }} barSize={10}>
                 <Bar dataKey="visitors" fill="var(--erp-violet)" opacity={0.88} radius={[5, 5, 0, 0]} name="Visitantes" />
@@ -361,7 +367,13 @@ export default function DashboardPage() {
 
         <Card padding="lg">
           <CardHeader title="Calendário de posts" subtitle={hasScheduled ? 'Próximas entregas' : 'Publicações recentes do Instagram'} action={<Link to="/marketing/calendario" className="flex items-center gap-1 text-xs font-medium text-violet-700">Ver agenda <ArrowRight size={11} /></Link>} />
-          {secondaryLoading ? <EmptyBlock label="Carregando posts..." /> : upcomingPosts.length ? (
+          {secondaryLoading ? (
+            <div className="mt-1 space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-14 animate-pulse rounded-[18px]" style={{ background: 'var(--erp-surface-2)' }} />
+              ))}
+            </div>
+          ) : upcomingPosts.length ? (
             <div className="mt-1 space-y-2">
               {upcomingPosts.map((post) => (
                 <div key={post.id} className="flex items-center gap-3 rounded-[18px] border border-violet-100 bg-white px-3 py-2.5">

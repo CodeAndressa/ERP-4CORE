@@ -9,14 +9,14 @@ import { Card } from '../shared/components/ui/Card';
 import { MetricCard } from '../shared/components/layout/MetricCard';
 
 interface DailyPoint { date: string; visitors: number; pageviews: number; }
-interface TopPage { path: string; views: number; unique_visitors: number; }
-interface Source { source: string; visitors: number; percentage: number; }
-interface Device { device: string; visitors: number; percentage: number; }
+interface TopPage { page: string; pageviews: number; visitors: number; }
+interface Source { source: string; visitors: number; conversions: number; conversion_rate: number; }
+interface Device { device: string; events: number; }
 interface SiteData {
   configured?: boolean;
   message?: string;
   synced_at?: string;
-  summary: { visitors: number; pageviews: number; conversions: number; leads: number; conversion_rate?: number; bounce_rate?: number; };
+  summary: { unique_visitors: number; pageviews: number; conversions: number; leads: number; conversion_rate?: number; bounce_rate?: number; };
   daily?: DailyPoint[];
   top_pages?: TopPage[];
   sources?: Source[];
@@ -90,15 +90,22 @@ export default function SiteMetricsPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard label="Visitantes"    value={loading ? '…' : String(s?.visitors ?? 0)}    detail={`últimos ${days} dias`}                                                            tone="violet"  icon={<Users size={16} />}             />
+        <MetricCard label="Visitantes"    value={loading ? '…' : String(s?.unique_visitors ?? 0)} detail={`últimos ${days} dias`}                                                            tone="violet"  icon={<Users size={16} />}             />
         <MetricCard label="Pageviews"     value={loading ? '…' : String(s?.pageviews ?? 0)}   detail="páginas vistas"                                                                    tone="emerald" icon={<Globe size={16} />}             />
         <MetricCard label="Conversões"    value={loading ? '…' : String(s?.conversions ?? 0)} detail={s?.conversion_rate != null ? `${s.conversion_rate.toFixed(1)}% taxa` : 'formulários'} tone="amber" icon={<MousePointerClick size={16} />} />
         <MetricCard label="Leads gerados" value={loading ? '…' : String(s?.leads ?? 0)}       detail="via site"                                                                          tone="violet"  icon={<TrendingUp size={16} />}        />
       </div>
 
-      {chartData.length > 0 && (
+      {(loading || chartData.length > 0) && (
         <Card padding="lg">
           <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Tráfego diário</p>
+          {loading ? (
+            <div className="flex h-[180px] items-end gap-2 px-1">
+              {[40, 65, 50, 80, 55, 70, 45, 90, 60, 75, 50, 85, 65, 55].map((h, i) => (
+                <div key={i} className="flex-1 animate-pulse rounded-t-md" style={{ height: `${h}%`, background: 'var(--erp-surface-2)' }} />
+              ))}
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height={180}>
             <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
               <defs>
@@ -119,6 +126,7 @@ export default function SiteMetricsPage() {
               <Area type="monotone" dataKey="visitors"  stroke="#2b165c" strokeWidth={2}   fill="url(#gVisitors)"  name="Visitantes" />
             </AreaChart>
           </ResponsiveContainer>
+          )}
         </Card>
       )}
 
@@ -126,17 +134,19 @@ export default function SiteMetricsPage() {
         <div className="lg:col-span-2">
           <Card padding="lg">
             <p className="text-sm font-semibold mb-4" style={{ color: 'var(--erp-text)' }}>Páginas mais vistas</p>
-            {(data?.top_pages?.length ?? 0) > 0 ? (
+            {loading ? (
+              <div className="space-y-2">{[1, 2, 3, 4].map((i) => <div key={i} className="h-6 animate-pulse rounded-full" style={{ background: 'var(--erp-surface-2)' }} />)}</div>
+            ) : (data?.top_pages?.length ?? 0) > 0 ? (
               <div className="space-y-2">
                 {data!.top_pages!.slice(0, 8).map((pg, i) => {
-                  const max = data!.top_pages![0].views;
-                  const pct = Math.round((pg.views / max) * 100);
+                  const max = data!.top_pages![0].pageviews;
+                  const pct = max ? Math.round((pg.pageviews / max) * 100) : 0;
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-mono truncate" style={{ color: 'var(--erp-text-muted)' }}>{pg.path}</span>
-                          <span className="text-xs font-semibold tabular-nums ml-3 flex-shrink-0" style={{ color: 'var(--erp-text)' }}>{pg.views}</span>
+                          <span className="text-xs font-mono truncate" style={{ color: 'var(--erp-text-muted)' }}>{pg.page}</span>
+                          <span className="text-xs font-semibold tabular-nums ml-3 flex-shrink-0" style={{ color: 'var(--erp-text)' }}>{pg.pageviews}</span>
                         </div>
                         <div className="h-1.5 rounded-full" style={{ background: 'var(--erp-surface-2)' }}>
                           <div className="h-1.5 rounded-full" style={{ background: 'var(--erp-violet)', width: `${pct}%` }} />
@@ -155,19 +165,24 @@ export default function SiteMetricsPage() {
         <div className="space-y-4">
           <Card padding="lg">
             <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Origens</p>
-            {(data?.sources?.length ?? 0) > 0 ? (
+            {loading ? (
+              <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-4 animate-pulse rounded-full" style={{ background: 'var(--erp-surface-2)' }} />)}</div>
+            ) : (data?.sources?.length ?? 0) > 0 ? (
               <div className="space-y-2">
-                {data!.sources!.slice(0, 5).map((src, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
-                      <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{src.source}</span>
+                {(() => {
+                  const totalVisitors = data!.sources!.reduce((sum, src) => sum + src.visitors, 0) || 1;
+                  return data!.sources!.slice(0, 5).map((src, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: SOURCE_COLORS[i % SOURCE_COLORS.length] }} />
+                        <span className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>{src.source}</span>
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>
+                        {((src.visitors / totalVisitors) * 100).toFixed(1)}%
+                      </span>
                     </div>
-                    <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>
-                      {src.percentage.toFixed(1)}%
-                    </span>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             ) : (
               <p className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Sem dados</p>
@@ -176,19 +191,24 @@ export default function SiteMetricsPage() {
 
           <Card padding="lg">
             <p className="text-sm font-semibold mb-3" style={{ color: 'var(--erp-text)' }}>Dispositivos</p>
-            {(data?.devices?.length ?? 0) > 0 ? (
+            {loading ? (
+              <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-4 animate-pulse rounded-full" style={{ background: 'var(--erp-surface-2)' }} />)}</div>
+            ) : (data?.devices?.length ?? 0) > 0 ? (
               <div className="space-y-2">
-                {data!.devices!.map((dv, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2" style={{ color: 'var(--erp-text-muted)' }}>
-                      {DEVICE_ICON(dv.device)}
-                      <span className="text-xs">{dv.device}</span>
+                {(() => {
+                  const totalEvents = data!.devices!.reduce((sum, dv) => sum + dv.events, 0) || 1;
+                  return data!.devices!.map((dv, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <div className="flex items-center gap-2" style={{ color: 'var(--erp-text-muted)' }}>
+                        {DEVICE_ICON(dv.device)}
+                        <span className="text-xs">{dv.device}</span>
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>
+                        {((dv.events / totalEvents) * 100).toFixed(1)}%
+                      </span>
                     </div>
-                    <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>
-                      {dv.percentage.toFixed(1)}%
-                    </span>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             ) : (
               <p className="text-xs" style={{ color: 'var(--erp-text-dim)' }}>Sem dados</p>

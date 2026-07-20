@@ -209,7 +209,10 @@ export default function ReceitasPage() {
                 </tr>
               </thead>
               <tbody>
-                {directSaleGroups.map((group, i) => {
+                {loading && (
+                  <tr><td colSpan={8}><div className="space-y-2 py-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}</div></td></tr>
+                )}
+                {!loading && directSaleGroups.map((group, i) => {
                   const isExpanded = expandedGroups.includes(group.key);
                   const canExpand = group.installments.length > 1;
                   return (
@@ -294,7 +297,10 @@ export default function ReceitasPage() {
               </tr>
             </thead>
             <tbody>
-              {received.map((p, i) => (
+              {loading && (
+                <tr><td colSpan={6}><div className="space-y-2 py-2">{[1, 2, 3, 4].map((i) => <div key={i} className="h-10 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}</div></td></tr>
+              )}
+              {!loading && received.map((p, i) => (
                 <tr key={p.id} style={{ borderBottom: i < received.length - 1 ? '1px solid var(--erp-border)' : undefined }}>
                   <td className="px-4 py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{p.customer ?? '-'}</td>
                   <td className="px-4 py-3 text-xs max-w-xs truncate" style={{ color: 'var(--erp-text-muted)' }}>{p.description ?? '-'}</td>

@@ -238,7 +238,7 @@ export default function ProposalsPage() {
       </div>
 
       <Card padding="sm">
-        {loading ? <div className="py-12 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Carregando propostas...</div> : filtered.length === 0 ? <div className="py-14 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma proposta cadastrada.</div> : (
+        {loading ? <div className="space-y-2 p-4">{[1, 2, 3, 4].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}</div> : filtered.length === 0 ? <div className="py-14 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma proposta cadastrada.</div> : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead><tr style={{ borderBottom: '1px solid var(--erp-border)' }}>{['Proposta', 'Cliente', 'Valor', 'Status', 'Próxima ação'].map((header) => <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{header}</th>)}</tr></thead>

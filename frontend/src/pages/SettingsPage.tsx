@@ -40,6 +40,7 @@ const INTEGRATIONS = [
 export default function SettingsPage() {
   const [status, setStatus] = useState<IntegrationStatus>({ site_analytics: false, financial: false, instagram: false, ai: false, email: false, contract_storage: false });
   const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
   const [checked, setChecked] = useState(false);
   const [company, setCompany] = useState<CompanySettings>(EMPTY_COMPANY);
   const [companyLoaded, setCompanyLoaded] = useState(false);
@@ -64,7 +65,7 @@ export default function SettingsPage() {
       .then(({ data }) => setCompany(data))
       .catch(() => undefined)
       .finally(() => setCompanyLoaded(true));
-    loadUsers().catch(() => undefined);
+    loadUsers().catch(() => undefined).finally(() => setUsersLoading(false));
   }, []);
 
   async function handleSave() {
@@ -190,6 +191,12 @@ export default function SettingsPage() {
           {(userError || userMessage) && <p className="mt-3 text-sm" style={{ color: userError ? 'var(--erp-rose)' : 'var(--erp-emerald)' }}>{userError || userMessage}</p>}
 
           <div className="mt-5 space-y-2">
+            {usersLoading ? (
+              <>
+                {[1, 2].map((i) => <div key={i} className="h-[52px] animate-pulse rounded-[22px]" style={{ background: 'var(--erp-surface-2)' }} />)}
+              </>
+            ) : (
+              <>
             {users.map((user) => (
               <div key={user.id} className="flex items-center gap-3 rounded-[22px] px-3 py-3" style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)' }}>
                 <div className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)', fontWeight: 700, fontSize: 12 }}>{user.full_name[0]}</div>
@@ -198,6 +205,8 @@ export default function SettingsPage() {
               </div>
             ))}
             {users.length === 0 && <div className="flex items-center gap-2 rounded-[22px] border border-dashed border-violet-100 px-3 py-4 text-sm" style={{ color: 'var(--erp-text-muted)' }}><Users size={14} />Nenhum usuário encontrado</div>}
+              </>
+            )}
           </div>
         </Card>
 

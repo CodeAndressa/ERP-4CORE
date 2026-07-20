@@ -184,7 +184,16 @@ export default function PipelinePage() {
         <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(8,145,178,0.12)' }}><Users size={18} style={{ color: 'var(--erp-cyan)' }} /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Oportunidades abertas</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{openDeals.length}</p></div></div>
         <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}><div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(4,120,87,0.12)' }}><Trophy size={18} style={{ color: 'var(--erp-emerald)' }} /></div><div><p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Maior valor</p><p className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>{topDeal ? fmt(topDeal.value) : '-'}</p>{topDeal && <p className="text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>{topDeal.name}</p>}</div></div>
       </div>
-      {loading ? <div className="py-12 text-sm" style={{ color: 'var(--erp-text-muted)' }}>Carregando pipeline...</div> : deals.length === 0 ? <div className="rounded-2xl py-16 text-center text-sm" style={{ border: '1px dashed var(--erp-border)', color: 'var(--erp-text-muted)' }}>Nenhum lead cadastrado para exibir no pipeline.</div> : <div className="mobile-snap-scroll -mx-3 flex-1 overflow-x-auto px-3 pb-4"><DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}><div className="flex h-full gap-3 sm:gap-4" style={{ minWidth: 'max-content' }}>{STAGES.map((stage) => <KanbanColumn key={stage.id} stage={stage} deals={deals.filter((d) => d.stage === stage.id)} activeId={activeId} />)}</div><DragOverlay>{activeDeal ? <DealCardOverlay deal={activeDeal} /> : null}</DragOverlay></DndContext></div>}
+      {loading ? (
+        <div className="-mx-3 flex flex-1 gap-3 overflow-x-auto px-3 pb-4 sm:gap-4">
+          {STAGES.map((stage) => (
+            <div key={stage.id} className="flex w-[86vw] flex-none flex-col gap-2 rounded-2xl p-3 sm:w-64" style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', minWidth: 240 }}>
+              <div className="h-4 w-24 animate-pulse rounded-full" style={{ background: 'var(--erp-surface-2)' }} />
+              {[1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}
+            </div>
+          ))}
+        </div>
+      ) : deals.length === 0 ? <div className="rounded-2xl py-16 text-center text-sm" style={{ border: '1px dashed var(--erp-border)', color: 'var(--erp-text-muted)' }}>Nenhum lead cadastrado para exibir no pipeline.</div> : <div className="mobile-snap-scroll -mx-3 flex-1 overflow-x-auto px-3 pb-4"><DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}><div className="flex h-full gap-3 sm:gap-4" style={{ minWidth: 'max-content' }}>{STAGES.map((stage) => <KanbanColumn key={stage.id} stage={stage} deals={deals.filter((d) => d.stage === stage.id)} activeId={activeId} />)}</div><DragOverlay>{activeDeal ? <DealCardOverlay deal={activeDeal} /> : null}</DragOverlay></DndContext></div>}
     </div>
   );
 }

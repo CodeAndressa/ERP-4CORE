@@ -69,7 +69,7 @@ def _build_email(charge: dict[str, Any]) -> tuple[str, str]:
     days = charge["days_overdue"]
     due_date = charge.get("due_date", "")
     company_name = charge["customer"] or "cliente"
-    subject = f"Pagamento em aberto há {days} dias: {charge['description']}"
+    subject = "Quite sua dívida com a 4Core e mantenha o controle"
 
     cta_button = f"""
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 28px auto 4px;">

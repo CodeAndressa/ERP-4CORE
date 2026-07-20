@@ -1,7 +1,8 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, ChevronDown, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageSquare, MoreHorizontal, ScrollText, Settings2, Target, Users } from 'lucide-react';
+import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, ChevronDown, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageCircle, MessageSquare, MoreHorizontal, ScrollText, Settings2, Target, Users, WalletCards } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
 import { NotificationsMenu } from './NotificationsMenu';
@@ -56,20 +57,23 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[]; overflow?: HeaderTab[] 
     match: ['/financeiro', '/financial'],
     tabs: [
       { label: 'Visão Geral', path: '/financeiro', icon: <DollarSign size={14} /> },
+      { label: 'Cobranças', path: '/financeiro/cobrancas', icon: <WalletCards size={14} /> },
       { label: 'Receita', path: '/financeiro/receita', icon: <BarChart3 size={14} /> },
       { label: 'Custos', path: '/financeiro/custos', icon: <FileText size={14} /> },
     ],
   },
   {
-    // Conteúdo do dia a dia fica visível; itens mais estratégicos/config ficam no overflow.
+    // Mensagens é a tela padrão de marketing; Estúdio fica no overflow por enquanto.
     match: ['/marketing'],
     tabs: [
+      { label: 'Mensagens', path: '/marketing/mensagens', icon: <MessageCircle size={14} /> },
+      { label: 'Métricas', path: '/marketing/metricas', icon: <BarChart3 size={14} /> },
       { label: 'Calendário', path: '/marketing/calendario', icon: <CalendarDays size={14} /> },
       { label: 'Posts', path: '/marketing/posts', icon: <FileText size={14} /> },
-      { label: 'Ideias', path: '/marketing/ideias', icon: <Lightbulb size={14} /> },
-      { label: 'Métricas', path: '/marketing/metricas', icon: <BarChart3 size={14} /> },
     ],
     overflow: [
+      { label: 'Estúdio', path: '/marketing/estudio', icon: <Sparkles size={14} /> },
+      { label: 'Ideias', path: '/marketing/ideias', icon: <Lightbulb size={14} /> },
       { label: 'Campanhas', path: '/marketing/campanhas', icon: <Target size={14} /> },
       { label: 'Planejamento', path: '/marketing/planejamento', icon: <Megaphone size={14} /> },
       { label: 'Conexões', path: '/marketing/conexoes', icon: <Settings2 size={14} /> },
@@ -105,7 +109,7 @@ const MOBILE_PRIMARY = [
   { label: 'Visão', path: '/dashboard', icon: <LayoutDashboard size={19} />, match: ['/dashboard', '/site-metrics'] },
   { label: 'Comercial', path: '/comercial/leads', icon: <Users size={19} />, match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'] },
   { label: 'Financeiro', path: '/financeiro', icon: <DollarSign size={19} />, match: ['/financeiro', '/financial'] },
-  { label: 'Marketing', path: '/marketing/calendario', icon: <Megaphone size={19} />, match: ['/marketing'] },
+  { label: 'Marketing', path: '/marketing/mensagens', icon: <Megaphone size={19} />, match: ['/marketing'] },
 ];
 
 const MOBILE_MORE = [
@@ -194,24 +198,51 @@ function isTabActive(pathname: string, tab: HeaderTab) {
 
 function HeaderOverflowMenu({ pathname, tabs }: { pathname: string; tabs: HeaderTab[] }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
   const active = tabs.some((tab) => isTabActive(pathname, tab));
+
+  function positionMenu() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const menuWidth = 208;
+    setPosition({
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8)),
+      top: rect.bottom + 6,
+    });
+  }
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!buttonRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    const reposition = () => positionMenu();
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    document.addEventListener('keydown', escape);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', escape);
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
+  }, [open]);
 
   useEffect(() => { setOpen(false); }, [pathname]);
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (!open) positionMenu();
+          setOpen((value) => !value);
+        }}
         className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold transition-colors sm:min-h-8 sm:rounded-xl"
         style={{ background: active ? 'var(--erp-violet)' : 'transparent', color: active ? '#fff' : 'var(--erp-text-muted)' }}
         aria-expanded={open}
@@ -220,10 +251,12 @@ function HeaderOverflowMenu({ pathname, tabs }: { pathname: string; tabs: Header
         Mais
         <ChevronDown size={13} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
       </button>
-      {open && (
+      {open && createPortal(
         <div
-          className="absolute left-0 top-full z-40 mt-1.5 min-w-[180px] rounded-xl border bg-white p-1"
-          style={{ borderColor: 'var(--erp-border)', boxShadow: '0 18px 45px rgba(43,22,92,0.18)' }}
+          ref={menuRef}
+          role="menu"
+          className="fixed z-50 w-52 rounded-xl border bg-white p-1"
+          style={{ left: position.left, top: position.top, borderColor: 'var(--erp-border)', boxShadow: '0 6px 8px rgba(43,22,92,0.14)' }}
         >
           {tabs.map((tab) => {
             const tabActive = isTabActive(pathname, tab);
@@ -231,6 +264,8 @@ function HeaderOverflowMenu({ pathname, tabs }: { pathname: string; tabs: Header
               <NavLink
                 key={tab.path}
                 to={tab.path}
+                role="menuitem"
+                onClick={() => setOpen(false)}
                 className="flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold transition-colors"
                 style={{ background: tabActive ? 'var(--erp-violet-dim)' : 'transparent', color: tabActive ? 'var(--erp-violet)' : 'var(--erp-text)' }}
               >
@@ -239,7 +274,8 @@ function HeaderOverflowMenu({ pathname, tabs }: { pathname: string; tabs: Header
               </NavLink>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -279,9 +315,12 @@ const COMMANDS = [
   { group: 'Comercial', label: 'Pipeline', path: '/comercial/pipeline', keys: 'pipeline kanban funil' },
   { group: 'Comercial', label: 'Propostas', path: '/comercial/propostas', keys: `propostas ${t.orcamentos}` },
   { group: 'Financeiro', label: t.visao, path: '/financeiro', keys: 'financeiro controle caixa' },
+  { group: 'Financeiro', label: 'Cobranças', path: '/financeiro/cobrancas', keys: 'cobrancas recebidas confirmadas pendentes vencidas assinaturas avulsas' },
   { group: 'Financeiro', label: 'Receita', path: '/financeiro/receita', keys: 'receita entradas asaas' },
   { group: 'Financeiro', label: 'Custos', path: '/financeiro/custos', keys: 'custos fixos recorrentes despesas mensalidades contas pagar' },
   { group: 'Marketing', label: t.calendario, path: '/marketing/calendario', keys: 'calendario editorial posts' },
+  { group: 'Marketing', label: 'Estúdio de conteúdo', path: '/marketing/estudio', keys: 'criar arte aprovar agendar instagram' },
+  { group: 'Marketing', label: 'Mensagens', path: '/marketing/mensagens', keys: 'mensagens dm direct instagram responder' },
   { group: 'Marketing', label: 'Campanhas', path: '/marketing/campanhas', keys: 'campanhas marketing' },
   { group: 'Marketing', label: t.metricas, path: '/marketing/metricas', keys: 'performance metricas analytics' },
   { group: 'IA', label: 'Chat com IA', path: '/ia/chat', keys: 'chat ia inteligencia assistente' },
@@ -360,11 +399,14 @@ function pageTitle(pathname: string): string {
     '/comercial/followup': 'Follow-up',
     '/comercial/agenda': 'Agenda',
     '/financeiro': 'Financeiro',
+    '/financeiro/cobrancas': 'Cobranças',
     '/financeiro/receita': 'Receita',
     '/financeiro/custos': 'Custos',
     '/financeiro/custos-fixos': 'Custos',
     '/financeiro/custos-recorrentes': 'Custos',
     '/marketing/calendario': t.calendario,
+    '/marketing/estudio': 'Estúdio de conteúdo',
+    '/marketing/mensagens': 'Mensagens',
     '/marketing/campanhas': 'Campanhas',
     '/marketing/metricas': t.metricas,
     '/ia/chat': 'Chat com IA',

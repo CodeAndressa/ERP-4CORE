@@ -22,12 +22,14 @@ const RelatoriosLayout = lazy(() => import('./pages/relatorios/RelatoriosLayout'
 const SistemaLayout = lazy(() => import('./pages/sistema/SistemaLayout'));
 
 const CalendarioPage = lazy(() => import('./pages/marketing/CalendarioPage'));
+const EstudioConteudoPage = lazy(() => import('./pages/marketing/EstudioConteudoPage'));
 const PostsPage = lazy(() => import('./pages/marketing/PostsPage'));
 const IdeiasBancoPage = lazy(() => import('./pages/marketing/IdeiasBancoPage'));
 const MetricasMarketingPage = lazy(() => import('./pages/marketing/MetricasMarketingPage'));
 const CampanhasPage = lazy(() => import('./pages/marketing/CampanhasPage'));
 const PlanejamentoPage = lazy(() => import('./pages/marketing/PlanejamentoPage'));
 const ConexoesMarketingPage = lazy(() => import('./pages/marketing/ConexoesMarketingPage'));
+const MensagensPage = lazy(() => import('./pages/marketing/MensagensPage'));
 
 const ChatPage = lazy(() => import('./pages/ia/ChatPage'));
 const SugestoesPage = lazy(() => import('./pages/ia/SugestoesPage'));
@@ -43,6 +45,7 @@ const AgendaPage = lazy(() => import('./pages/comercial/AgendaPage'));
 const FunilPage = lazy(() => import('./pages/comercial/FunilPage'));
 
 const ReceitasPage = lazy(() => import('./pages/financeiro/ReceitasPage'));
+const CobrancasPage = lazy(() => import('./pages/financeiro/CobrancasPage'));
 const CustosFixosPage = lazy(() => import('./pages/financeiro/CustosFixosPage'));
 const CustosRecorrentesPage = lazy(() => import('./pages/financeiro/CustosRecorrentesPage'));
 
@@ -79,6 +82,7 @@ function App() {
           </Route>
 
           <Route path="financeiro" element={<FinanceiroLayout />}>
+            <Route path="cobrancas" element={<CobrancasPage />} />
             <Route path="receita" element={<ReceitasPage />} />
             <Route path="custos" element={<CustosFixosPage />} />
             <Route path="custos-fixos" element={<Navigate to="/financeiro/custos" replace />} />
@@ -95,7 +99,8 @@ function App() {
           </Route>
 
           <Route path="marketing" element={<MarketingLayout />}>
-            <Route index element={<Navigate to="/marketing/calendario" replace />} />
+            <Route index element={<Navigate to="/marketing/mensagens" replace />} />
+            <Route path="estudio" element={<EstudioConteudoPage />} />
             <Route path="calendario" element={<CalendarioPage />} />
             <Route path="posts" element={<PostsPage />} />
             <Route path="ideias" element={<IdeiasBancoPage />} />
@@ -103,6 +108,7 @@ function App() {
             <Route path="campanhas" element={<CampanhasPage />} />
             <Route path="planejamento" element={<PlanejamentoPage />} />
             <Route path="conexoes" element={<ConexoesMarketingPage />} />
+            <Route path="mensagens" element={<MensagensPage />} />
           </Route>
 
           <Route path="ia" element={<IALayout />}>

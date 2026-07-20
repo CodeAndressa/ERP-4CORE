@@ -1,0 +1,24 @@
+name: Cobranca automatica de vencidos
+
+on:
+  schedule:
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: collections-dunning
+  cancel-in-progress: false
+
+jobs:
+  run-dunning:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rodar cobranca de vencidos (respeita COLLECTIONS_DRY_RUN no backend)
+        env:
+          COLLECTIONS_CRON_SECRET: ${{ secrets.COLLECTIONS_CRON_SECRET }}
+        run: |
+          test -n "$COLLECTIONS_CRON_SECRET"
+          curl --fail-with-body --silent --show-error --retry 2 \
+            --request POST \
+            --header "Authorization: Bearer $COLLECTIONS_CRON_SECRET" \
+            https://4core-backend.vercel.app/financial/collections/run

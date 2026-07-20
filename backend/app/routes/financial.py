@@ -1,7 +1,13 @@
+import secrets
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse, Response
+from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.database.session import get_db
+from app.services import collections_service, email_service
 from app.services.asaas_service import AsaasService, AsaasUnavailable
 from app.services.manual_financial_service import manual_financial_snapshot
 
@@ -77,5 +83,67 @@ async def list_charges(
 async def get_charge(payment_id: str, refresh: bool = Query(default=False)):
     try:
         return await AsaasService(force_refresh=refresh).charge_detail(payment_id)
+    except AsaasUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+# ─── Cobrança automática por e-mail (vencidas há 3+ dias, a cada 2 dias) ─────
+
+@router.get('/collections/logo.png')
+async def collections_logo():
+    """Público (sem auth) — clientes de e-mail buscam a imagem direto do
+    servidor deles, sem anexar o token do ERP. Sem dado sensível, só a logo."""
+    content = await collections_service.cropped_logo_bytes()
+    return Response(content=content, media_type='image/png', headers={'Cache-Control': 'public, max-age=86400'})
+
+
+@router.get('/collections/status')
+def collections_status():
+    return {
+        "configured": email_service.is_configured(),
+        "dry_run": settings.collections_dry_run,
+        "start_days": collections_service.DUNNING_START_DAYS,
+        "interval_days": collections_service.DUNNING_INTERVAL_DAYS,
+    }
+
+
+@router.get('/collections/preview')
+async def collections_preview(db: Session = Depends(get_db)):
+    """Só leitura — nunca envia e-mail nem grava no controle de reenvio."""
+    try:
+        return await collections_service.run_dunning(db, dry_run=True, persist=False)
+    except AsaasUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.get('/collections/preview-email', response_class=HTMLResponse)
+async def collections_preview_email():
+    """Renderiza o HTML exato que seria enviado, com a primeira cobrança
+    vencida elegível de verdade — só pra conferência visual, não envia nada."""
+    try:
+        charges = await collections_service.eligible_overdue_charges()
+    except AsaasUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if not charges:
+        return HTMLResponse(
+            "<p style='font-family:Arial,sans-serif;padding:40px;color:#5f5872;'>"
+            "Nenhuma cobrança vencida elegível agora pra gerar um preview real.</p>"
+        )
+    _, html = collections_service._build_email(charges[0])
+    return HTMLResponse(html)
+
+
+@router.post('/collections/run')
+async def collections_run(request: Request, db: Session = Depends(get_db)):
+    """Chamado pelo cron diário via Authorization: Bearer <secret> — mesmo
+    padrão do cron de marketing. Respeita COLLECTIONS_DRY_RUN pra decidir se
+    envia de verdade ou só simula (ver server.py pro bypass de autenticação
+    deste path específico)."""
+    cron_secret = settings.collections_cron_secret
+    authorization = request.headers.get('authorization', '')
+    if not cron_secret or not secrets.compare_digest(authorization, f'Bearer {cron_secret}'):
+        raise HTTPException(403, "Secret inválido.")
+    try:
+        return await collections_service.run_dunning(db, dry_run=settings.collections_dry_run)
     except AsaasUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

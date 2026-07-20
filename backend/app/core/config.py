@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     email_from: str = ""
     email_to: str = ""
+    collections_dry_run: bool = True
+    collections_cron_secret: str = ""
 
     class Config:
         env_file = str(Path(__file__).resolve().parents[3] / ".env")

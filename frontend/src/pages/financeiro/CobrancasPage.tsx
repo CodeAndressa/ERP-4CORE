@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  AlertCircle, Calendar, Check, CheckCircle2, ChevronRight, Clock3, Copy,
+  AlertCircle, Calendar, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, Copy,
   ExternalLink, FileText, Mail, MessageCircle, RefreshCw, Search, Wallet, X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -209,6 +209,94 @@ function ChargeDetail({ charge, onClose }: { charge: Charge; onClose: () => void
   );
 }
 
+type DunningPreview = {
+  dry_run: boolean;
+  total_overdue_eligible: number;
+  sent: { payment_id: string; customer: string; customer_email: string; value: number; days_overdue: number; send_count: number }[];
+  skipped: { payment_id: string; customer: string; days_overdue: number; reason: string }[];
+};
+type CollectionsStatus = { configured: boolean; dry_run: boolean; start_days: number; interval_days: number };
+
+function DunningCard() {
+  const [status, setStatus] = useState<CollectionsStatus | null>(null);
+  const [preview, setPreview] = useState<DunningPreview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      api.get<CollectionsStatus>('/financial/collections/status').catch(() => null),
+      api.get<DunningPreview>('/financial/collections/preview').catch(() => null),
+    ]).then(([s, p]) => {
+      if (s) setStatus(s.data);
+      if (p) setPreview(p.data);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  async function openEmailPreview() {
+    const { data } = await api.get('/financial/collections/preview-email', { responseType: 'text' });
+    const win = window.open('', '_blank');
+    if (win) { win.document.write(data as unknown as string); win.document.close(); }
+  }
+
+  if (loading) return <div className="h-16 animate-pulse rounded-2xl" style={{ background: 'var(--erp-surface-2)' }} />;
+  if (!status) return null;
+
+  return (
+    <div className="rounded-2xl border bg-white p-4" style={{ borderColor: 'var(--erp-border)' }}>
+      <button type="button" onClick={() => setExpanded((v) => !v)} className="flex w-full items-center justify-between gap-3 text-left">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: 'rgba(180,83,9,0.12)', color: '#b45309' }}>
+            <Mail size={16} />
+          </span>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>
+              Cobrança automática por e-mail {status.dry_run ? <span className="ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase" style={{ background: 'rgba(8,145,178,0.12)', color: 'var(--erp-cyan)' }}>Modo teste</span> : null}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>
+              A partir de {status.start_days} dias de atraso, a cada {status.interval_days} dias · {preview?.total_overdue_eligible ?? 0} cobranças elegíveis hoje
+              {!status.configured && ' · Resend não configurado ainda'}
+            </p>
+          </div>
+        </div>
+        <ChevronDown size={16} style={{ color: 'var(--erp-text-dim)', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+      </button>
+      {expanded && preview && (
+        <div className="mt-4 space-y-1.5 border-t pt-3" style={{ borderColor: 'var(--erp-border)' }}>
+          {preview.sent.length === 0 && preview.skipped.length === 0 ? (
+            <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma cobrança vencida elegível agora.</p>
+          ) : (
+            <>
+              {preview.sent.map((item) => (
+                <div key={item.payment_id} className="flex items-center justify-between gap-2 text-xs">
+                  <span style={{ color: 'var(--erp-text)' }}>{item.customer} <span style={{ color: 'var(--erp-text-dim)' }}>({item.customer_email})</span></span>
+                  <span style={{ color: 'var(--erp-text-muted)' }}>{item.days_overdue}d · {item.send_count === 1 ? '1º lembrete' : `${item.send_count}º lembrete`}</span>
+                </div>
+              ))}
+              {preview.skipped.map((item) => (
+                <div key={item.payment_id} className="flex items-center justify-between gap-2 text-xs opacity-60">
+                  <span style={{ color: 'var(--erp-text-muted)' }}>{item.customer}</span>
+                  <span style={{ color: 'var(--erp-text-dim)' }}>{item.reason}</span>
+                </div>
+              ))}
+            </>
+          )}
+          {preview.total_overdue_eligible > 0 && (
+            <button
+              type="button"
+              onClick={openEmailPreview}
+              className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold"
+              style={{ color: 'var(--erp-violet-light)' }}
+            >
+              <Mail size={12} /> Ver layout exato do e-mail
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CobrancasPage() {
   const [searchParams] = useSearchParams();
   const [kind, setKind] = useState<ChargeKind>('all');
@@ -271,6 +359,8 @@ export default function CobrancasPage() {
       </header>
 
       {error && <div className="flex items-center gap-2 rounded-xl border p-4 text-sm" style={{ background: '#fff1f2', borderColor: '#fecdd3', color: '#9f1239' }}><AlertCircle size={17} />{error}</div>}
+
+      <DunningCard />
 
       <div className="flex gap-3 overflow-x-auto pb-1">
         <div className="min-w-[168px] flex-1 rounded-2xl border bg-white p-4" style={{ borderColor: 'var(--erp-border)' }}>

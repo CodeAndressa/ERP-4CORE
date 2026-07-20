@@ -11,7 +11,8 @@ from app.database.schema import ensure_runtime_schema
 from app.models.commercial import Lead, Proposal
 from app.models.contracts import Contract, Order
 from app.models.settings import CompanySettings
-from app.models.marketing import InstagramMessage, MarketingContent
+from app.models.marketing import ExternalScheduledPost, InstagramMessage, MarketingContent
+from app.models.financial import DunningLog
 from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
 
@@ -33,7 +34,7 @@ def _cors_origins() -> list[str]:
 
 
 ALLOWED_CORS_ORIGINS = set(_cors_origins())
-PUBLIC_PATHS = {'/health', '/auth/login', '/auth/register'}
+PUBLIC_PATHS = {'/health', '/auth/login', '/auth/register', '/financial/collections/logo.png'}
 
 
 def _is_allowed_origin(origin: str | None) -> bool:
@@ -70,11 +71,15 @@ app.add_middleware(
 @app.middleware('http')
 async def require_authentication(request: Request, call_next):
     cron_authorization = request.headers.get('authorization', '')
-    cron_secret = settings.marketing_cron_secret or settings.cron_secret
+    marketing_cron_secret = settings.marketing_cron_secret or settings.cron_secret
     cron_allowed = (
         request.url.path == '/marketing/content/process-due'
-        and bool(cron_secret)
-        and secrets.compare_digest(cron_authorization, f'Bearer {cron_secret}')
+        and bool(marketing_cron_secret)
+        and secrets.compare_digest(cron_authorization, f'Bearer {marketing_cron_secret}')
+    ) or (
+        request.url.path == '/financial/collections/run'
+        and bool(settings.collections_cron_secret)
+        and secrets.compare_digest(cron_authorization, f'Bearer {settings.collections_cron_secret}')
     )
     # O redirect_uri do OAuth Meta aponta para a página do frontend (ConexoesMarketingPage),
     # que lê o "code" da própria URL e chama /marketing/meta/callback via SPA já autenticado —

@@ -3,11 +3,27 @@ from __future__ import annotations
 import base64
 import io
 import json
+import re
+from pathlib import Path
 from typing import Any
 
 import httpx
 from fastapi import HTTPException
 from PIL import Image, ImageDraw, ImageFont
+
+FONT_PATH = Path(__file__).resolve().parents[1] / "assets" / "fonts" / "Inter-Variable.ttf"
+
+
+def _font(size: int, weight: str = "Regular") -> ImageFont.FreeTypeFont:
+    """Inter suporta acentuacao pt-BR (ç, ã, õ...) — o load_default() do
+    Pillow usa uma fonte embutida com charset limitado que quebra esses
+    caracteres."""
+    font = ImageFont.truetype(str(FONT_PATH), size=size)
+    try:
+        font.set_variation_by_name(weight)
+    except OSError:
+        pass
+    return font
 
 from app.core.config import settings
 from app.services.marketing_asset_service import store_generated_art
@@ -307,18 +323,36 @@ def _wrap_headline(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTyp
     return lines
 
 
+def _sentence_case(text: str) -> str:
+    """pt-BR: so a primeira letra maiuscula, sem Capitalizar Cada Palavra —
+    preserva a grafia oficial da marca onde ela aparecer no meio da frase."""
+    normalized = " ".join(text.strip().split())
+    if not normalized:
+        return normalized
+    lowered = normalized[0].upper() + normalized[1:].lower()
+    return re.sub(r"4core", "4Core", lowered, flags=re.IGNORECASE)
+
+
+STORY_CTA_TEXT = "Conheça as soluções da 4Core"
+
+
 def _compose_brand_art(background: bytes, logo_content: bytes, headline: str) -> bytes:
+    """Composicao exclusiva de Stories (9:16): bloco de texto + CTA + logo
+    concentrados na metade inferior, diferente do template de post de feed —
+    deixa o topo limpo (avatar/fechar da Meta) e a base com folga acima da
+    barra de resposta do Instagram."""
     canvas = Image.open(io.BytesIO(background)).convert("RGBA")
     width, height = canvas.size
 
-    # Protege a leitura sem transformar a arte em um card sobreposto.
+    # Degrade de baixo pra cima pra dar contraste ao bloco de texto/CTA/logo.
     shade = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     shade_pixels = shade.load()
-    shade_limit = max(1, round(width * 0.72))
-    for x in range(shade_limit):
-        progress = x / shade_limit
-        alpha = round(185 * (1 - progress) ** 1.7)
-        for y in range(height):
+    shade_limit = max(1, round(height * 0.62))
+    shade_top = height - shade_limit
+    for y in range(shade_top, height):
+        progress = (y - shade_top) / shade_limit
+        alpha = round(220 * progress**1.4)
+        for x in range(width):
             shade_pixels[x, y] = (16, 0, 31, alpha)
     canvas = Image.alpha_composite(canvas, shade)
 
@@ -327,25 +361,25 @@ def _compose_brand_art(background: bytes, logo_content: bytes, headline: str) ->
     if logo_bbox is None:
         raise ValueError("Logo oficial sem conteudo visivel")
     logo = logo.crop(logo_bbox)
-    logo_width = round(width * 0.29)
+    logo_width = round(width * 0.34)
     logo_height = round(logo.height * logo_width / logo.width)
     logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
-    margin_x = round(width * 0.065)
-    margin_top = round(height * 0.055)
-    canvas.alpha_composite(logo, (margin_x, margin_top))
+    logo_x = (width - logo_width) // 2
+    logo_y = round(height * 0.87) - logo_height
+    canvas.alpha_composite(logo, (logo_x, logo_y))
 
     draw = ImageDraw.Draw(canvas)
-    safe_headline = " ".join(headline.strip().split())[:90]
-    max_text_width = round(width * 0.52)
-    max_text_height = round(height * 0.34)
-    selected_font = ImageFont.load_default(size=64)
+    safe_headline = _sentence_case(headline)[:90]
+    max_text_width = round(width * 0.84)
+    max_text_height = round(height * 0.24)
+    selected_font = _font(76, "Bold")
     selected_lines: list[str] = [safe_headline]
-    selected_spacing = 8
-    for font_size in range(68, 43, -2):
-        font = ImageFont.load_default(size=font_size)
+    selected_spacing = 10
+    for font_size in range(80, 44, -2):
+        font = _font(font_size, "Bold")
         lines = _wrap_headline(draw, safe_headline, font, max_text_width)
         line_height = draw.textbbox((0, 0), "Ag", font=font, stroke_width=2)[3]
-        spacing = max(7, round(font_size * 0.13))
+        spacing = max(8, round(font_size * 0.14))
         total_height = line_height * len(lines) + spacing * max(0, len(lines) - 1)
         if len(lines) <= 4 and total_height <= max_text_height:
             selected_font = font
@@ -353,17 +387,19 @@ def _compose_brand_art(background: bytes, logo_content: bytes, headline: str) ->
             selected_spacing = spacing
             break
 
-    accent_y = margin_top + logo_height + round(height * 0.09)
-    draw.rounded_rectangle(
-        (margin_x, accent_y, margin_x + round(width * 0.08), accent_y + 7),
-        radius=4,
-        fill=(123, 0, 255, 255),
-    )
-    text_y = accent_y + round(height * 0.04)
+    cta_font = _font(34, "SemiBold")
+    accent_height = 7
+    block_gap = round(height * 0.022)
     line_height = draw.textbbox((0, 0), "Ag", font=selected_font, stroke_width=2)[3]
+    headline_height = line_height * len(selected_lines) + selected_spacing * max(0, len(selected_lines) - 1)
+    cta_height = draw.textbbox((0, 0), STORY_CTA_TEXT, font=cta_font, stroke_width=1)[3]
+    block_height = headline_height + block_gap + accent_height + block_gap + cta_height
+    text_y = logo_y - round(height * 0.045) - block_height
+
     for line in selected_lines:
+        line_width = draw.textbbox((0, 0), line, font=selected_font, stroke_width=2)[2]
         draw.text(
-            (margin_x, text_y),
+            ((width - line_width) // 2, text_y),
             line,
             font=selected_font,
             fill=(255, 255, 255, 255),
@@ -371,6 +407,25 @@ def _compose_brand_art(background: bytes, logo_content: bytes, headline: str) ->
             stroke_fill=(255, 255, 255, 255),
         )
         text_y += line_height + selected_spacing
+
+    accent_width = round(width * 0.1)
+    accent_y = text_y + block_gap
+    draw.rounded_rectangle(
+        ((width - accent_width) // 2, accent_y, (width + accent_width) // 2, accent_y + accent_height),
+        radius=4,
+        fill=(123, 0, 255, 255),
+    )
+
+    cta_y = accent_y + accent_height + block_gap
+    cta_width = draw.textbbox((0, 0), STORY_CTA_TEXT, font=cta_font, stroke_width=1)[2]
+    draw.text(
+        ((width - cta_width) // 2, cta_y),
+        STORY_CTA_TEXT,
+        font=cta_font,
+        fill=(219, 200, 255, 255),
+        stroke_width=1,
+        stroke_fill=(16, 0, 31, 255),
+    )
 
     output = io.BytesIO()
     canvas.convert("RGB").save(output, format="PNG", optimize=True)

@@ -12,6 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 from app.core.config import settings
 from app.services.marketing_asset_service import store_generated_art
 from app.services.marketing_brand_system import (
+    CAPTION_ONLY_SYSTEM_PROMPT,
     COPY_SYSTEM_PROMPT,
     TOPIC_SUGGESTION_SYSTEM_PROMPT,
     build_image_prompt,
@@ -185,6 +186,47 @@ async def generate_copy_and_prompt(title: str, brief: str, recent_captions: list
             "caption": str(result["caption"]),
             "image_prompt": build_image_prompt(str(result["headline"]), str(result["visual_concept"])),
         }
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(502, "A IA de redação retornou um formato inválido.") from exc
+
+
+async def generate_caption_only(
+    title: str,
+    brief: str,
+    caption_reference: str,
+    recent_captions: list[str],
+) -> str:
+    """Só a legenda — usada quando a arte já existe (gerada aqui ou enviada
+    pronta pela usuária) e não precisa passar pelo gerador de imagem de novo."""
+    if not settings.groq_api_key:
+        base = caption_reference.strip() or f"{title}\n\n{brief}".strip()
+        return base
+
+    payload = {
+        "title": title,
+        "brief": brief,
+        "caption_reference": caption_reference.strip(),
+        "recent_instagram_captions": recent_captions[:12],
+    }
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
+            json={
+                "model": settings.groq_model,
+                "temperature": 0.55,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {"role": "system", "content": CAPTION_ONLY_SYSTEM_PROMPT},
+                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                ],
+            },
+        )
+    if response.status_code >= 400:
+        raise HTTPException(502, f"Falha ao gerar a legenda: {response.text[:220]}")
+    try:
+        result = json.loads(response.json()["choices"][0]["message"]["content"])
+        return str(result["caption"])
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(502, "A IA de redação retornou um formato inválido.") from exc
 

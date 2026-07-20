@@ -15,6 +15,7 @@ from app.services.marketing_asset_service import art_response, read_art_bytes, s
 from app.services.marketing_canva_service import build_canva_pptx
 from app.services.marketing_content_service import (
     generate_art,
+    generate_caption_only,
     generate_copy_and_prompt,
     normalize_uploaded_art,
     suggest_content_topics,
@@ -319,6 +320,33 @@ async def generate_content(content_id: int, db: Session = Depends(get_db)):
         item.error_message = str(exc.detail)
         db.commit()
         raise
+    db.commit()
+    db.refresh(item)
+    return _serialize(item)
+
+
+class CaptionRequest(BaseModel):
+    caption_reference: str = Field(default="", max_length=4000)
+
+
+@router.post("/{content_id}/generate-caption")
+async def generate_content_caption(content_id: int, payload: CaptionRequest, db: Session = Depends(get_db)):
+    """Só a legenda — usada quando a arte já existe (gerada aqui ou enviada
+    pronta pela usuária) e não precisa passar pelo gerador de imagem de novo.
+    Se caption_reference vier preenchida, a IA imita o tom/estrutura dela
+    (trocando qualquer nome de empresa mencionado por "4Core")."""
+    item = _get(db, content_id)
+    if item.status in {"generating", "publishing", "published"}:
+        raise HTTPException(409, "Esta publicação não pode ter a legenda gerada agora.")
+    try:
+        recent = await MetaMarketingService().instagram_media()
+        captions = [str(post.get("caption", ""))[:600] for post in recent if post.get("caption")]
+    except Exception:
+        captions = []
+    item.caption = await generate_caption_only(item.title, item.brief, payload.caption_reference, captions)
+    item.error_message = ""
+    if item.art_path:
+        item.status = "awaiting_approval"
     db.commit()
     db.refresh(item)
     return _serialize(item)

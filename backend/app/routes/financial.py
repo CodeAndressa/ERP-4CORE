@@ -107,6 +107,13 @@ def collections_status():
     }
 
 
+@router.get('/collections/history')
+def collections_history(db: Session = Depends(get_db)):
+    """Histórico de cobranças automáticas disparadas — inclui quando cada
+    payment_id foi identificado como pago (resolved_at)."""
+    return {"items": collections_service.history(db)}
+
+
 @router.get('/collections/preview')
 async def collections_preview(db: Session = Depends(get_db)):
     """Só leitura — nunca envia e-mail nem grava no controle de reenvio."""

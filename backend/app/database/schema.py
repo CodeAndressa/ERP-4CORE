@@ -41,6 +41,16 @@ PROPOSAL_COLUMNS = {
     'updated_at': 'TIMESTAMPTZ DEFAULT NOW()',
 }
 
+# Adicionadas depois que dunning_log já existia em produção — sem isso,
+# create_all() não altera tabela existente, só cria as que faltam.
+DUNNING_LOG_COLUMNS = {
+    'customer': "VARCHAR(200) NOT NULL DEFAULT ''",
+    'value': 'FLOAT DEFAULT 0',
+    'resolved_at': 'TIMESTAMPTZ',
+    'resolved_status': "VARCHAR(40) NOT NULL DEFAULT ''",
+    'resolved_payment_date': "VARCHAR(20) NOT NULL DEFAULT ''",
+}
+
 
 def _dialect(engine: Engine) -> str:
     return engine.dialect.name
@@ -149,5 +159,7 @@ def ensure_runtime_schema(engine: Engine) -> bool:
         _ensure_columns(engine, 'proposals', PROPOSAL_COLUMNS)
         _relax_not_null_except(engine, 'leads', LEAD_REQUIRED_COLUMNS)
         _drop_check_constraints(engine, 'leads')
+
+    _ensure_columns(engine, 'dunning_log', DUNNING_LOG_COLUMNS)
 
     return recreated_commercial

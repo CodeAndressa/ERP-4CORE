@@ -154,18 +154,44 @@ def _build_email(charge: dict[str, Any]) -> tuple[str, str]:
     return subject, html
 
 
+async def _all_overdue_charges() -> list[dict[str, Any]]:
+    result = await AsaasService().charges(status_group="overdue", limit=500)
+    return result["data"]
+
+
 async def eligible_overdue_charges() -> list[dict[str, Any]]:
-    result = await AsaasService().charges(status_group="overdue", limit=200)
+    charges = await _all_overdue_charges()
     return [
-        item for item in result["data"]
+        item for item in charges
         if item.get("days_overdue", 0) >= DUNNING_START_DAYS and item.get("customer_email")
     ]
+
+
+async def _resolve_stale_logs(db: Session, current_overdue_ids: set[str]) -> None:
+    """Todo payment_id que já recebeu lembrete e não está mais na lista de
+    vencidas do ASAAS foi resolvido (pago, cancelado ou estornado) — é assim
+    que a tela de histórico sabe "identificamos o pagamento em tal dia"."""
+    pending = db.query(DunningLog).filter(DunningLog.resolved_at.is_(None)).all()
+    for log in pending:
+        if log.payment_id in current_overdue_ids:
+            continue
+        log.resolved_at = datetime.now(timezone.utc)
+        try:
+            detail = await AsaasService().charge_detail(log.payment_id)
+            log.resolved_status = detail.get("status", "")
+            log.resolved_payment_date = detail.get("payment_date") or detail.get("client_payment_date") or ""
+        except Exception:
+            log.resolved_status = "DESCONHECIDO"
 
 
 async def run_dunning(db: Session, dry_run: bool, persist: bool = True) -> dict[str, Any]:
     """persist=False é usado pelo /preview — nunca grava em DunningLog nem
     conta como um envio, só mostra o que aconteceria numa rodada real."""
-    charges = await eligible_overdue_charges()
+    all_overdue = await _all_overdue_charges()
+    charges = [
+        item for item in all_overdue
+        if item.get("days_overdue", 0) >= DUNNING_START_DAYS and item.get("customer_email")
+    ]
     sent: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
 
@@ -189,6 +215,8 @@ async def run_dunning(db: Session, dry_run: bool, persist: bool = True) -> dict[
             if log is None:
                 log = DunningLog(payment_id=payment_id, send_count=0)
                 db.add(log)
+            log.customer = charge["customer"]
+            log.value = charge["value"]
             log.send_count += 1
             log.last_sent_at = datetime.now(timezone.utc)
 
@@ -202,6 +230,8 @@ async def run_dunning(db: Session, dry_run: bool, persist: bool = True) -> dict[
         })
 
     if persist:
+        current_ids = {item["id"] for item in all_overdue}
+        await _resolve_stale_logs(db, current_ids)
         db.commit()
     return {
         "dry_run": dry_run,
@@ -209,3 +239,21 @@ async def run_dunning(db: Session, dry_run: bool, persist: bool = True) -> dict[
         "sent": sent,
         "skipped": skipped,
     }
+
+
+def history(db: Session) -> list[dict[str, Any]]:
+    logs = db.query(DunningLog).order_by(DunningLog.last_sent_at.desc().nullslast()).all()
+    return [
+        {
+            "payment_id": log.payment_id,
+            "customer": log.customer,
+            "value": log.value,
+            "send_count": log.send_count,
+            "last_sent_at": log.last_sent_at.isoformat() if log.last_sent_at else None,
+            "resolved_at": log.resolved_at.isoformat() if log.resolved_at else None,
+            "resolved_status": log.resolved_status,
+            "resolved_payment_date": log.resolved_payment_date,
+            "status": "resolvido" if log.resolved_at else "em cobrança",
+        }
+        for log in logs
+    ]

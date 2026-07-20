@@ -297,6 +297,92 @@ function DunningCard() {
   );
 }
 
+type DunningHistoryItem = {
+  payment_id: string;
+  customer: string;
+  value: number;
+  send_count: number;
+  last_sent_at: string | null;
+  resolved_at: string | null;
+  resolved_status: string;
+  resolved_payment_date: string;
+  status: 'em cobrança' | 'resolvido';
+};
+
+function dateTimeLabel(value?: string | null) {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
+}
+
+function DunningHistoryCard() {
+  const [items, setItems] = useState<DunningHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api.get<{ items: DunningHistoryItem[] }>('/financial/collections/history')
+      .then(({ data }) => setItems(data.items ?? []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <div className="h-24 animate-pulse rounded-2xl" style={{ background: 'var(--erp-surface-2)' }} />;
+  if (items.length === 0) return null;
+
+  return (
+    <div className="overflow-hidden rounded-2xl border bg-white" style={{ borderColor: 'var(--erp-border)' }}>
+      <div className="flex items-center justify-between border-b p-4" style={{ borderColor: 'var(--erp-border)' }}>
+        <div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Histórico da régua de cobrança</p>
+          <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Todo disparo automático, e quando cada pagamento foi identificado</p>
+        </div>
+        <button type="button" onClick={load} className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--erp-surface-2)]" aria-label="Atualizar">
+          <RefreshCw size={14} />
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b" style={{ borderColor: 'var(--erp-border)' }}>
+              {['Cliente', 'Valor', 'Lembretes', 'Último envio', 'Status'].map((h) => (
+                <th key={h} className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--erp-text-muted)' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y" style={{ borderColor: 'var(--erp-border)' }}>
+            {items.map((item) => (
+              <tr key={item.payment_id}>
+                <td className="px-4 py-3 font-semibold" style={{ color: 'var(--erp-text)' }}>{item.customer}</td>
+                <td className="px-4 py-3 tabular-nums" style={{ color: 'var(--erp-text)' }}>{money(item.value)}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{item.send_count}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{dateTimeLabel(item.last_sent_at)}</td>
+                <td className="px-4 py-3">
+                  {item.status === 'resolvido' ? (
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: '#ecfdf5', color: '#047857' }}>
+                        <CheckCircle2 size={12} /> Pagamento identificado
+                      </span>
+                      <p className="mt-1 text-[11px]" style={{ color: 'var(--erp-text-dim)' }}>
+                        {dateTimeLabel(item.resolved_at)}{item.resolved_payment_date ? ` · pago em ${dateLabel(item.resolved_payment_date)}` : ''}
+                      </p>
+                    </div>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: 'rgba(180,83,9,0.12)', color: '#b45309' }}>
+                      <Clock3 size={12} /> Em cobrança
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function CobrancasPage() {
   const [searchParams] = useSearchParams();
   const [kind, setKind] = useState<ChargeKind>('all');
@@ -361,6 +447,7 @@ export default function CobrancasPage() {
       {error && <div className="flex items-center gap-2 rounded-xl border p-4 text-sm" style={{ background: '#fff1f2', borderColor: '#fecdd3', color: '#9f1239' }}><AlertCircle size={17} />{error}</div>}
 
       <DunningCard />
+      <DunningHistoryCard />
 
       <div className="flex gap-3 overflow-x-auto pb-1">
         <div className="min-w-[168px] flex-1 rounded-2xl border bg-white p-4" style={{ borderColor: 'var(--erp-border)' }}>

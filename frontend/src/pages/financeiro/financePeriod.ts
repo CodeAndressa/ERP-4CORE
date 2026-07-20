@@ -6,11 +6,15 @@ export type FinancePeriod = {
   endDate?: string;
 };
 
-export const DEFAULT_PERIOD: FinancePeriod = { preset: 'last30' };
+// O ASAAS usa "Este mês" como recorte operacional padrão. Manter o mesmo
+// período evita comparar cobranças futuras/passadas com o painel mensal.
+export const DEFAULT_PERIOD: FinancePeriod = { preset: 'month' };
 
 function toIso(date: Date) {
-  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return copy.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function daysBetween(start: string, end: string) {
@@ -30,12 +34,14 @@ export function getPeriodRange(period: FinancePeriod) {
 
   if (period.preset === 'month') {
     const startDate = toIso(new Date(now.getFullYear(), now.getMonth(), 1));
-    return { label: 'Este mês', startDate, endDate: today, days: daysBetween(startDate, today) };
+    const endDate = toIso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    return { label: 'Este mês', startDate, endDate, days: daysBetween(startDate, endDate) };
   }
 
   if (period.preset === 'year') {
     const startDate = toIso(new Date(now.getFullYear(), 0, 1));
-    return { label: 'Este ano', startDate, endDate: today, days: daysBetween(startDate, today) };
+    const endDate = toIso(new Date(now.getFullYear(), 11, 31));
+    return { label: 'Este ano', startDate, endDate, days: daysBetween(startDate, endDate) };
   }
 
   if (period.preset === 'all') {

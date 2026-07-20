@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, Banknote, RefreshCw, ShieldCheck, Wallet, WalletCards } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowDownRight, Check, CheckCircle2, Clock3, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { api } from '../../services/api';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
@@ -12,11 +12,13 @@ import { DEFAULT_PERIOD, buildOverviewUrl, isInFinancePeriod, type FinancePeriod
 export type AsaasData = {
   account_balance?: number | null;
   received_value: number;
+  confirmed_value: number;
   pending_value: number;
   overdue_value: number;
   overdue_count: number;
   pending_count: number;
   received_count: number;
+  confirmed_count: number;
   customers_total: number;
   recurring_value: number;
   recurring_count: number;
@@ -38,7 +40,6 @@ export type AsaasData = {
 };
 
 const RECEIVED_STATUSES = new Set(['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'received', 'confirmed', 'received_in_cash']);
-const PENDING_STATUSES = new Set(['PENDING', 'OVERDUE', 'pending', 'overdue']);
 
 export const money = (value: number) => currency(value);
 
@@ -98,20 +99,10 @@ function FinanceiroCockpit() {
 
   const manual = data?.manual_financial;
   const periodPayments = (data?.payments ?? []).filter((payment) => isInFinancePeriod(payment.due_date, period));
-  const receivedPayments = periodPayments.filter((payment) => RECEIVED_STATUSES.has(payment.status ?? ''));
-  const pendingPayments = periodPayments.filter((payment) => PENDING_STATUSES.has(payment.status ?? ''));
-  const received = receivedPayments.reduce((sum, item) => sum + item.value, 0);
-  const pending = pendingPayments.reduce((sum, item) => sum + item.value, 0);
   const backendDirectSales = (manual?.direct_sales ?? []).filter((item) => !deletedDirectSaleIds.includes(item.id) && isInFinancePeriod(item.date, period));
   const effectiveDirectSales = [...backendDirectSales, ...localDirectSales.filter((item) => isInFinancePeriod(item.date, period))];
-  const directSales = effectiveDirectSales.filter((item) => !item.matched).reduce((sum, item) => sum + item.value, 0);
   const periodFixedCosts = (manual?.fixed_costs ?? []).filter((item) => isInFinancePeriod(item.date, period));
   const periodRecurringCosts = (manual?.recurring_costs ?? []).filter((item) => isInFinancePeriod(item.date, period));
-  const fixedCosts = periodFixedCosts.reduce((sum, item) => sum + item.value, 0);
-  const recurringCosts = periodRecurringCosts.reduce((sum, item) => sum + item.value, 0);
-  const totalCosts = fixedCosts + recurringCosts;
-  const net = received + directSales - totalCosts;
-  const margin = received + directSales > 0 ? (net / (received + directSales)) * 100 : 0;
 
   const monthly = new Map<string, { month: string; asaas: number; direct: number; fixed: number; recurring: number }>();
   periodPayments.forEach((payment) => {
@@ -164,16 +155,23 @@ function FinanceiroCockpit() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <MetricCard label="Saldo em conta" value={loading ? '...' : data?.account_balance != null ? currency(data.account_balance, 2) : '—'} detail="Saldo atual na ASAAS, fora do período selecionado" tone="violet" icon={<Wallet size={16} />} />
-        <MetricCard label="Receita realizada" value={loading ? '...' : currency(received + directSales, 2)} detail={`${currency(received, 2)} ASAAS + ${currency(directSales, 2)} venda direta`} tone="emerald" icon={<ArrowUpRight size={16} />} />
-        <MetricCard label="Custos controlados" value={loading ? '...' : currency(totalCosts, 2)} detail={`${currency(fixedCosts, 2)} fixos + ${currency(recurringCosts, 2)} recorrentes`} tone="rose" icon={<ArrowDownRight size={16} />} />
-        <MetricCard label="Resultado líquido" value={loading ? '...' : currency(net, 2)} detail={`${margin.toFixed(1)}% margem operacional`} tone={net >= 0 ? 'cyan' : 'amber'} icon={<Banknote size={16} />} />
-        <MetricCard label="A receber" value={loading ? '...' : currency(pending, 2)} detail={`${pendingPayments.length} cobranças pendentes`} tone="violet" icon={<WalletCards size={16} />} />
+        <MetricCard label="Saldo em conta" value={loading ? '...' : data?.account_balance != null ? currency(data.account_balance, 2) : '—'} detail="Disponível agora no ASAAS" tone="violet" icon={<Wallet size={16} />} />
+        <Link to="/financeiro/cobrancas?status=received" className="rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ outlineColor: 'var(--erp-violet)' }}><MetricCard label="Recebidas" value={loading ? '...' : currency(data?.received_value ?? 0, 2)} detail={`${data?.received_count ?? 0} cobranças com saldo disponível`} tone="emerald" icon={<CheckCircle2 size={16} />} /></Link>
+        <Link to="/financeiro/cobrancas?status=confirmed" className="rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ outlineColor: 'var(--erp-violet)' }}><MetricCard label="Confirmadas" value={loading ? '...' : currency(data?.confirmed_value ?? 0, 2)} detail={`${data?.confirmed_count ?? 0} aguardando crédito em conta`} tone="cyan" icon={<Check size={16} />} /></Link>
+        <Link to="/financeiro/cobrancas?status=pending" className="rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ outlineColor: 'var(--erp-violet)' }}><MetricCard label="Aguardando pagamento" value={loading ? '...' : currency(data?.pending_value ?? 0, 2)} detail={`${data?.pending_count ?? 0} cobranças em aberto`} tone="amber" icon={<Clock3 size={16} />} /></Link>
+        <Link to="/financeiro/cobrancas?status=overdue" className="rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ outlineColor: 'var(--erp-violet)' }}><MetricCard label="Vencidas" value={loading ? '...' : currency(data?.overdue_value ?? 0, 2)} detail={`${data?.overdue_count ?? 0} cobranças para agir`} tone="rose" icon={<AlertCircle size={16} />} /></Link>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-1">
         <Card padding="lg">
           <CardHeader title="Receita x custos" subtitle="Visão mensal consolidada" />
+          {loading ? (
+            <div className="flex h-[250px] items-end gap-2 px-1">
+              {[55, 70, 45, 85, 60, 75, 50, 90, 65, 80, 55, 70].map((h, i) => (
+                <div key={i} className="flex-1 animate-pulse rounded-t-md" style={{ height: `${h}%`, background: 'var(--erp-surface-2)' }} />
+              ))}
+            </div>
+          ) : (
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
@@ -186,6 +184,7 @@ function FinanceiroCockpit() {
               <Bar dataKey="recurring" name="Recorrentes" stackId="custos" fill="var(--erp-amber)" radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </Card>
       </div>
 
@@ -201,7 +200,10 @@ function FinanceiroCockpit() {
               </tr>
             </thead>
             <tbody className="divide-y" style={{ borderColor: 'var(--erp-border)' }}>
-              {rows.map((row) => (
+              {loading && (
+                <tr><td colSpan={6}><div className="space-y-2 py-2">{[1, 2, 3].map((i) => <div key={i} className="h-9 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}</div></td></tr>
+              )}
+              {!loading && rows.map((row) => (
                 <tr key={row.month}>
                   <td className="py-3 font-medium" style={{ color: 'var(--erp-text)' }}>{row.label}</td>
                   <td className="py-3 tabular-nums" style={{ color: 'var(--erp-emerald)' }}>{currency(row.asaas, 2)}</td>

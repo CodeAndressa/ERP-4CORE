@@ -45,6 +45,15 @@ PAYMENT_STATUS_LABELS = {
     'AWAITING_RISK_ANALYSIS': 'Em analise de risco',
 }
 
+TRANSACTION_TYPE_LABELS = {
+    'PAYMENT_RECEIVED': 'Cobrança recebida',
+    'PAYMENT_FEE': 'Taxa de cobrança',
+    'PAYMENT_MESSAGING_NOTIFICATION_FEE': 'Taxa de mensageria',
+    'TRANSFER': 'Transferência',
+    'BILL_PAYMENT': 'Pagamento de conta',
+    'CREDIT_BUREAU_REPORT_FEE': 'Consulta de crédito',
+}
+
 RECEIVED_STATES = {'RECEIVED', 'RECEIVED_IN_CASH'}
 CONFIRMED_STATES = {'CONFIRMED'}
 PENDING_STATES = {'PENDING'}
@@ -142,6 +151,26 @@ class AsaasService:
     async def subscriptions(self) -> list[dict[str, Any]]:
         all_subs = await self._get_all('subscriptions')
         return [subscription for subscription in all_subs if (subscription.get('status') or '').upper() == 'ACTIVE']
+
+    async def timeline(self, days: int = 30, limit: int = 60) -> list[dict[str, Any]]:
+        """Extrato da conta ASAAS — mesmo endpoint que alimenta o extrato
+        nativo deles (financialTransactions): todo lancamento (recebimento,
+        taxa, Pix enviado, saque, pagamento de conta...) com saldo corrente
+        apos cada um, mais recente primeiro."""
+        since = (date.today() - timedelta(days=days)).isoformat()
+        items = await self._get_all('financialTransactions', {'startDate': since}, max_items=limit)
+        entries = [
+            {
+                'date': item.get('date'),
+                'value': float(item.get('value') or 0),
+                'balance': float(item.get('balance') or 0),
+                'description': item.get('description') or TRANSACTION_TYPE_LABELS.get(item.get('type'), item.get('type') or 'Movimentação'),
+                'type': item.get('type'),
+            }
+            for item in items
+        ]
+        entries.sort(key=lambda entry: entry['date'], reverse=True)
+        return entries[:limit]
 
     async def _customer_map(self) -> dict[str, dict[str, Any]]:
         customers = await self._get_all('customers', {'sort': 'name', 'order': 'asc'})

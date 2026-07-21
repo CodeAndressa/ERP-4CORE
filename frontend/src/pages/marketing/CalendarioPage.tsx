@@ -5,7 +5,7 @@ import { Card } from '../../shared/components/ui/Card';
 import { api } from '../../services/api';
 
 interface ApiPost { id: string | number; date?: string }
-interface ContentItem { id: number; title: string; channel: string; scheduled_at: string | null; status: string }
+interface ContentItem { id: number; title: string; channel: string; scheduled_at: string | null; published_at?: string | null; status: string }
 interface ExternalItem { id: number; title: string; channel: string; scheduled_at: string; notes: string }
 interface ScheduledEntry { id: number; title: string; channel: string; source: 'erp' | 'external' }
 
@@ -54,9 +54,14 @@ export default function CalendarioPage() {
       api.get<ApiPost[]>('/marketing/posts').catch(() => ({ data: [] as ApiPost[] })),
       api.get<{ items: ContentItem[] }>('/marketing/content', { params: { status: 'scheduled' } }).catch(() => ({ data: { items: [] as ContentItem[] } })),
       api.get<{ items: ExternalItem[] }>('/marketing/scheduled-external').catch(() => ({ data: { items: [] as ExternalItem[] } })),
-    ]).then(([postsRes, contentRes, externalRes]) => {
+      api.get<{ items: ContentItem[] }>('/marketing/content', { params: { status: 'published' } }).catch(() => ({ data: { items: [] as ContentItem[] } })),
+    ]).then(([postsRes, contentRes, externalRes, publishedRes]) => {
       const posts = Array.isArray(postsRes.data) ? postsRes.data : [];
-      setPublishedDates(new Set(posts.map((p) => p.date).filter((d): d is string => Boolean(d))));
+      const publishedDays = posts.map((p) => p.date).filter((d): d is string => Boolean(d));
+      for (const item of publishedRes.data?.items ?? []) {
+        if (item.published_at) publishedDays.push(item.published_at.slice(0, 10));
+      }
+      setPublishedDates(new Set(publishedDays));
 
       const map: Record<string, ScheduledEntry[]> = {};
       for (const item of contentRes.data?.items ?? []) {
@@ -205,32 +210,54 @@ export default function CalendarioPage() {
             <span key={`${label}-${i}`} className="py-0.5 text-[9px] font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-dim)' }}>{label}</span>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-0.5 px-1 pb-1">
+        <div className="grid grid-cols-7 gap-1 px-1 pb-1">
           {cells.map((cell) => {
             const published = publishedDates.has(cell.date);
-            const scheduled = (scheduledByDate[cell.date] ?? []).length > 0;
+            const scheduledCount = (scheduledByDate[cell.date] ?? []).length;
+            const scheduled = scheduledCount > 0;
             const isToday = cell.date === todayIso;
             const isSelected = cell.date === selectedDate;
+
+            let background = 'transparent';
+            let color = 'var(--erp-text)';
+            let ring: string | undefined;
+            if (isSelected) {
+              background = 'var(--erp-violet)';
+              color = '#fff';
+            } else if (scheduled) {
+              background = 'var(--erp-violet)';
+              color = '#fff';
+              if (published) ring = '0 0 0 2px var(--erp-surface), 0 0 0 4px var(--erp-emerald)';
+            } else if (published) {
+              background = 'var(--erp-emerald)';
+              color = '#fff';
+            } else if (isToday) {
+              background = 'var(--erp-violet-soft)';
+            }
+
             return (
               <button
                 key={cell.date}
                 type="button"
                 onClick={() => cell.inMonth && setSelectedDate((prev) => (prev === cell.date ? null : cell.date))}
                 disabled={!cell.inMonth}
-                aria-label={`${cell.day}${published ? ', publicado' : ''}${scheduled ? ', agendado' : ''}`}
-                className="flex h-9 flex-col items-center justify-center gap-0.5 rounded-lg text-xs transition-colors disabled:cursor-default sm:h-10"
+                aria-label={`${cell.day}${published ? ', publicado' : ''}${scheduled ? `, ${scheduledCount} agendado(s)` : ''}`}
+                className="relative flex h-10 flex-col items-center justify-center gap-0.5 rounded-xl text-xs font-semibold transition-transform hover:scale-105 disabled:cursor-default disabled:hover:scale-100 sm:h-11"
                 style={{
-                  background: isSelected ? 'var(--erp-violet)' : isToday ? 'var(--erp-violet-soft)' : 'transparent',
-                  color: !cell.inMonth ? 'var(--erp-text-dim)' : isSelected ? '#fff' : 'var(--erp-text)',
-                  opacity: cell.inMonth ? 1 : 0.4,
-                  fontWeight: isToday || isSelected ? 700 : 500,
+                  background,
+                  color: !cell.inMonth ? 'var(--erp-text-dim)' : color,
+                  opacity: cell.inMonth ? 1 : 0.35,
+                  fontWeight: isToday || isSelected || scheduled || published ? 700 : 500,
+                  boxShadow: isSelected ? undefined : ring,
                 }}
               >
                 <span>{cell.day}</span>
-                {(published || scheduled) && (
-                  <span className="flex items-center gap-0.5">
-                    {published && <span className="h-1 w-1 rounded-full" style={{ background: isSelected ? '#fff' : 'var(--erp-emerald)' }} />}
-                    {scheduled && <span className="h-1 w-1 rounded-full" style={{ background: isSelected ? '#fff' : 'var(--erp-violet)' }} />}
+                {scheduledCount > 1 && (
+                  <span
+                    className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold"
+                    style={{ background: 'var(--erp-amber)', color: '#fff' }}
+                  >
+                    {scheduledCount}
                   </span>
                 )}
               </button>
@@ -239,8 +266,8 @@ export default function CalendarioPage() {
         </div>
 
         <div className="flex items-center gap-3 px-1 pb-1 pt-2 text-[10px]" style={{ color: 'var(--erp-text-muted)' }}>
-          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--erp-emerald)' }} /> Publicado</span>
-          <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--erp-violet)' }} /> Agendado via Meta</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--erp-emerald)' }} /> Publicado</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--erp-violet)' }} /> Agendado (Estúdio ou externo)</span>
         </div>
       </Card>
 

@@ -35,6 +35,14 @@ def list_categories():
     return []
 
 
+@router.get('/timeline')
+async def financial_timeline(days: int = Query(default=30, ge=1, le=365), refresh: bool = Query(default=False)):
+    try:
+        return {'items': await AsaasService(force_refresh=refresh).timeline(days=days)}
+    except AsaasUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @router.get('/manual')
 def manual_financial():
     return manual_financial_snapshot()

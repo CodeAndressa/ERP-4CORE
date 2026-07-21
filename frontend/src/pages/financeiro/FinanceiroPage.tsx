@@ -41,6 +41,16 @@ export type AsaasData = {
 
 const RECEIVED_STATUSES = new Set(['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'received', 'confirmed', 'received_in_cash']);
 
+type TimelineEntry = { date: string; value: number; balance: number; description: string; type: string };
+
+function timelineWhen(iso: string) {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return 'Hoje';
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
 export const money = (value: number) => currency(value);
 
 
@@ -77,6 +87,8 @@ function FinanceiroCockpit() {
   const [period, setPeriod] = useState<FinancePeriod>(DEFAULT_PERIOD);
   const [localDirectSales, setLocalDirectSales] = useState<DirectSale[]>([]);
   const [deletedDirectSaleIds, setDeletedDirectSaleIds] = useState<string[]>([]);
+  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(true);
 
   const load = useCallback((forceRefresh = false) => {
     setLoading(true);
@@ -89,6 +101,12 @@ function FinanceiroCockpit() {
       })
       .catch((err) => setError(err?.response?.data?.detail || 'Falha ao conectar dados financeiros'))
       .finally(() => setLoading(false));
+
+    setTimelineLoading(true);
+    api.get<{ items: TimelineEntry[] }>(`/financial/timeline?days=30${forceRefresh ? '&refresh=true' : ''}`)
+      .then(({ data: response }) => setTimeline(response.items ?? []))
+      .catch(() => setTimeline([]))
+      .finally(() => setTimelineLoading(false));
   }, [period]);
 
   useEffect(() => { load(false); }, [load]);
@@ -162,31 +180,70 @@ function FinanceiroCockpit() {
         <Link to="/financeiro/cobrancas?status=overdue" className="rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" style={{ outlineColor: 'var(--erp-violet)' }}><MetricCard label="Vencidas" value={loading ? '...' : currency(data?.overdue_value ?? 0, 2)} detail={`${data?.overdue_count ?? 0} cobranças para agir`} tone="rose" icon={<AlertCircle size={16} />} /></Link>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-1">
-        <Card padding="lg">
-          <CardHeader title="Receita x custos" subtitle="Visão mensal consolidada" />
-          {loading ? (
-            <div className="flex h-[250px] items-end gap-2 px-1">
-              {[55, 70, 45, 85, 60, 75, 50, 90, 65, 80, 55, 70].map((h, i) => (
-                <div key={i} className="flex-1 animate-pulse rounded-t-md" style={{ height: `${h}%`, background: 'var(--erp-surface-2)' }} />
-              ))}
-            </div>
-          ) : (
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: 'var(--erp-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: 'var(--erp-text-dim)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `R$${(Number(value) / 1000).toFixed(0)}k`} />
-              <Tooltip content={chartTooltip} />
-              <Bar dataKey="asaas" name="ASAAS" stackId="receita" fill="var(--erp-emerald)" radius={[5, 5, 0, 0]} />
-              <Bar dataKey="direct" name="Venda direta" stackId="receita" fill="var(--erp-cyan)" radius={[5, 5, 0, 0]} />
-              <Bar dataKey="fixed" name="Fixos" stackId="custos" fill="var(--erp-rose)" radius={[5, 5, 0, 0]} />
-              <Bar dataKey="recurring" name="Recorrentes" stackId="custos" fill="var(--erp-amber)" radius={[5, 5, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-          )}
-        </Card>
-      </div>
+      <Card padding="lg">
+        <CardHeader title="Receita x custos" subtitle="Visão mensal consolidada" />
+        {loading ? (
+          <div className="flex h-[250px] items-end gap-2 px-1">
+            {[55, 70, 45, 85, 60, 75, 50, 90, 65, 80, 55, 70].map((h, i) => (
+              <div key={i} className="flex-1 animate-pulse rounded-t-md" style={{ height: `${h}%`, background: 'var(--erp-surface-2)' }} />
+            ))}
+          </div>
+        ) : (
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={rows} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--erp-border)" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: 'var(--erp-text-dim)', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: 'var(--erp-text-dim)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(value) => `R$${(Number(value) / 1000).toFixed(0)}k`} />
+            <Tooltip content={chartTooltip} />
+            <Bar dataKey="asaas" name="ASAAS" stackId="receita" fill="var(--erp-emerald)" radius={[5, 5, 0, 0]} />
+            <Bar dataKey="direct" name="Venda direta" stackId="receita" fill="var(--erp-cyan)" radius={[5, 5, 0, 0]} />
+            <Bar dataKey="fixed" name="Fixos" stackId="custos" fill="var(--erp-rose)" radius={[5, 5, 0, 0]} />
+            <Bar dataKey="recurring" name="Recorrentes" stackId="custos" fill="var(--erp-amber)" radius={[5, 5, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+        )}
+      </Card>
+
+      <Card padding="lg">
+        <CardHeader title="Extrato" subtitle="Movimentações da conta ASAAS · 30 dias, saldo após cada lançamento" />
+        {timelineLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-10 animate-pulse rounded-xl" style={{ background: 'var(--erp-surface-2)' }} />)}
+          </div>
+        ) : timeline.length === 0 ? (
+          <div className="flex h-[160px] flex-col items-center justify-center gap-2 text-center">
+            <Wallet size={20} style={{ color: 'var(--erp-text-dim)' }} />
+            <p className="text-xs" style={{ color: 'var(--erp-text-muted)' }}>Nenhuma movimentação nos últimos 30 dias</p>
+          </div>
+        ) : (
+          <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0" style={{ background: 'var(--erp-surface)' }}>
+                <tr style={{ borderBottom: '1px solid var(--erp-border)' }}>
+                  {['Data', 'Descrição', 'Valor', 'Saldo'].map((heading) => (
+                    <th key={heading} className="whitespace-nowrap py-2.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--erp-text-dim)' }}>{heading}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y" style={{ borderColor: 'var(--erp-border)' }}>
+                {timeline.map((entry, i) => {
+                  const isCredit = entry.value >= 0;
+                  return (
+                    <tr key={i}>
+                      <td className="whitespace-nowrap py-3 pr-3 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{timelineWhen(entry.date)}</td>
+                      <td className="max-w-md py-3 pr-3 text-xs" style={{ color: 'var(--erp-text)' }}>{entry.description}</td>
+                      <td className="whitespace-nowrap py-3 pr-3 text-right font-semibold tabular-nums" style={{ color: isCredit ? 'var(--erp-emerald)' : 'var(--erp-rose)' }}>
+                        {isCredit ? '+' : '-'}{currency(Math.abs(entry.value), 2)}
+                      </td>
+                      <td className="whitespace-nowrap py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--erp-text)' }}>{currency(entry.balance, 2)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Card padding="lg">
         <CardHeader title="Mapa mensal" subtitle="Tudo que importa para decidir rápido" />

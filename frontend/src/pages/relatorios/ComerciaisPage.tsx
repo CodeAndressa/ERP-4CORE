@@ -15,6 +15,29 @@ interface Lead {
 const money = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
+function downloadCsv(rows: Lead[], statusLabels: Record<string, string>, filename: string) {
+  const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+  const header = ['Lead', 'Status', 'Valor', 'Data'];
+  const lines = [
+    header.join(';'),
+    ...rows.map((lead) => [
+      escape(lead.name),
+      escape(statusLabels[lead.status] ?? lead.status),
+      String(lead.value ?? 0).replace('.', ','),
+      escape(lead.created_at ? new Date(lead.created_at).toLocaleDateString('pt-BR') : ''),
+    ].join(';')),
+  ];
+  const blob = new Blob([`﻿${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 const STATUS_LABELS: Record<string, string> = {
   novo: 'Novo', contato: 'Contato', qualificado: 'Qualificado', perdido: 'Perdido',
 };
@@ -48,7 +71,11 @@ export default function ComerciaisPage() {
     return acc;
   }, {});
 
+  const topLeads = leads.filter((l) => l.value).sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+
   function handleExport() {
+    if (topLeads.length === 0) return;
+    downloadCsv(topLeads, STATUS_LABELS, `relatorio-comercial-${new Date().toISOString().slice(0, 10)}.csv`);
     setExported(true);
     setTimeout(() => setExported(false), 2000);
   }
@@ -63,7 +90,8 @@ export default function ComerciaisPage() {
         </div>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all"
+          disabled={topLeads.length === 0}
+          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50"
           style={{
             background: exported ? 'rgba(4,120,87,0.12)' : 'var(--erp-surface)',
             color: exported ? 'var(--erp-emerald)' : 'var(--erp-text-muted)',
@@ -71,7 +99,7 @@ export default function ComerciaisPage() {
           }}
         >
           <Download size={13} />
-          {exported ? 'Exportado!' : 'Exportar PDF'}
+          {exported ? 'Exportado!' : 'Exportar CSV'}
         </button>
       </div>
 
@@ -122,9 +150,7 @@ export default function ComerciaisPage() {
                 </tr>
               </thead>
               <tbody>
-                {leads
-                  .filter((l) => l.value)
-                  .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+                {topLeads
                   .slice(0, 8)
                   .map((l, i, arr) => {
                     const cfg = STATUS_COLORS[l.status] ?? STATUS_COLORS.novo;
@@ -146,7 +172,7 @@ export default function ComerciaisPage() {
                       </tr>
                     );
                   })}
-                {leads.filter((l) => l.value).length === 0 && (
+                {topLeads.length === 0 && (
                   <tr><td colSpan={4} className="py-8 text-center text-sm" style={{ color: 'var(--erp-text-muted)' }}>Nenhum lead com valor estimado</td></tr>
                 )}
               </tbody>

@@ -179,7 +179,7 @@ export default function SettingsPage() {
               <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Usuários do sistema</p>
               <p className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>Crie acessos internos para a plataforma</p>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-violet-50 text-violet-700"><Shield size={15} /></div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full" style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-violet-light)' }}><Shield size={15} /></div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
@@ -204,7 +204,7 @@ export default function SettingsPage() {
                 <span className="rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ background: user.is_active ? 'rgba(4,120,87,0.1)' : 'var(--erp-surface)', color: user.is_active ? 'var(--erp-emerald)' : 'var(--erp-text-muted)' }}>{user.is_active ? 'Ativo' : 'Inativo'}</span>
               </div>
             ))}
-            {users.length === 0 && <div className="flex items-center gap-2 rounded-[22px] border border-dashed border-violet-100 px-3 py-4 text-sm" style={{ color: 'var(--erp-text-muted)' }}><Users size={14} />Nenhum usuário encontrado</div>}
+            {users.length === 0 && <div className="flex items-center gap-2 rounded-[22px] border border-dashed px-3 py-4 text-sm" style={{ borderColor: 'var(--erp-border)', color: 'var(--erp-text-muted)' }}><Users size={14} />Nenhum usuário encontrado</div>}
               </>
             )}
           </div>

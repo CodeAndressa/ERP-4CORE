@@ -17,6 +17,30 @@ interface AsaasData {
 
 const money = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
 
+function downloadCsv(rows: NonNullable<AsaasData['payments']>, filename: string) {
+  const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
+  const header = ['Cliente', 'Descrição', 'Valor', 'Data', 'Status'];
+  const lines = [
+    header.join(';'),
+    ...rows.map((payment) => [
+      escape(payment.customer),
+      escape(payment.description ?? ''),
+      payment.value.toFixed(2).replace('.', ','),
+      escape(payment.due_date ?? ''),
+      'Recebido',
+    ].join(';')),
+  ];
+  const blob = new Blob([`﻿${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function FinanceirosPage() {
   const [data, setData] = useState<AsaasData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,33 +58,36 @@ export default function FinanceirosPage() {
 
   useEffect(() => { load(false); }, [load]);
 
+  const received = data?.payments?.filter((payment) => ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(payment.status)).slice(0, 8) ?? [];
+
   function handleExport() {
+    if (received.length === 0) return;
+    downloadCsv(received, `relatorio-financeiro-${new Date().toISOString().slice(0, 10)}.csv`);
     setExported(true);
     setTimeout(() => setExported(false), 2000);
   }
 
-  const received = data?.payments?.filter((payment) => ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH'].includes(payment.status)).slice(0, 8) ?? [];
-
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 border-b border-violet-100 pb-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-center lg:justify-between" style={{ borderColor: 'var(--erp-border)' }}>
         <div className="flex min-w-0 flex-col gap-1 lg:flex-row lg:items-center lg:gap-3">
-          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-600">Relatórios</p>
+          <p className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--erp-violet-light)' }}>Relatórios</p>
           <h1 className="shrink-0 text-xl font-bold tracking-tight" style={{ color: 'var(--erp-text)' }}>Relatório Financeiro</h1>
           <p className="min-w-0 truncate text-sm" style={{ color: 'var(--erp-text-muted)' }}>Consolidado 365 dias · ASAAS</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <button onClick={() => load(true)} className="flex h-8 items-center gap-1.5 rounded-xl border border-violet-100 bg-white px-3 text-xs font-medium transition hover:border-violet-200 hover:text-violet-700" style={{ color: 'var(--erp-text-muted)' }}>
+          <button onClick={() => load(true)} className="flex h-8 items-center gap-1.5 rounded-xl bg-white px-3 text-xs font-medium transition-colors" style={{ border: '1px solid var(--erp-border)', color: 'var(--erp-text-muted)' }}>
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
             Atualizar
           </button>
           <button
             onClick={handleExport}
-            className={`flex h-8 items-center gap-2 rounded-xl border px-3 text-xs font-medium transition-all ${exported ? '' : 'border-violet-100 bg-white hover:border-violet-200 hover:text-violet-700'}`}
-            style={exported ? { borderColor: 'rgba(4,120,87,0.35)', background: 'rgba(4,120,87,0.08)', color: 'var(--erp-emerald)' } : { color: 'var(--erp-text-muted)' }}
+            disabled={received.length === 0}
+            className="flex h-8 items-center gap-2 rounded-xl px-3 text-xs font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50"
+            style={exported ? { border: '1px solid rgba(4,120,87,0.35)', background: 'rgba(4,120,87,0.08)', color: 'var(--erp-emerald)' } : { border: '1px solid var(--erp-border)', background: 'var(--erp-surface)', color: 'var(--erp-text-muted)' }}
           >
             <Download size={13} />
-            {exported ? 'Exportado!' : 'Exportar PDF'}
+            {exported ? 'Exportado!' : 'Exportar CSV'}
           </button>
         </div>
       </div>
@@ -84,7 +111,7 @@ export default function FinanceirosPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-violet-100">
+              <tr className="border-b" style={{ borderColor: 'var(--erp-border)' }}>
                 {['Cliente', 'Descrição', 'Valor', 'Data', 'Status'].map((heading) => (
                   <th key={heading} className="pb-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--erp-text-muted)' }}>{heading}</th>
                 ))}

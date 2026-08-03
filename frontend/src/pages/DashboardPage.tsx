@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Card, CardHeader } from '../shared/components/ui/Card';
 import { Badge } from '../shared/components/ui/Badge';
-import ScheduleCoverageAlert from '../shared/components/ScheduleCoverageAlert';
+import ScheduleCoverageAlert, { type Coverage } from '../shared/components/ScheduleCoverageAlert';
 
 type Payment = { id: string; customer: string; description: string; value: number; status: string; due_date: string };
 type AsaasData = {
@@ -60,15 +60,6 @@ type Lead = {
 type IgProfile = { followers_count?: number; media_count?: number; username?: string };
 type Client = { id?: string | number; name?: string; company?: string; email?: string };
 type Post = { id: string | number; title: string; channel: string; status: string; format?: string; date?: string };
-
-const FALLBACK_POSTS: Post[] = [
-  { id: 'm1', title: 'Checklist de conformidade trabalhista', channel: 'Instagram', status: 'publicado', format: 'Carrossel', date: '2026-07-01' },
-  { id: 'm2', title: 'Case Grupo Atlas', channel: 'LinkedIn', status: 'revisao', format: 'Artigo', date: '2026-07-04' },
-  { id: 'm3', title: 'Guia Portaria 671', channel: 'E-mail', status: 'agendado', format: 'Newsletter', date: '2026-07-08' },
-  { id: 'm4', title: 'Bastidores da 4Core', channel: 'Stories', status: 'ideia', format: 'Vídeo', date: '2026-07-10' },
-  { id: 'm5', title: 'Dicas de documentação trabalhista', channel: 'Instagram', status: 'agendado', format: 'Reels', date: '2026-07-15' },
-  { id: 'm6', title: 'Webinar: Compliance na prática', channel: 'LinkedIn', status: 'agendado', format: 'Evento', date: '2026-07-18' },
-];
 
 const STATUS_LABELS: Record<string, string> = {
   publicado: 'Publicado',
@@ -189,6 +180,7 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [igProfile, setIgProfile] = useState<IgProfile | null>(null);
   const [secondaryLoading, setSecondaryLoading] = useState(true);
 
@@ -219,16 +211,18 @@ export default function DashboardPage() {
       api.get<Client[] | { data?: Client[] }>('/clients'),
       api.get<Post[]>('/marketing/posts'),
       api.get<IgProfile>('/marketing/meta/instagram/profile'),
+      api.get<Coverage>('/marketing/schedule-coverage'),
     ])
-      .then(([leadResult, clientResult, postResult, igResult]) => {
+      .then(([leadResult, clientResult, postResult, igResult, coverageResult]) => {
+        // Buscado aqui e repassado ao alerta como prop: os dois precisam do mesmo
+        // dado, e sem isso a mesma rota seria chamada duas vezes na mesma tela.
+        setCoverage(coverageResult.status === 'fulfilled' ? coverageResult.value.data : null);
         if (leadResult.status === 'fulfilled') setLeads(normalizeList<Lead>(leadResult.value.data));
         if (clientResult.status === 'fulfilled') setClients(normalizeList<Client>(clientResult.value.data));
-        if (postResult.status === 'fulfilled') {
-          const apiPosts = normalizeList<Post>(postResult.value.data);
-          setPosts(apiPosts.length > 1 ? apiPosts : [...apiPosts, ...FALLBACK_POSTS]);
-        } else {
-          setPosts(FALLBACK_POSTS);
-        }
+        // Sem invenção de post: quando a Meta não responde ou não há publicação, o
+        // cartão do calendário mostra vazio. Antes, seis posts fictícios entravam
+        // aqui e apareciam no Dashboard como se fossem reais.
+        setPosts(postResult.status === 'fulfilled' ? normalizeList<Post>(postResult.value.data) : []);
         if (igResult.status === 'fulfilled') setIgProfile(igResult.value.data);
       })
       .finally(() => setSecondaryLoading(false));
@@ -260,10 +254,13 @@ export default function DashboardPage() {
   const upcomingPosts = (futurePosts.length > 0 ? futurePosts : recentPosts).slice(0, 5);
   const hasScheduled = futurePosts.length > 0;
 
-  const weekAhead = new Date();
-  weekAhead.setDate(weekAhead.getDate() + 7);
-  const weekAheadStr = weekAhead.toISOString().slice(0, 10);
-  const postsThisWeek = posts.filter((post) => post.date && post.date >= today && post.date <= weekAheadStr).length;
+  // Agendamento vem de /marketing/schedule-coverage, a mesma fonte do Calendário e
+  // do alerta. Antes esta contagem saía de /marketing/posts, que é o feed já
+  // PUBLICADO do Instagram: como post publicado tem data no passado, o filtro de
+  // "próximos 7 dias" nunca achava nada e o cartão dizia "nada agendado" mesmo com
+  // a semana cheia. Contar agendamento em três lugares diferentes foi o que
+  // permitiu essa divergência, então aqui não há contagem própria.
+  const scheduledThisWeek = coverage?.in_next_7_days ?? 0;
   const overdueCount = asaas?.overdue_count ?? 0;
 
   const priorities: { key: string; icon: ReactNode; label: string; detail: string; value: string; tone: PriorityTone; to: string }[] = [
@@ -288,10 +285,14 @@ export default function DashboardPage() {
     {
       key: 'posts',
       icon: <CalendarDays size={16} />,
-      label: postsThisWeek > 0 ? 'Conteúdo desta semana' : 'Nada agendado esta semana',
-      detail: postsThisWeek > 0 ? (postsThisWeek === 1 ? '1 publicação programada' : `${fmt.format(postsThisWeek)} publicações programadas`) : 'Sem posts nos próximos 7 dias',
-      value: fmt.format(postsThisWeek),
-      tone: postsThisWeek > 0 ? 'amber' : 'emerald',
+      label: scheduledThisWeek > 0 ? 'Conteúdo desta semana' : 'Nada agendado esta semana',
+      detail: scheduledThisWeek > 0
+        ? (scheduledThisWeek === 1 ? '1 publicação agendada nos próximos 7 dias' : `${fmt.format(scheduledThisWeek)} publicações agendadas nos próximos 7 dias`)
+        : 'Sem post nem story nos próximos 7 dias',
+      value: fmt.format(scheduledThisWeek),
+      // O tom estava invertido: semana vazia aparecia em verde e semana cheia em
+      // âmbar, o oposto do que o cartão "precisa de atenção" quer dizer.
+      tone: scheduledThisWeek > 0 ? 'emerald' : 'amber',
       to: '/marketing/calendario',
     },
   ];
@@ -309,7 +310,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <ScheduleCoverageAlert compact />
+      <ScheduleCoverageAlert compact coverage={coverage} />
 
       {asaasError && (
         <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: 'rgba(190,18,60,0.3)', background: 'rgba(190,18,60,0.06)', color: 'var(--erp-rose)' }}>

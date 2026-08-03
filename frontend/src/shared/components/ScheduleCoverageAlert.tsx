@@ -9,6 +9,7 @@ type Upcoming = { id:number; title:string; kind:ScheduleKind; source:'erp'|'exte
 export type Coverage = {
   level:Level; message:string; covered_until:string|null; days_ahead:number;
   next_at:string|null; days_to_next:number|null; total_upcoming:number;
+  in_next_7_days:number;
   by_kind:Record<string,number>; by_source:Record<string,number>; upcoming:Upcoming[];
 };
 
@@ -30,18 +31,22 @@ function longDate(iso:string|null) {
 }
 
 /** Alerta de cobertura de agendamento das redes. `compact` é a versão da Visão
- *  geral, sem a lista das próximas peças. */
-export default function ScheduleCoverageAlert({ compact=false }:{ compact?:boolean }) {
-  const [data,setData]=useState<Coverage|null>(null), [failed,setFailed]=useState(false);
+ *  geral, sem a lista das próximas peças. `coverage` deixa quem já buscou o dado
+ *  repassar em vez de disparar a mesma rota de novo na mesma tela. */
+export default function ScheduleCoverageAlert({ compact=false, coverage }:{ compact?:boolean; coverage?:Coverage|null }) {
+  const [fetched,setFetched]=useState<Coverage|null>(null), [failed,setFailed]=useState(false);
+  const provided = coverage !== undefined;
 
   useEffect(()=>{
+    if(provided) return;
     let active=true;
     api.get<Coverage>('/marketing/schedule-coverage')
-      .then(({data:payload})=>{if(active)setData(payload);})
+      .then(({data:payload})=>{if(active)setFetched(payload);})
       .catch(()=>{if(active)setFailed(true);});
     return()=>{active=false;};
-  },[]);
+  },[provided]);
 
+  const data = provided ? coverage : fetched;
   if(failed||!data) return null;
   const style=tone[data.level];
   const until=longDate(data.covered_until);

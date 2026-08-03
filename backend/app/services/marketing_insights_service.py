@@ -82,6 +82,10 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
             )
 
     upcoming.sort(key=lambda entry: entry["_when"])
+    # Contado aqui, sobre a lista inteira, porque `upcoming` sai truncado no payload.
+    # Quem consome não tem como recalcular sem subestimar.
+    week_limit = now + timedelta(days=7)
+    in_next_7_days = sum(1 for entry in upcoming if entry["_when"] <= week_limit)
     covered_until = upcoming[-1]["_when"] if upcoming else None
     next_at = upcoming[0]["_when"] if upcoming else None
     days_ahead = _days_between(now, covered_until) if covered_until else 0.0
@@ -116,6 +120,7 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
         "next_at": next_at.isoformat().replace("+00:00", "Z") if next_at else None,
         "days_to_next": days_to_next,
         "total_upcoming": len(upcoming),
+        "in_next_7_days": in_next_7_days,
         "by_kind": {kind: sum(1 for entry in upcoming if entry["kind"] == kind) for kind in ("story", "feed")},
         "by_source": {
             source: sum(1 for entry in upcoming if entry["source"] == source) for source in ("erp", "externo")

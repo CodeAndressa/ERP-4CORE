@@ -71,7 +71,10 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
                 {
                     "id": item.id,
                     "title": item.title,
-                    "kind": "externo",
+                    # kind é sempre post ou story, inclusive no externo: são dois
+                    # eixos independentes e misturá-los num só campo obrigava a
+                    # escolher entre saber o formato e saber a origem.
+                    "kind": "story" if item.layout == "story" else "feed",
                     "source": "externo",
                     "scheduled_at": when.isoformat().replace("+00:00", "Z"),
                     "_when": when,
@@ -113,8 +116,9 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
         "next_at": next_at.isoformat().replace("+00:00", "Z") if next_at else None,
         "days_to_next": days_to_next,
         "total_upcoming": len(upcoming),
-        "by_kind": {
-            kind: sum(1 for entry in upcoming if entry["kind"] == kind) for kind in ("story", "feed", "externo")
+        "by_kind": {kind: sum(1 for entry in upcoming if entry["kind"] == kind) for kind in ("story", "feed")},
+        "by_source": {
+            source: sum(1 for entry in upcoming if entry["source"] == source) for source in ("erp", "externo")
         },
         "upcoming": upcoming[:8],
         "thresholds": {

@@ -26,6 +26,10 @@ html.dark {
   --erp-violet-soft: #eeeaf6;
   --erp-violet-dim: rgba(43, 22, 92, 0.09);
   --erp-cyan: #0891b2;
+  /* Variante cheia do cyan, para quando ele precisa carregar texto branco em
+     cima (célula de dia no Calendário). O --erp-cyan bate 3.7:1 com branco e
+     ficaria abaixo do mínimo de 4.5:1; este bate 5.5:1. */
+  --erp-cyan-deep: #0e7490;
   --erp-emerald: #047857;
   --erp-amber: #b45309;
   --erp-rose: #be123c;

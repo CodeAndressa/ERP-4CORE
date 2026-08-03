@@ -107,6 +107,10 @@ class ExternalScheduledPost(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(180), nullable=False)
     channel = Column(String(30), nullable=False, default="instagram")
+    # Post de feed ou story, igual ao layout de MarketingContent. Sem isso o
+    # Calendário não conseguiria colorir um agendamento externo, e a distinção
+    # entre post e story ficaria valendo só para metade das peças.
+    layout = Column(String(20), nullable=False, default="feed")
     scheduled_at = Column(DateTime(timezone=True), nullable=False, index=True)
     notes = Column(Text, nullable=False, default="")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

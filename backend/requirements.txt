@@ -14,3 +14,6 @@ python-multipart==0.0.20
 email-validator==2.2.0
 Pillow==11.3.0
 python-pptx==1.0.2
+# O Windows nao traz banco de fusos do sistema, e imagens slim de Linux tambem
+# nao — sem isso o ZoneInfo("America/Sao_Paulo") do agendamento quebra no import.
+tzdata==2025.2

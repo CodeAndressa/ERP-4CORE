@@ -345,7 +345,7 @@ class AsaasService:
 
     async def delete_customer(self, customer_id: str) -> dict[str, Any]:
         if not customer_id or '/' in customer_id:
-            raise AsaasUnavailable('Cliente ASAAS inv?lido.')
+            raise AsaasUnavailable('Cliente ASAAS inválido.')
         return await self._delete(f'customers/{customer_id}')
 
     async def customers(self, limit: int = 100) -> list[dict[str, Any]]:

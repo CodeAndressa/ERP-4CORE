@@ -11,9 +11,15 @@ from app.database.schema import ensure_runtime_schema
 from app.models.commercial import Lead, Proposal
 from app.models.contracts import Contract, Order
 from app.models.settings import CompanySettings
-from app.models.marketing import ExternalScheduledPost, InstagramMessage, MarketingContent
+from app.models.marketing import (
+    ExternalScheduledPost,
+    InstagramMessage,
+    MarketingArtFeedback,
+    MarketingArtLesson,
+    MarketingContent,
+)
 from app.models.financial import DunningLog
-from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
+from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
 
 
@@ -125,7 +131,7 @@ def on_startup():
         db.close()
 
 
-for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, marketing_content.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, settings_routes.router]:
+for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, marketing_content.router, marketing_insights.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, settings_routes.router]:
     app.include_router(router)
 
 

@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Card, CardHeader } from '../shared/components/ui/Card';
 import { Badge } from '../shared/components/ui/Badge';
+import ScheduleCoverageAlert from '../shared/components/ScheduleCoverageAlert';
 
 type Payment = { id: string; customer: string; description: string; value: number; status: string; due_date: string };
 type AsaasData = {
@@ -307,6 +308,8 @@ export default function DashboardPage() {
           Atualizar
         </button>
       </div>
+
+      <ScheduleCoverageAlert compact />
 
       {asaasError && (
         <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: 'rgba(190,18,60,0.3)', background: 'rgba(190,18,60,0.06)', color: 'var(--erp-rose)' }}>

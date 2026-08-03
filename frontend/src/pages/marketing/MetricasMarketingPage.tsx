@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
+import InsightsPanel from '../../shared/components/InsightsPanel';
 import { api } from '../../services/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -173,6 +174,8 @@ export default function MetricasMarketingPage() {
           Instagram
         </span>
       </div>
+
+      <InsightsPanel focus="instagram" />
 
       {/* KPI Cards */}
       {loading ? (

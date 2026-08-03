@@ -7,6 +7,7 @@ import {
 import { api } from '../services/api';
 import { Card } from '../shared/components/ui/Card';
 import { MetricCard } from '../shared/components/layout/MetricCard';
+import InsightsPanel from '../shared/components/InsightsPanel';
 
 interface DailyPoint { date: string; visitors: number; pageviews: number; }
 interface TopPage { page: string; pageviews: number; visitors: number; }
@@ -81,6 +82,8 @@ export default function SiteMetricsPage() {
           ))}
         </div>
       </div>
+
+      <InsightsPanel focus="site" />
 
       {data && !data.configured && data.message && (
         <div className="rounded-xl px-4 py-3 text-sm"

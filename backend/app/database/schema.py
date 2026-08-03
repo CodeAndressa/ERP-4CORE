@@ -57,6 +57,8 @@ DUNNING_LOG_COLUMNS = {
 # create_all() não altera tabela existente, só cria as que faltam.
 MARKETING_CONTENT_COLUMNS = {
     'layout': "VARCHAR(20) NOT NULL DEFAULT 'feed'",
+    'headline': "VARCHAR(200) NOT NULL DEFAULT ''",
+    'revision_notes': "TEXT NOT NULL DEFAULT ''",
 }
 
 

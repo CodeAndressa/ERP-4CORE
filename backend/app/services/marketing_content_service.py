@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 from fastapi import HTTPException
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets" / "fonts" / "Inter-Variable.ttf"
 
@@ -28,10 +28,12 @@ def _font(size: int, weight: str = "Regular") -> ImageFont.FreeTypeFont:
 from app.core.config import settings
 from app.services.marketing_asset_service import store_generated_art
 from app.services.marketing_brand_system import (
-    CAPTION_ONLY_SYSTEM_PROMPT,
-    COPY_SYSTEM_PROMPT,
-    TOPIC_SUGGESTION_SYSTEM_PROMPT,
+    AI_LOOK_NEGATIVE,
+    sentence_case,
+    build_caption_only_system_prompt,
+    build_copy_system_prompt,
     build_image_prompt,
+    build_topic_suggestion_system_prompt,
 )
 
 
@@ -97,7 +99,11 @@ FALLBACK_TOPIC_SUGGESTIONS = [
 ]
 
 
-async def suggest_content_topics(recent_captions: list[str], existing_titles: list[str]) -> list[dict[str, str]]:
+async def suggest_content_topics(
+    recent_captions: list[str],
+    existing_titles: list[str],
+    learned_copy: str = "",
+) -> list[dict[str, str]]:
     if not settings.groq_api_key:
         return FALLBACK_TOPIC_SUGGESTIONS
     payload = {
@@ -113,7 +119,7 @@ async def suggest_content_topics(recent_captions: list[str], existing_titles: li
                 "temperature": 0.78,
                 "response_format": {"type": "json_object"},
                 "messages": [
-                    {"role": "system", "content": TOPIC_SUGGESTION_SYSTEM_PROMPT},
+                    {"role": "system", "content": build_topic_suggestion_system_prompt(learned_copy)},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ],
             },
@@ -165,19 +171,35 @@ def normalize_uploaded_art(content: bytes) -> bytes:
     return output.getvalue()
 
 
-async def generate_copy_and_prompt(title: str, brief: str, recent_captions: list[str]) -> dict[str, str]:
+async def generate_copy_and_prompt(
+    title: str,
+    brief: str,
+    recent_captions: list[str],
+    revision_notes: str = "",
+    learned: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """revision_notes são os ajustes pedidos nesta peça; learned é o feedback já
+    consolidado de todos os stories anteriores. A redação também devolve as
+    restrições visuais em inglês, então o feedback escrito em português chega bem
+    formado ao gerador de imagem sem custar uma chamada extra de tradução."""
+    learned = learned or {}
     if not settings.groq_api_key:
         headline = " ".join(title.split())[:90]
         return {
             "headline": headline,
             "caption": f"{title}\n\n{brief}".strip(),
-            "image_prompt": build_image_prompt(headline, brief or title),
+            "image_prompt": build_image_prompt(
+                headline,
+                brief or title,
+                learned_image_guidance=learned.get("image", ""),
+            ),
         }
 
     payload = {
         "title": title,
         "brief": brief,
         "recent_instagram_captions": recent_captions[:12],
+        "ajustes_pedidos": [note for note in revision_notes.splitlines() if note.strip()],
     }
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
@@ -188,7 +210,7 @@ async def generate_copy_and_prompt(title: str, brief: str, recent_captions: list
                 "temperature": 0.55,
                 "response_format": {"type": "json_object"},
                 "messages": [
-                    {"role": "system", "content": COPY_SYSTEM_PROMPT},
+                    {"role": "system", "content": build_copy_system_prompt(learned.get("copy", ""))},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ],
             },
@@ -197,10 +219,16 @@ async def generate_copy_and_prompt(title: str, brief: str, recent_captions: list
         raise HTTPException(502, f"Falha ao gerar a redação: {response.text[:220]}")
     try:
         result = json.loads(response.json()["choices"][0]["message"]["content"])
+        headline = str(result["headline"])
         return {
-            "headline": str(result["headline"]),
+            "headline": headline,
             "caption": str(result["caption"]),
-            "image_prompt": build_image_prompt(str(result["headline"]), str(result["visual_concept"])),
+            "image_prompt": build_image_prompt(
+                headline,
+                str(result["visual_concept"]),
+                str(result.get("visual_constraints") or ""),
+                learned.get("image", ""),
+            ),
         }
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(502, "A IA de redação retornou um formato inválido.") from exc
@@ -211,6 +239,7 @@ async def generate_caption_only(
     brief: str,
     caption_reference: str,
     recent_captions: list[str],
+    learned_copy: str = "",
 ) -> str:
     """Só a legenda — usada quando a arte já existe (gerada aqui ou enviada
     pronta pela usuária) e não precisa passar pelo gerador de imagem de novo."""
@@ -233,7 +262,7 @@ async def generate_caption_only(
                 "temperature": 0.55,
                 "response_format": {"type": "json_object"},
                 "messages": [
-                    {"role": "system", "content": CAPTION_ONLY_SYSTEM_PROMPT},
+                    {"role": "system", "content": build_caption_only_system_prompt(learned_copy)},
                     {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
                 ],
             },
@@ -308,12 +337,11 @@ def _crop_to_story(content: bytes) -> bytes:
 
 
 def _wrap_headline(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
-    words = text.split()
     lines: list[str] = []
     current = ""
-    for word in words:
+    for word in text.split():
         candidate = f"{current} {word}".strip()
-        if not current or draw.textbbox((0, 0), candidate, font=font, stroke_width=2)[2] <= max_width:
+        if not current or draw.textlength(candidate, font=font) <= max_width:
             current = candidate
         else:
             lines.append(current)
@@ -323,112 +351,156 @@ def _wrap_headline(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTyp
     return lines
 
 
-def _sentence_case(text: str) -> str:
-    """pt-BR: so a primeira letra maiuscula, sem Capitalizar Cada Palavra —
-    preserva a grafia oficial da marca onde ela aparecer no meio da frase."""
-    normalized = " ".join(text.strip().split())
-    if not normalized:
-        return normalized
-    lowered = normalized[0].upper() + normalized[1:].lower()
-    return re.sub(r"4core", "4Core", lowered, flags=re.IGNORECASE)
+# O endereço vai desenhado na arte porque a API da Meta não permite anexar sticker
+# de link em Story publicado por aplicativo — sem isso não há como o story levar
+# ninguém para o site.
+STORY_SITE_URL = "4core.site"
+
+PLUM = (14, 0, 26)
+VIOLET = (123, 0, 255)
 
 
-STORY_CTA_TEXT = "Conheça as soluções da 4Core"
+def _story_scrim(width: int, height: int) -> Image.Image:
+    """Gradiente montado em uma coluna de 1px e esticado na horizontal. A versão
+    anterior percorria pixel a pixel, o que dava centenas de milhares de iterações
+    de Python por arte.
+
+    Também escurece de leve o topo: é onde o Instagram desenha avatar, nome e X, e
+    deixar aquela faixa com contraste é o que faz o story parecer desenhado para o
+    formato em vez de uma imagem qualquer jogada no fundo."""
+    column = Image.new("RGBA", (1, height), (0, 0, 0, 0))
+    pixels = column.load()
+    bottom_span = max(1, round(height * 0.56))
+    bottom_start = height - bottom_span
+    top_span = max(1, round(height * 0.16))
+    for y in range(height):
+        if y >= bottom_start:
+            alpha = round(236 * ((y - bottom_start) / bottom_span) ** 1.7)
+        elif y < top_span:
+            alpha = round(96 * (1 - y / top_span) ** 1.6)
+        else:
+            alpha = 0
+        if alpha:
+            pixels[0, y] = (*PLUM, min(255, alpha))
+    return column.resize((width, height), Image.Resampling.NEAREST)
+
+
+def _film_grain(image: Image.Image, strength: float = 0.11) -> Image.Image:
+    """Grão sutil aplicado por cima de tudo, tipografia incluída. Fundo liso com
+    texto perfeitamente limpo é um dos sinais mais fáceis de imagem gerada por
+    computador; o grão coloca foto e texto na mesma superfície."""
+    noise = Image.effect_noise((image.width, image.height), 16).convert("L")
+    grain = Image.merge("RGB", (noise, noise, noise))
+    return Image.blend(image, ImageChops.overlay(image, grain), strength)
 
 
 def _compose_brand_art(background: bytes, logo_content: bytes, headline: str) -> bytes:
-    """Composicao exclusiva de Stories (9:16): bloco de texto + CTA + logo
-    concentrados na metade inferior, diferente do template de post de feed —
-    deixa o topo limpo (avatar/fechar da Meta) e a base com folga acima da
-    barra de resposta do Instagram."""
+    """Composição exclusiva de Stories (9:16): frase, endereço do site e logo em uma
+    pilha alinhada à esquerda na metade inferior, deixando o topo limpo para a
+    interface da Meta e a base com folga acima da barra de resposta.
+
+    O alinhamento à esquerda é intencional. Tudo centralizado, com filete decorativo
+    no meio, é a assinatura de template automático — e contradizia a própria direção
+    de arte da marca, que descreve o bloco de título à esquerda."""
     canvas = Image.open(io.BytesIO(background)).convert("RGBA")
     width, height = canvas.size
+    canvas = Image.alpha_composite(canvas, _story_scrim(width, height))
+    draw = ImageDraw.Draw(canvas)
 
-    # Degrade de baixo pra cima pra dar contraste ao bloco de texto/CTA/logo.
-    shade = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    shade_pixels = shade.load()
-    shade_limit = max(1, round(height * 0.62))
-    shade_top = height - shade_limit
-    for y in range(shade_top, height):
-        progress = (y - shade_top) / shade_limit
-        alpha = round(220 * progress**1.4)
-        for x in range(width):
-            shade_pixels[x, y] = (16, 0, 31, alpha)
-    canvas = Image.alpha_composite(canvas, shade)
+    margin_x = round(width * 0.085)
+    content_width = width - margin_x * 2
+    bottom_safe = round(height * 0.105)
 
     logo = Image.open(io.BytesIO(logo_content)).convert("RGBA")
     logo_bbox = logo.getbbox()
     if logo_bbox is None:
-        raise ValueError("Logo oficial sem conteudo visivel")
+        raise ValueError("Logo oficial sem conteúdo visível")
     logo = logo.crop(logo_bbox)
-    logo_width = round(width * 0.34)
+    logo_width = round(width * 0.23)
     logo_height = round(logo.height * logo_width / logo.width)
     logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
-    logo_x = (width - logo_width) // 2
-    logo_y = round(height * 0.87) - logo_height
-    canvas.alpha_composite(logo, (logo_x, logo_y))
 
-    draw = ImageDraw.Draw(canvas)
-    safe_headline = _sentence_case(headline)[:90]
-    max_text_width = round(width * 0.84)
-    max_text_height = round(height * 0.24)
-    selected_font = _font(76, "Bold")
-    selected_lines: list[str] = [safe_headline]
-    selected_spacing = 10
-    for font_size in range(80, 44, -2):
-        font = _font(font_size, "Bold")
-        lines = _wrap_headline(draw, safe_headline, font, max_text_width)
-        line_height = draw.textbbox((0, 0), "Ag", font=font, stroke_width=2)[3]
-        spacing = max(8, round(font_size * 0.14))
-        total_height = line_height * len(lines) + spacing * max(0, len(lines) - 1)
-        if len(lines) <= 4 and total_height <= max_text_height:
-            selected_font = font
-            selected_lines = lines
-            selected_spacing = spacing
+    # A frase define a altura de todo o bloco, então é medida antes de posicionar.
+    safe_headline = sentence_case(headline)[:90]
+    max_text_height = round(height * 0.30)
+    headline_font = _font(round(height * 0.052), "ExtraBold")
+    headline_lines = [safe_headline]
+    line_step = round(height * 0.055)
+    for font_size in range(round(height * 0.072), round(height * 0.035), -2):
+        font = _font(font_size, "ExtraBold")
+        lines = _wrap_headline(draw, safe_headline, font, content_width)
+        ascent, descent = font.getmetrics()
+        # 1.06em: entrelinha fechada, como se espera de tipografia de display. O
+        # 1.14em anterior deixava a frase com cara de parágrafo de texto corrido.
+        step = round(font_size * 1.06)
+        if len(lines) <= 5 and step * (len(lines) - 1) + ascent + descent <= max_text_height:
+            headline_font, headline_lines, line_step = font, lines, step
             break
 
-    cta_font = _font(34, "SemiBold")
-    accent_height = 7
-    block_gap = round(height * 0.022)
-    line_height = draw.textbbox((0, 0), "Ag", font=selected_font, stroke_width=2)[3]
-    headline_height = line_height * len(selected_lines) + selected_spacing * max(0, len(selected_lines) - 1)
-    cta_height = draw.textbbox((0, 0), STORY_CTA_TEXT, font=cta_font, stroke_width=1)[3]
-    block_height = headline_height + block_gap + accent_height + block_gap + cta_height
-    text_y = logo_y - round(height * 0.045) - block_height
+    url_font = _font(max(20, round(height * 0.0245)), "SemiBold")
+    url_width = round(draw.textlength(STORY_SITE_URL, font=url_font))
+    url_ascent, url_descent = url_font.getmetrics()
+    url_height = url_ascent + url_descent
+    pad_x = round(height * 0.020)
+    pad_y = round(height * 0.011)
+    arrow_size = round(url_height * 0.34)
+    arrow_gap = round(url_height * 0.42)
+    pill_width = pad_x * 2 + url_width + arrow_gap + arrow_size
+    pill_height = pad_y * 2 + url_height
 
-    for line in selected_lines:
-        line_width = draw.textbbox((0, 0), line, font=selected_font, stroke_width=2)[2]
-        draw.text(
-            ((width - line_width) // 2, text_y),
-            line,
-            font=selected_font,
-            fill=(255, 255, 255, 255),
-            stroke_width=2,
-            stroke_fill=(255, 255, 255, 255),
-        )
-        text_y += line_height + selected_spacing
+    # Empilhamento de baixo para cima: logo, endereço, frase, filete.
+    cursor = height - bottom_safe
+    logo_y = cursor - logo_height
+    cursor = logo_y - round(height * 0.030)
+    pill_bottom = cursor
+    pill_top = pill_bottom - pill_height
+    cursor = pill_top - round(height * 0.034)
 
-    accent_width = round(width * 0.1)
-    accent_y = text_y + block_gap
+    headline_ascent, headline_descent = headline_font.getmetrics()
+    headline_height = line_step * (len(headline_lines) - 1) + headline_ascent + headline_descent
+    headline_top = cursor - headline_height
+    shadow_offset = max(1, round(headline_font.size * 0.045))
+    text_y = headline_top
+    for line in headline_lines:
+        # Sombra deslocada em vez do contorno branco sobre texto branco que existia
+        # antes: aquele stroke engrossava a letra de forma irregular e era o defeito
+        # que mais denunciava montagem automática.
+        draw.text((margin_x + shadow_offset, text_y + shadow_offset), line, font=headline_font, fill=(*PLUM, 150))
+        draw.text((margin_x, text_y), line, font=headline_font, fill=(255, 255, 255, 255))
+        text_y += line_step
+
+    rule_height = max(3, round(height * 0.0045))
+    rule_width = round(width * 0.115)
+    rule_y = headline_top - round(height * 0.028) - rule_height
     draw.rounded_rectangle(
-        ((width - accent_width) // 2, accent_y, (width + accent_width) // 2, accent_y + accent_height),
-        radius=4,
-        fill=(123, 0, 255, 255),
+        (margin_x, rule_y, margin_x + rule_width, rule_y + rule_height),
+        radius=rule_height // 2,
+        fill=(*VIOLET, 255),
     )
 
-    cta_y = accent_y + accent_height + block_gap
-    cta_width = draw.textbbox((0, 0), STORY_CTA_TEXT, font=cta_font, stroke_width=1)[2]
-    draw.text(
-        ((width - cta_width) // 2, cta_y),
-        STORY_CTA_TEXT,
-        font=cta_font,
-        fill=(219, 200, 255, 255),
-        stroke_width=1,
-        stroke_fill=(16, 0, 31, 255),
+    draw.rounded_rectangle(
+        (margin_x, pill_top, margin_x + pill_width, pill_bottom),
+        radius=pill_height // 2,
+        fill=(*VIOLET, 255),
     )
+    draw.text((margin_x + pad_x, pill_top + pad_y), STORY_SITE_URL, font=url_font, fill=(255, 255, 255, 255))
+    # Seta desenhada como polígono, e não como glifo: não depende de a fonte trazer
+    # o caractere de flecha.
+    arrow_x = margin_x + pad_x + url_width + arrow_gap
+    arrow_center = pill_top + pill_height / 2
+    draw.polygon(
+        [
+            (arrow_x, arrow_center - arrow_size * 0.62),
+            (arrow_x + arrow_size, arrow_center),
+            (arrow_x, arrow_center + arrow_size * 0.62),
+        ],
+        fill=(255, 255, 255, 255),
+    )
+
+    canvas.alpha_composite(logo, (margin_x, logo_y))
 
     output = io.BytesIO()
-    canvas.convert("RGB").save(output, format="PNG", optimize=True)
+    _film_grain(canvas.convert("RGB")).save(output, format="PNG", optimize=True)
     return output.getvalue()
 
 
@@ -448,10 +520,11 @@ async def _generate_cloudflare_art(prompt: str, headline: str) -> bytes:
             json={
                 "prompt": prompt,
                 "negative_prompt": (
+                    f"{AI_LOOK_NEGATIVE}, "
                     "flowers, lavender flowers, violet flowers, plants, leaves, garden, nature, landscape, "
                     "wellness, cosmetics, unrelated decorative object, any text, words, letters, numbers, "
                     "typography, pseudo-text, watermarks, misspelled text, invented logo, "
-                    "fake certification, generic blue corporate style, stock photo smile, handshake, "
+                    "fake certification, generic blue corporate style, handshake, "
                     "analog clock, calendar, clutter, tiny typography, malformed hands, distorted device"
                 ),
                 "width": 720,

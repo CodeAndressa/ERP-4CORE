@@ -15,7 +15,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 def _create_user(user: UserCreate, db: Session) -> User:
     existing = db.query(User).filter(User.email == user.email).first()
     if existing:
-        raise HTTPException(status_code=400, detail="E-mail j? cadastrado")
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
 
     db_user = User(
         full_name=user.full_name,
@@ -31,7 +31,7 @@ def _create_user(user: UserCreate, db: Session) -> User:
 @router.post("/register", response_model=UserOut)
 def register_first_user(user: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).count() > 0:
-        raise HTTPException(status_code=403, detail="Cadastro inicial j? realizado. Crie usu?rios em Sistema.")
+        raise HTTPException(status_code=403, detail="Cadastro inicial já realizado. Crie usuários em Sistema.")
     return _create_user(user, db)
 
 
@@ -49,7 +49,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Credenciais inv?lidas")
+        raise HTTPException(status_code=401, detail="Credenciais inválidas")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Usuário inativo")
 

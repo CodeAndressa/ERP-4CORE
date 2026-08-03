@@ -13,6 +13,14 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.models.marketing import MarketingContent
+from app.services.marketing_art_learning import (
+    ASPECT_LABELS,
+    delete_feedback,
+    learned_guidance,
+    learning_snapshot,
+    list_feedback,
+    record_feedback,
+)
 from app.services.marketing_asset_service import art_response, read_art_bytes, signed_art_url, store_generated_art
 from app.services.marketing_canva_service import build_canva_pptx
 from app.services.marketing_content_service import (
@@ -59,6 +67,36 @@ class ApprovalRequest(BaseModel):
 
 class RejectRequest(BaseModel):
     reason: str = Field(default="Ajustes solicitados", max_length=1000)
+    aspects: list[str] = Field(default_factory=list)
+
+
+class FeedbackRequest(BaseModel):
+    sentiment: Literal["liked", "disliked"]
+    notes: str = Field(default="", max_length=2000)
+    aspects: list[str] = Field(default_factory=list)
+
+
+def _append_revision_note(item: MarketingContent, note: str) -> None:
+    """Acumula os pedidos numerados em vez de sobrescrever: quando a peça precisa de
+    duas rodadas de ajuste, a nova versão tem que resolver as duas, não só a última."""
+    note = " ".join(note.strip().split())
+    if not note:
+        return
+    existing = [line for line in (item.revision_notes or "").splitlines() if line.strip()]
+    existing.append(f"{len(existing) + 1}) {note}")
+    item.revision_notes = "\n".join(existing)[-2000:]
+
+
+def _serialize_feedback(feedback) -> dict:
+    return {
+        "id": feedback.id,
+        "content_id": feedback.content_id,
+        "sentiment": feedback.sentiment,
+        "aspects": [value for value in (feedback.aspects or "").split(",") if value],
+        "notes": feedback.notes,
+        "headline": feedback.headline,
+        "created_at": _iso(feedback.created_at),
+    }
 
 
 def _utc(value: datetime | None) -> datetime | None:
@@ -91,7 +129,9 @@ def _serialize(item: MarketingContent) -> dict:
         "title": item.title,
         "brief": item.brief,
         "caption": item.caption,
+        "headline": item.headline,
         "image_prompt": item.image_prompt,
+        "revision_notes": item.revision_notes,
         "channel": item.channel,
         "format": item.format,
         "layout": item.layout,
@@ -112,7 +152,7 @@ def _serialize(item: MarketingContent) -> dict:
 def _get(db: Session, content_id: int) -> MarketingContent:
     item = db.query(MarketingContent).filter(MarketingContent.id == content_id).first()
     if not item:
-        raise HTTPException(404, "PublicaÃ§Ã£o nÃ£o encontrada.")
+        raise HTTPException(404, "Publicação não encontrada.")
     return item
 
 
@@ -120,7 +160,7 @@ async def _publish(item: MarketingContent, db: Session) -> MarketingContent:
     if not item.art_path:
         raise HTTPException(409, "Gere a arte antes de publicar.")
     if not item.approved_at:
-        raise HTTPException(409, "A publicaÃ§Ã£o precisa ser aprovada antes do envio.")
+        raise HTTPException(409, "A publicação precisa ser aprovada antes do envio.")
     if item.status == "published":
         return item
 
@@ -211,7 +251,20 @@ async def topic_suggestions(db: Session = Depends(get_db)):
         captions = [str(post.get("caption", ""))[:700] for post in recent if post.get("caption")]
     except Exception:
         captions = []
-    return {"suggestions": await suggest_content_topics(captions, existing_titles)}
+    learned = await learned_guidance(db)
+    return {"suggestions": await suggest_content_topics(captions, existing_titles, learned.get("copy", ""))}
+
+
+@router.get("/learning")
+def content_learning(db: Session = Depends(get_db)):
+    """O que a IA já aprendeu com os feedbacks, para a tela poder mostrar e auditar."""
+    return learning_snapshot(db)
+
+
+@router.delete("/learning/feedback/{feedback_id}", status_code=204)
+def remove_feedback(feedback_id: int, db: Session = Depends(get_db)):
+    if not delete_feedback(db, feedback_id):
+        raise HTTPException(404, "Feedback não encontrado.")
 
 
 @router.post("/process-due")
@@ -283,7 +336,8 @@ async def ensure_daily_story(request: Request, db: Session = Depends(get_db)):
         captions = [str(post.get("caption", ""))[:600] for post in recent if post.get("caption")]
     except Exception:
         captions = []
-    suggestions = await suggest_content_topics(captions, existing_titles)
+    learned = await learned_guidance(db)
+    suggestions = await suggest_content_topics(captions, existing_titles, learned.get("copy", ""))
     topic = suggestions[0] if suggestions else FALLBACK_TOPIC_SUGGESTIONS[0]
 
     item = MarketingContent(
@@ -298,8 +352,9 @@ async def ensure_daily_story(request: Request, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(item)
     try:
-        generated = await generate_copy_and_prompt(item.title, item.brief, captions)
+        generated = await generate_copy_and_prompt(item.title, item.brief, captions, learned=learned)
         item.caption = generated["caption"]
+        item.headline = generated["headline"][:200]
         item.image_prompt = generated["image_prompt"]
         db.commit()
         item.art_path = await generate_art(item.image_prompt, generated["headline"])
@@ -321,7 +376,7 @@ def get_content(content_id: int, db: Session = Depends(get_db)):
 def update_content(content_id: int, payload: ContentUpdate, db: Session = Depends(get_db)):
     item = _get(db, content_id)
     if item.status not in EDITABLE_STATUSES:
-        raise HTTPException(409, "Esta publicaÃ§Ã£o nÃ£o pode mais ser editada.")
+        raise HTTPException(409, "Esta publicação não pode mais ser editada.")
     values = payload.model_dump(exclude_unset=True)
     if "scheduled_at" in values:
         values["scheduled_at"] = _utc(values["scheduled_at"])
@@ -387,9 +442,9 @@ async def upload_edited_art(
 async def generate_content(content_id: int, db: Session = Depends(get_db)):
     item = _get(db, content_id)
     if item.layout != "story":
-        raise HTTPException(409, "GeraÃ§Ã£o de arte por IA agora Ã© sÃ³ para Stories. Publicações de feed usam arte enviada pronta.")
+        raise HTTPException(409, "Geração de arte por IA agora é só para Stories. Publicações de feed usam arte enviada pronta.")
     if item.status in {"publishing", "published"}:
-        raise HTTPException(409, "Uma publicaÃ§Ã£o enviada nÃ£o pode ser regenerada.")
+        raise HTTPException(409, "Uma publicação enviada não pode ser regenerada.")
     item.status = "generating"
     item.error_message = ""
     db.commit()
@@ -399,8 +454,12 @@ async def generate_content(content_id: int, db: Session = Depends(get_db)):
             captions = [str(post.get("caption", ""))[:600] for post in recent if post.get("caption")]
         except Exception:
             captions = []
-        generated = await generate_copy_and_prompt(item.title, item.brief, captions)
+        learned = await learned_guidance(db)
+        generated = await generate_copy_and_prompt(
+            item.title, item.brief, captions, item.revision_notes or "", learned
+        )
         item.caption = generated["caption"]
+        item.headline = generated["headline"][:200]
         item.image_prompt = generated["image_prompt"]
         db.commit()
         item.art_path = await generate_art(item.image_prompt, generated["headline"])
@@ -433,7 +492,10 @@ async def generate_content_caption(content_id: int, payload: CaptionRequest, db:
         captions = [str(post.get("caption", ""))[:600] for post in recent if post.get("caption")]
     except Exception:
         captions = []
-    item.caption = await generate_caption_only(item.title, item.brief, payload.caption_reference, captions)
+    learned = await learned_guidance(db)
+    item.caption = await generate_caption_only(
+        item.title, item.brief, payload.caption_reference, captions, learned.get("copy", "")
+    )
     item.error_message = ""
     if item.art_path:
         item.status = "awaiting_approval"
@@ -459,15 +521,52 @@ def approve_content(content_id: int, payload: ApprovalRequest, db: Session = Dep
 
 @router.post("/{content_id}/reject")
 def reject_content(content_id: int, payload: RejectRequest, db: Session = Depends(get_db)):
+    """Um pedido de ajuste tem dois efeitos, de propósito: entra em revision_notes
+    para a próxima versão desta peça resolver, e entra no aprendizado como feedback
+    negativo, para não voltar nos stories seguintes. error_message fica limpo porque
+    ajuste pedido não é falha de sistema e não deve aparecer como erro na tela."""
     item = _get(db, content_id)
     if item.status == "published":
-        raise HTTPException(409, "Uma publicaÃ§Ã£o enviada nÃ£o pode ser rejeitada.")
+        raise HTTPException(409, "Uma publicação enviada não pode ser rejeitada.")
     item.status = "rejected"
     item.approved_at = None
-    item.error_message = payload.reason.strip()
+    item.error_message = ""
+    _append_revision_note(item, payload.reason)
     db.commit()
+    if payload.reason.strip():
+        record_feedback(
+            db,
+            content=item,
+            sentiment="disliked",
+            notes=payload.reason,
+            aspects=payload.aspects,
+        )
     db.refresh(item)
     return _serialize(item)
+
+
+@router.get("/{content_id}/feedback")
+def content_feedback(content_id: int, db: Session = Depends(get_db)):
+    _get(db, content_id)
+    return {"items": [_serialize_feedback(feedback) for feedback in list_feedback(db, content_id)], "aspects": ASPECT_LABELS}
+
+
+@router.post("/{content_id}/feedback", status_code=201)
+def add_content_feedback(content_id: int, payload: FeedbackRequest, db: Session = Depends(get_db)):
+    """Feedback vale para sempre e para todas as artes, então funciona em qualquer
+    status, inclusive depois de publicado: é justamente vendo o story no ar que se
+    percebe o que não funcionou."""
+    item = _get(db, content_id)
+    if not payload.notes.strip() and not payload.aspects:
+        raise HTTPException(422, "Escreva o que achou ou marque ao menos um aspecto.")
+    feedback = record_feedback(
+        db,
+        content=item,
+        sentiment=payload.sentiment,
+        notes=payload.notes,
+        aspects=payload.aspects,
+    )
+    return {"feedback": _serialize_feedback(feedback), "learning": learning_snapshot(db)}
 
 
 @router.post("/{content_id}/publish")
@@ -480,6 +579,6 @@ async def publish_now(content_id: int, db: Session = Depends(get_db)):
 def delete_content(content_id: int, db: Session = Depends(get_db)):
     item = _get(db, content_id)
     if item.status in {"publishing", "published"}:
-        raise HTTPException(409, "PublicaÃ§Ãµes enviadas nÃ£o podem ser excluÃ­das.")
+        raise HTTPException(409, "Publicações enviadas não podem ser excluídas.")
     db.delete(item)
     db.commit()

@@ -357,7 +357,7 @@ class MetaMarketingService:
                 raise HTTPException(created.status_code, f"Meta recusou a arte: {created.text[:300]}")
             container_id = created.json().get("id", "")
             if not container_id:
-                raise HTTPException(502, "A Meta nÃ£o retornou o contÃªiner da publicaÃ§Ã£o.")
+                raise HTTPException(502, "A Meta não retornou o contêiner da publicação.")
 
             for _ in range(10):
                 status = await client.get(
@@ -369,7 +369,7 @@ class MetaMarketingService:
                 if status_code == "FINISHED":
                     break
                 if status_code in {"ERROR", "EXPIRED"}:
-                    raise HTTPException(502, f"A Meta nÃ£o processou a arte: {status_payload.get('status', status_code)}")
+                    raise HTTPException(502, f"A Meta não processou a arte: {status_payload.get('status', status_code)}")
                 await asyncio.sleep(2)
             else:
                 raise HTTPException(504, "A Meta demorou para processar a arte. Tente novamente em instantes.")

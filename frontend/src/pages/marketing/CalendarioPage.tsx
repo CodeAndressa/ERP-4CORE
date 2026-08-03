@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw, Sparkles, X } from 'lucide-react';
 import { Card } from '../../shared/components/ui/Card';
 import { api } from '../../services/api';
+import { MIXED_KIND_FILL, SCHEDULE_KINDS, kindOf, kindVisual, type ScheduleKind } from '../../shared/scheduleKinds';
 
 interface ApiPost { id: string | number; date?: string }
-interface ContentItem { id: number; title: string; channel: string; scheduled_at: string | null; published_at?: string | null; status: string }
-interface ExternalItem { id: number; title: string; channel: string; scheduled_at: string; notes: string }
-interface ScheduledEntry { id: number; title: string; channel: string; source: 'erp' | 'external' }
+interface ContentItem { id: number; title: string; channel: string; layout?: string; scheduled_at: string | null; published_at?: string | null; status: string }
+interface ExternalItem { id: number; title: string; channel: string; layout?: string; scheduled_at: string; notes: string }
+interface ScheduledEntry { id: number; title: string; channel: string; kind: ScheduleKind; source: 'erp' | 'external' }
 
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -45,7 +46,7 @@ export default function CalendarioPage() {
   const [viewMonth, setViewMonth] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: '', date: '', time: '12:00', channel: 'instagram' });
+  const [form, setForm] = useState({ title: '', date: '', time: '12:00', channel: 'instagram', layout: 'feed' as ScheduleKind });
   const [saving, setSaving] = useState(false);
 
   function load() {
@@ -67,11 +68,11 @@ export default function CalendarioPage() {
       for (const item of contentRes.data?.items ?? []) {
         if (!item.scheduled_at) continue;
         const day = item.scheduled_at.slice(0, 10);
-        (map[day] ??= []).push({ id: item.id, title: item.title, channel: item.channel, source: 'erp' });
+        (map[day] ??= []).push({ id: item.id, title: item.title, channel: item.channel, kind: kindOf(item.layout), source: 'erp' });
       }
       for (const item of externalRes.data?.items ?? []) {
         const day = item.scheduled_at.slice(0, 10);
-        (map[day] ??= []).push({ id: item.id, title: item.title, channel: item.channel, source: 'external' });
+        (map[day] ??= []).push({ id: item.id, title: item.title, channel: item.channel, kind: kindOf(item.layout), source: 'external' });
       }
       setScheduledByDate(map);
     }).finally(() => setLoading(false));
@@ -102,9 +103,10 @@ export default function CalendarioPage() {
       await api.post('/marketing/scheduled-external', {
         title: form.title.trim(),
         channel: form.channel,
+        layout: form.layout,
         scheduled_at: `${form.date}T${form.time}:00`,
       });
-      setForm({ title: '', date: '', time: '12:00', channel: 'instagram' });
+      setForm({ title: '', date: '', time: '12:00', channel: 'instagram', layout: 'feed' });
       setShowForm(false);
       await load();
     } finally {
@@ -141,7 +143,7 @@ export default function CalendarioPage() {
           <p className="mb-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
             Pra posts agendados fora do ERP (ex.: Meta Business Suite) — a Meta não deixa a gente buscar isso automaticamente.
           </p>
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto]">
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto_auto]">
             <input
               type="text"
               placeholder="Título do post"
@@ -165,8 +167,19 @@ export default function CalendarioPage() {
               style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
             />
             <select
+              value={form.layout}
+              onChange={(e) => setForm((f) => ({ ...f, layout: e.target.value as ScheduleKind }))}
+              aria-label="Formato"
+              className="rounded-lg px-2.5 py-2 text-xs font-semibold outline-none"
+              style={{ background: kindVisual(form.layout).soft, border: '1px solid var(--erp-border)', color: kindVisual(form.layout).ink }}
+            >
+              <option value="feed">Post</option>
+              <option value="story">Story</option>
+            </select>
+            <select
               value={form.channel}
               onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value }))}
+              aria-label="Canal"
               className="rounded-lg px-2.5 py-2 text-xs outline-none"
               style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
             >
@@ -213,8 +226,11 @@ export default function CalendarioPage() {
         <div className="grid grid-cols-7 gap-1 px-1 pb-1">
           {cells.map((cell) => {
             const published = publishedDates.has(cell.date);
-            const scheduledCount = (scheduledByDate[cell.date] ?? []).length;
+            const entries = scheduledByDate[cell.date] ?? [];
+            const scheduledCount = entries.length;
             const scheduled = scheduledCount > 0;
+            const hasStory = entries.some((entry) => entry.kind === 'story');
+            const hasFeed = entries.some((entry) => entry.kind === 'feed');
             const isToday = cell.date === todayIso;
             const isSelected = cell.date === selectedDate;
 
@@ -225,7 +241,9 @@ export default function CalendarioPage() {
               background = 'var(--erp-violet)';
               color = '#fff';
             } else if (scheduled) {
-              background = 'var(--erp-violet)';
+              // Dia com os dois formatos fica dividido ao meio em vez de escolher
+              // um: escolher esconderia metade do que está agendado ali.
+              background = hasStory && hasFeed ? MIXED_KIND_FILL : SCHEDULE_KINDS[hasStory ? 'story' : 'feed'].fill;
               color = '#fff';
               if (published) ring = '0 0 0 2px var(--erp-surface), 0 0 0 4px var(--erp-emerald)';
             } else if (published) {
@@ -241,7 +259,14 @@ export default function CalendarioPage() {
                 type="button"
                 onClick={() => cell.inMonth && setSelectedDate((prev) => (prev === cell.date ? null : cell.date))}
                 disabled={!cell.inMonth}
-                aria-label={`${cell.day}${published ? ', publicado' : ''}${scheduled ? `, ${scheduledCount} agendado(s)` : ''}`}
+                aria-label={[
+                  String(cell.day),
+                  published ? 'publicado' : '',
+                  // O formato entra no rótulo porque a cor da célula é a única
+                  // pista visual dele, e cor sozinha não comunica.
+                  hasStory ? `${entries.filter((e) => e.kind === 'story').length} story agendado(s)` : '',
+                  hasFeed ? `${entries.filter((e) => e.kind === 'feed').length} post agendado(s)` : '',
+                ].filter(Boolean).join(', ')}
                 className="relative flex h-10 flex-col items-center justify-center gap-0.5 rounded-xl text-xs font-semibold transition-transform hover:scale-105 disabled:cursor-default disabled:hover:scale-100 sm:h-11"
                 style={{
                   background,
@@ -265,9 +290,11 @@ export default function CalendarioPage() {
           })}
         </div>
 
-        <div className="flex items-center gap-3 px-1 pb-1 pt-2 text-[10px]" style={{ color: 'var(--erp-text-muted)' }}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pb-1 pt-2 text-[10px]" style={{ color: 'var(--erp-text-muted)' }}>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SCHEDULE_KINDS.story.fill }} /> Story agendado</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SCHEDULE_KINDS.feed.fill }} /> Post agendado</span>
+          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: MIXED_KIND_FILL }} /> Os dois</span>
           <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--erp-emerald)' }} /> Publicado</span>
-          <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--erp-violet)' }} /> Agendado (Estúdio ou externo)</span>
         </div>
       </Card>
 
@@ -289,8 +316,14 @@ export default function CalendarioPage() {
               {selectedScheduled.map((item) => (
                 <div key={`${item.source}-${item.id}`} className="flex items-center justify-between gap-2 text-xs">
                   <span className="flex min-w-0 items-center gap-2" style={{ color: 'var(--erp-text)' }}>
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'var(--erp-violet)' }} />
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: SCHEDULE_KINDS[item.kind].fill }} />
                     <span className="truncate">{item.title}</span>
+                    <span
+                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide"
+                      style={{ background: SCHEDULE_KINDS[item.kind].soft, color: SCHEDULE_KINDS[item.kind].ink }}
+                    >
+                      {SCHEDULE_KINDS[item.kind].label}
+                    </span>
                     {item.source === 'external' && (
                       <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide" style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-text-dim)' }}>
                         Manual

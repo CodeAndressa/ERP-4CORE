@@ -79,22 +79,22 @@ async def store_generated_art(content: bytes, content_type: str = "image/png") -
 
 async def art_response(art_path: str):
     if not art_path:
-        raise HTTPException(404, "Esta publicaÃ§Ã£o ainda nÃ£o possui arte.")
+        raise HTTPException(404, "Esta publicação ainda não possui arte.")
     if art_path.startswith(STORAGE_PREFIX):
         if not _configured():
-            raise HTTPException(500, "Supabase Storage nÃ£o configurado.")
+            raise HTTPException(500, "Supabase Storage não configurado.")
         object_path = art_path.removeprefix(STORAGE_PREFIX)
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(_object_url(object_path), headers=_headers())
         if response.status_code == 404:
-            raise HTTPException(404, "Arte nÃ£o encontrada.")
+            raise HTTPException(404, "Arte não encontrada.")
         if response.status_code >= 400:
             raise HTTPException(502, f"Falha ao ler a arte: {response.text[:200]}")
         return Response(content=response.content, media_type=response.headers.get("content-type", "image/png"))
 
     path = Path(art_path)
     if not path.exists():
-        raise HTTPException(404, "Arte nÃ£o encontrada.")
+        raise HTTPException(404, "Arte não encontrada.")
     return FileResponse(path)
 
 
@@ -122,11 +122,11 @@ async def read_art_bytes(art_path: str) -> tuple[bytes, str]:
 
 
 async def signed_art_url(art_path: str, expires_in: int = 3600) -> str:
-    """Gera uma URL curta para a Meta baixar a arte somente durante a publicaÃ§Ã£o."""
+    """Gera uma URL curta para a Meta baixar a arte somente durante a publicação."""
     if not art_path.startswith(STORAGE_PREFIX) or not _configured():
         raise HTTPException(
             409,
-            "Para publicar na Meta, configure o Supabase Storage; arquivos locais nÃ£o possuem URL pÃºblica segura.",
+            "Para publicar na Meta, configure o Supabase Storage; arquivos locais não possuem URL pública segura.",
         )
     object_path = art_path.removeprefix(STORAGE_PREFIX)
     base = settings.site_supabase_url.rstrip("/")
@@ -138,10 +138,10 @@ async def signed_art_url(art_path: str, expires_in: int = 3600) -> str:
             json={"expiresIn": expires_in},
         )
     if response.status_code >= 400:
-        raise HTTPException(502, f"Falha ao liberar a arte para publicaÃ§Ã£o: {response.text[:200]}")
+        raise HTTPException(502, f"Falha ao liberar a arte para publicação: {response.text[:200]}")
     signed = response.json().get("signedURL") or response.json().get("signedUrl")
     if not signed:
-        raise HTTPException(502, "O Storage nÃ£o retornou a URL temporÃ¡ria da arte.")
+        raise HTTPException(502, "O Storage não retornou a URL temporária da arte.")
     if signed.startswith("http"):
         return signed
     if not signed.startswith("/storage/v1"):

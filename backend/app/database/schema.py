@@ -57,6 +57,15 @@ DUNNING_LOG_COLUMNS = {
 # create_all() não altera tabela existente, só cria as que faltam.
 MARKETING_CONTENT_COLUMNS = {
     'layout': "VARCHAR(20) NOT NULL DEFAULT 'feed'",
+    'headline': "VARCHAR(200) NOT NULL DEFAULT ''",
+    'revision_notes': "TEXT NOT NULL DEFAULT ''",
+}
+
+# Mesmo caso: external_scheduled_posts já existia em produção sem layout. Os
+# registros antigos viram 'feed' pelo DEFAULT, que é o que eram na prática —
+# o formulário só passou a oferecer story junto com esta coluna.
+EXTERNAL_SCHEDULED_POST_COLUMNS = {
+    'layout': "VARCHAR(20) NOT NULL DEFAULT 'feed'",
 }
 
 
@@ -170,5 +179,6 @@ def ensure_runtime_schema(engine: Engine) -> bool:
 
     _ensure_columns(engine, 'dunning_log', DUNNING_LOG_COLUMNS)
     _ensure_columns(engine, 'marketing_content', MARKETING_CONTENT_COLUMNS)
+    _ensure_columns(engine, 'external_scheduled_posts', EXTERNAL_SCHEDULED_POST_COLUMNS)
 
     return recreated_commercial

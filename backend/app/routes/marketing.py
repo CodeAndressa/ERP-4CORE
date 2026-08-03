@@ -331,6 +331,7 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db)):
 class ExternalScheduledPostCreate(BaseModel):
     title: str = Field(min_length=3, max_length=180)
     channel: Literal["instagram", "facebook", "both"] = "instagram"
+    layout: Literal["feed", "story"] = "feed"
     scheduled_at: datetime
     notes: str = Field(default="", max_length=500)
 
@@ -343,6 +344,7 @@ def _serialize_external(item: ExternalScheduledPost) -> dict:
         "id": item.id,
         "title": item.title,
         "channel": item.channel,
+        "layout": item.layout or "feed",
         "scheduled_at": scheduled.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
         "notes": item.notes,
     }
@@ -362,6 +364,7 @@ def create_external_scheduled(payload: ExternalScheduledPostCreate, db: Session 
     item = ExternalScheduledPost(
         title=payload.title.strip(),
         channel=payload.channel,
+        layout=payload.layout,
         scheduled_at=scheduled_at,
         notes=payload.notes.strip(),
     )

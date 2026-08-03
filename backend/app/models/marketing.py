@@ -11,7 +11,14 @@ class MarketingContent(Base):
     title = Column(String(180), nullable=False)
     brief = Column(Text, nullable=False, default="")
     caption = Column(Text, nullable=False, default="")
+    # Frase que foi desenhada na arte. Sem guardar isso o texto visível do story
+    # ficava irrecuperável depois de gerar, e tanto o feedback quanto a próxima
+    # versão precisam saber o que estava escrito lá.
+    headline = Column(String(200), nullable=False, default="")
     image_prompt = Column(Text, nullable=False, default="")
+    # O que foi pedido de ajuste nesta peça, acumulado. Vale só para ela: o
+    # aprendizado que vale para todos os stories mora em MarketingArtFeedback.
+    revision_notes = Column(Text, nullable=False, default="")
     channel = Column(String(30), nullable=False, default="instagram")
     format = Column(String(30), nullable=False, default="image")
     layout = Column(String(20), nullable=False, default="feed")
@@ -24,6 +31,47 @@ class MarketingContent(Base):
     instagram_media_id = Column(String(180), nullable=False, default="")
     facebook_post_id = Column(String(180), nullable=False, default="")
     error_message = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class MarketingArtFeedback(Base):
+    """Feedback da equipe sobre uma arte de story já gerada. É a matéria-prima do
+    aprendizado: cada registro entra no prompt das gerações seguintes, então um
+    "não gostei do fundo azulado" passa a valer para todos os stories futuros, e
+    não só para a peça em que foi escrito.
+
+    aspects guarda as tags marcadas na tela (imagem, cores, texto, tom,
+    legibilidade, marca) separadas por vírgula — é o que decide se a lição vai
+    para o prompt da imagem ou para o prompt da redação."""
+
+    __tablename__ = "marketing_art_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    content_id = Column(Integer, nullable=False, index=True)
+    sentiment = Column(String(10), nullable=False, default="disliked")
+    aspects = Column(String(200), nullable=False, default="")
+    notes = Column(Text, nullable=False, default="")
+    headline = Column(String(200), nullable=False, default="")
+    image_prompt = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+
+class MarketingArtLesson(Base):
+    """Destilação do feedback acumulado em regras curtas. Existe por dois motivos:
+    o prompt não pode crescer para sempre conforme o histórico aumenta, e feedbacks
+    contraditórios ("escurece mais" em março, "clareia o rosto" em junho) precisam
+    ser resolvidos em uma regra só, em vez de despejar os dois no modelo.
+
+    feedback_count é a marca d'água: quantos feedbacks já estavam destilados nesta
+    versão. Serve para redestilar só quando entrou feedback novo o suficiente."""
+
+    __tablename__ = "marketing_art_lesson"
+
+    id = Column(Integer, primary_key=True, index=True)
+    copy_rules = Column(Text, nullable=False, default="")
+    image_rules = Column(Text, nullable=False, default="")
+    feedback_count = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -59,6 +107,10 @@ class ExternalScheduledPost(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(180), nullable=False)
     channel = Column(String(30), nullable=False, default="instagram")
+    # Post de feed ou story, igual ao layout de MarketingContent. Sem isso o
+    # Calendário não conseguiria colorir um agendamento externo, e a distinção
+    # entre post e story ficaria valendo só para metade das peças.
+    layout = Column(String(20), nullable=False, default="feed")
     scheduled_at = Column(DateTime(timezone=True), nullable=False, index=True)
     notes = Column(Text, nullable=False, default="")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

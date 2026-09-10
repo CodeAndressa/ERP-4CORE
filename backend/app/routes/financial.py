@@ -1,7 +1,7 @@
 import secrets
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
@@ -88,14 +88,34 @@ async def list_charges(
 
 
 @router.get('/topdata-access-alerts')
-async def topdata_access_alerts(refresh: bool = Query(default=False)):
+async def topdata_access_alerts(refresh: bool = Query(default=False), db: Session = Depends(get_db)):
     """Clientes com cobrança ASAAS vencida há mais de 10 dias.
 
     A Topdata não possui integração neste ERP; o retorno serve para sinalizar
     de forma explícita a ação manual de bloqueio à equipe financeira.
     """
     try:
-        return await AsaasService(force_refresh=refresh).topdata_access_alerts()
+        return await AsaasService(force_refresh=refresh).topdata_access_alerts(db)
+    except AsaasUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post('/topdata-access/{customer_id}/blocked')
+async def mark_topdata_blocked(customer_id: str = Path(min_length=1, max_length=64), db: Session = Depends(get_db)):
+    try:
+        return await AsaasService(force_refresh=True).mark_topdata_blocked(db, customer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AsaasUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@router.post('/topdata-access/{customer_id}/unblocked')
+async def mark_topdata_unblocked(customer_id: str = Path(min_length=1, max_length=64), db: Session = Depends(get_db)):
+    try:
+        return await AsaasService(force_refresh=True).mark_topdata_unblocked(db, customer_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AsaasUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

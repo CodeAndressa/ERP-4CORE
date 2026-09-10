@@ -27,6 +27,41 @@ class TopdataAccessAlertsTests(unittest.TestCase):
         self.assertEqual(result['items'][0]['oldest_due_date'], '2026-08-21')
         self.assertEqual(result['items'][0]['charge_ids'], ['one', 'two'])
 
+    def test_blocked_customer_is_not_requested_twice(self):
+        result = build_topdata_access_alerts(
+            [{'id': 'one', 'customer_id': 'cus_1', 'customer': 'Cliente A', 'status': 'OVERDUE', 'days_overdue': 12, 'value': 100}],
+            access_controls=[{'customer_id': 'cus_1', 'customer': 'Cliente A', 'status': 'blocked', 'charge_ids': '["one"]'}],
+        )
+
+        self.assertEqual(result['total_clients'], 0)
+        self.assertEqual(result['total_blocked_clients'], 1)
+        self.assertEqual(result['total_unblock_clients'], 0)
+
+    def test_paid_blocked_customer_requires_manual_unblock(self):
+        result = build_topdata_access_alerts(
+            [{
+                'id': 'one', 'customer_id': 'cus_1', 'customer': 'Cliente A',
+                'status': 'RECEIVED', 'days_overdue': 0, 'payment_date': '2026-09-10', 'value': 100,
+            }],
+            access_controls=[{'customer_id': 'cus_1', 'customer': 'Cliente A', 'status': 'blocked', 'charge_ids': '["one"]'}],
+        )
+
+        self.assertEqual(result['total_clients'], 0)
+        self.assertEqual(result['total_unblock_clients'], 1)
+        self.assertEqual(result['unblock_items'][0]['payment_date'], '2026-09-10')
+        self.assertEqual(result['unblock_items'][0]['paid_value'], 100)
+
+    def test_does_not_request_unblock_while_another_charge_is_overdue(self):
+        result = build_topdata_access_alerts(
+            [
+                {'id': 'paid', 'customer_id': 'cus_1', 'customer': 'Cliente A', 'status': 'RECEIVED', 'days_overdue': 0, 'value': 100},
+                {'id': 'still-overdue', 'customer_id': 'cus_1', 'customer': 'Cliente A', 'status': 'OVERDUE', 'days_overdue': 2, 'value': 50},
+            ],
+            access_controls=[{'customer_id': 'cus_1', 'customer': 'Cliente A', 'status': 'blocked', 'charge_ids': '["paid"]'}],
+        )
+
+        self.assertEqual(result['total_unblock_clients'], 0)
+
 
 if __name__ == '__main__':
     unittest.main()

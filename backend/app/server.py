@@ -19,7 +19,7 @@ from app.models.marketing import (
     MarketingArtLesson,
     MarketingContent,
 )
-from app.models.financial import DunningLog
+from app.models.financial import DunningLog, TopdataAccessControl
 from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, Integer, String
+from sqlalchemy import CheckConstraint, Column, DateTime, Float, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.database.session import Base
@@ -38,3 +38,27 @@ class DunningEvent(Base):
     payment_id = Column(String(64), nullable=False, index=True)
     sent_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     days_overdue = Column(Integer, nullable=False, default=0)
+
+
+class TopdataAccessControl(Base):
+    """Estado da ação manual feita na Topdata por cliente.
+
+    O ASAAS informa quando a dívida foi paga, mas não sabe se a equipe chegou a
+    bloquear o acesso na Topdata. Este registro fecha essa lacuna: guarda quais
+    cobranças motivaram o bloqueio e mantém o alerta de desbloqueio ativo até a
+    equipe confirmar que executou a ação manual.
+    """
+
+    __tablename__ = "topdata_access_control"
+    __table_args__ = (
+        CheckConstraint("status IN ('blocked', 'unblocked')", name="ck_topdata_access_control_status"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(String(64), nullable=False, unique=True, index=True)
+    customer = Column(String(200), nullable=False, default="")
+    status = Column(String(20), nullable=False, default="blocked", index=True)
+    charge_ids = Column(Text, nullable=False, default="[]")
+    blocked_at = Column(DateTime(timezone=True), nullable=True)
+    unblocked_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

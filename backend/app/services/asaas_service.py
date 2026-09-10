@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import logging
+import json
 from collections import Counter
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from time import monotonic
 from typing import Any
 
 import httpx
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.models.financial import TopdataAccessControl
 from app.services.manual_financial_service import manual_financial_snapshot
 
 logger = logging.getLogger(__name__)
@@ -56,6 +59,7 @@ TRANSACTION_TYPE_LABELS = {
 
 RECEIVED_STATES = {'RECEIVED', 'RECEIVED_IN_CASH'}
 CONFIRMED_STATES = {'CONFIRMED'}
+PAID_STATES = RECEIVED_STATES | CONFIRMED_STATES
 PENDING_STATES = {'PENDING'}
 OVERDUE_STATES = {'OVERDUE'}
 TOPDATA_BLOCK_AFTER_DAYS = 10
@@ -68,12 +72,29 @@ def _payment_method_label(billing_type: str | None) -> str:
 def build_topdata_access_alerts(
     charges: list[dict[str, Any]],
     threshold_days: int = TOPDATA_BLOCK_AFTER_DAYS,
+    access_controls: list[TopdataAccessControl | dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Agrupa cobranças vencidas por cliente para orientar o bloqueio manual.
+    """Agrupa ações manuais de bloqueio e desbloqueio por cliente.
 
     A regra é estritamente "mais de 10 dias": uma cobrança com 10 dias ainda
     não entra no alerta; a partir do 11º dia, entra enquanto estiver OVERDUE.
+    Um desbloqueio só é sugerido se as cobranças que motivaram o bloqueio estão
+    pagas e o cliente não possui nenhuma outra cobrança vencida.
     """
+    def control_value(control: TopdataAccessControl | dict[str, Any], key: str, default: Any = None) -> Any:
+        return control.get(key, default) if isinstance(control, dict) else getattr(control, key, default)
+
+    active_controls = {
+        str(control_value(control, 'customer_id')): control
+        for control in (access_controls or [])
+        if control_value(control, 'status') == 'blocked' and control_value(control, 'customer_id')
+    }
+    charges_by_id = {str(charge.get('id')): charge for charge in charges if charge.get('id')}
+    charges_by_customer: dict[str, list[dict[str, Any]]] = {}
+    for charge in charges:
+        if charge.get('customer_id'):
+            charges_by_customer.setdefault(str(charge['customer_id']), []).append(charge)
+
     grouped: dict[str, dict[str, Any]] = {}
     for charge in charges:
         days_overdue = int(charge.get('days_overdue') or 0)
@@ -103,10 +124,42 @@ def build_topdata_access_alerts(
         if charge.get('id'):
             item['charge_ids'].append(charge['id'])
 
-    items = list(grouped.values())
+    # Quem já foi confirmado como bloqueado não deve continuar aparecendo como
+    # uma ação pendente de bloqueio.
+    items = [item for key, item in grouped.items() if str(item.get('customer_id') or key) not in active_controls]
     for item in items:
         item['overdue_value'] = round(item['overdue_value'], 2)
     items.sort(key=lambda item: (-item['days_overdue'], item['customer'].casefold()))
+
+    unblock_items: list[dict[str, Any]] = []
+    for customer_id, control in active_controls.items():
+        try:
+            tracked_ids = [str(value) for value in json.loads(control_value(control, 'charge_ids', '[]'))]
+        except (TypeError, ValueError, json.JSONDecodeError):
+            tracked_ids = []
+        tracked_charges = [charges_by_id[payment_id] for payment_id in tracked_ids if payment_id in charges_by_id]
+        all_tracked_found = bool(tracked_ids) and len(tracked_charges) == len(tracked_ids)
+        all_tracked_paid = all_tracked_found and all(charge.get('status') in PAID_STATES for charge in tracked_charges)
+        has_other_overdue = any(charge.get('status') == 'OVERDUE' for charge in charges_by_customer.get(customer_id, []))
+        if not all_tracked_paid or has_other_overdue:
+            continue
+
+        payment_dates = [
+            charge.get('payment_date') or charge.get('client_payment_date')
+            for charge in tracked_charges
+            if charge.get('payment_date') or charge.get('client_payment_date')
+        ]
+        blocked_at = control_value(control, 'blocked_at')
+        unblock_items.append({
+            'customer_id': customer_id,
+            'customer': control_value(control, 'customer') or tracked_charges[0].get('customer') or 'Cliente',
+            'blocked_at': blocked_at.isoformat() if hasattr(blocked_at, 'isoformat') else blocked_at,
+            'payment_date': max(payment_dates) if payment_dates else None,
+            'paid_value': round(sum(float(charge.get('value') or 0) for charge in tracked_charges), 2),
+            'charge_count': len(tracked_charges),
+            'charge_ids': tracked_ids,
+        })
+    unblock_items.sort(key=lambda item: item['customer'].casefold())
 
     return {
         'source': 'asaas',
@@ -117,6 +170,9 @@ def build_topdata_access_alerts(
         'total_charges': sum(item['charge_count'] for item in items),
         'total_value': round(sum(item['overdue_value'] for item in items), 2),
         'items': items,
+        'total_blocked_clients': len(active_controls),
+        'total_unblock_clients': len(unblock_items),
+        'unblock_items': unblock_items,
     }
 
 
@@ -337,11 +393,47 @@ class AsaasService:
             'data': serialized[offset:offset + limit],
         }
 
-    async def topdata_access_alerts(self) -> dict[str, Any]:
+    async def _serialized_payments(self) -> list[dict[str, Any]]:
         raw = await self.all_payments()
         customers = await self._customer_map()
-        serialized = [self._serialize_charge(item, customers) for item in raw]
-        return build_topdata_access_alerts(serialized)
+        return [self._serialize_charge(item, customers) for item in raw]
+
+    async def topdata_access_alerts(self, db: Session) -> dict[str, Any]:
+        serialized = await self._serialized_payments()
+        controls = db.query(TopdataAccessControl).filter(TopdataAccessControl.status == 'blocked').all()
+        return build_topdata_access_alerts(serialized, access_controls=controls)
+
+    async def mark_topdata_blocked(self, db: Session, customer_id: str) -> dict[str, Any]:
+        serialized = await self._serialized_payments()
+        candidates = build_topdata_access_alerts(serialized)
+        item = next((entry for entry in candidates['items'] if entry.get('customer_id') == customer_id), None)
+        if not item:
+            raise ValueError('Este cliente não possui cobrança vencida há mais de 10 dias para bloqueio.')
+
+        control = db.query(TopdataAccessControl).filter(TopdataAccessControl.customer_id == customer_id).first()
+        if not control:
+            control = TopdataAccessControl(customer_id=customer_id)
+            db.add(control)
+        control.customer = item['customer']
+        control.status = 'blocked'
+        control.charge_ids = json.dumps(item['charge_ids'])
+        control.blocked_at = datetime.now(timezone.utc)
+        control.unblocked_at = None
+        db.commit()
+        return {'status': 'blocked', 'customer_id': customer_id, 'customer': item['customer']}
+
+    async def mark_topdata_unblocked(self, db: Session, customer_id: str) -> dict[str, Any]:
+        alerts = await self.topdata_access_alerts(db)
+        item = next((entry for entry in alerts['unblock_items'] if entry.get('customer_id') == customer_id), None)
+        if not item:
+            raise ValueError('O pagamento completo deste cliente ainda não foi identificado no ASAAS.')
+        control = db.query(TopdataAccessControl).filter(TopdataAccessControl.customer_id == customer_id).first()
+        if not control:
+            raise ValueError('Não há bloqueio registrado para este cliente.')
+        control.status = 'unblocked'
+        control.unblocked_at = datetime.now(timezone.utc)
+        db.commit()
+        return {'status': 'unblocked', 'customer_id': customer_id, 'customer': item['customer']}
 
     async def charge_detail(self, payment_id: str) -> dict[str, Any]:
         if not payment_id or '/' in payment_id:

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Bell, CalendarClock, CheckCircle2, LockKeyhole, RefreshCw, UserPlus, WalletCards, X } from 'lucide-react';
+import { AlertTriangle, Bell, CalendarClock, CheckCircle2, LockKeyhole, RefreshCw, UnlockKeyhole, UserPlus, WalletCards, X } from 'lucide-react';
 import { api } from '../services/api';
 import type { TopdataAccessAlertsResponse } from '../shared/components/finance/TopdataAccessAlert';
 
@@ -74,6 +74,19 @@ function buildNotifications(leads: Lead[], finance: FinanceOverview | null, topd
   const recentLeads = openLeads.filter((lead) => lead.status === 'novo' || lead.stage === 'novo').length;
 
   const items: NotificationItem[] = [];
+
+  if ((topdata?.total_unblock_clients ?? 0) > 0) {
+    const first = topdata!.unblock_items![0];
+    items.push({
+      id: 'topdata-access-unblock',
+      title: `${topdata!.total_unblock_clients} ${topdata!.total_unblock_clients === 1 ? 'cliente deve' : 'clientes devem'} ser desbloqueado${topdata!.total_unblock_clients === 1 ? '' : 's'}`,
+      body: `${first.customer} pagou as cobranças pendentes. Desbloqueie o acesso na Topdata.`,
+      meta: 'Pagamento identificado',
+      path: '/financeiro/cobrancas?status=received',
+      tone: 'success',
+      icon: <UnlockKeyhole size={16} />,
+    });
+  }
 
   if ((topdata?.total_clients ?? 0) > 0) {
     const first = topdata!.items[0];

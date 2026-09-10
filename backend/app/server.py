@@ -1,3 +1,4 @@
+import logging
 import re
 import secrets
 
@@ -21,6 +22,9 @@ from app.models.marketing import (
 from app.models.financial import DunningLog
 from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
+
+
+logger = logging.getLogger(__name__)
 
 
 VERCEL_ORIGIN_RE = re.compile(r"^https://[a-z0-9-]+\.vercel\.app$")
@@ -115,6 +119,11 @@ async def require_authentication(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception:
+        logger.exception(
+            "unhandled API error: %s %s",
+            request.method,
+            request.url.path,
+        )
         return _with_cors(request, JSONResponse({'detail': 'Erro interno na API.'}, status_code=500))
     return _with_cors(request, response)
 

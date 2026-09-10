@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.database.session import get_db
 from app.models.marketing import ExternalScheduledPost, InstagramMessage
 from app.services import instagram_dm_service
+from app.services.groq_service import groq_error_detail, groq_model_id
 from app.services.meta_marketing_service import MetaMarketingService, mask_token
 
 router = APIRouter(prefix="/marketing", tags=["marketing"])
@@ -166,7 +167,7 @@ async def ai_ideas():
             "https://api.groq.com/openai/v1/chat/completions",
             headers=_groq_headers(),
             json={
-                "model": settings.groq_model,
+                "model": groq_model_id(),
                 "temperature": 0.72,
                 "response_format": {"type": "json_object"},
                 "messages": [
@@ -175,7 +176,8 @@ async def ai_ideas():
                 ],
             },
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            raise HTTPException(502, groq_error_detail(resp, "gerar ideias"))
 
     return json.loads(resp.json()["choices"][0]["message"]["content"])
 
@@ -214,7 +216,7 @@ async def ai_planning():
             "https://api.groq.com/openai/v1/chat/completions",
             headers=_groq_headers(),
             json={
-                "model": settings.groq_model,
+                "model": groq_model_id(),
                 "temperature": 0.6,
                 "response_format": {"type": "json_object"},
                 "messages": [
@@ -223,7 +225,8 @@ async def ai_planning():
                 ],
             },
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            raise HTTPException(502, groq_error_detail(resp, "montar o planejamento"))
 
     return json.loads(resp.json()["choices"][0]["message"]["content"])
 

@@ -12,6 +12,7 @@ from app.models.commercial import Lead, Proposal
 from app.models.contracts import Contract
 from app.models.marketing import MarketingContent
 from app.services.asaas_service import AsaasService, AsaasUnavailable
+from app.services.groq_service import groq_error_detail, groq_model_id
 from app.services.meta_marketing_service import MetaMarketingService
 from app.services.site_analytics_service import SiteAnalyticsNotConfigured, get_site_dashboard
 
@@ -182,11 +183,12 @@ class AIService:
         else:
             system = """Você é a consultora estratégica interna da 4Core. Responda de forma direta e objetiva, em português do Brasil, baseada apenas nos dados reais fornecidos em "connected_data" para a área "scope" selecionada. Não invente métricas, clientes ou resultados que não estejam no contexto. Quando o contexto vier com "error" ou vazio, declare isso objetivamente. Sem listas de ações recomendadas, sugestões de orçamento ou ideias de conteúdo — só a resposta direta à pergunta. Responda APENAS JSON válido neste formato: {"headline": string, "summary": string}. headline é um título curto (até 8 palavras); summary é a resposta objetiva, em 1 a 3 frases."""
         user = json.dumps({"scope": scope, "instructions": instructions or "Faça uma análise acionável do contexto disponível.", "connected_data": context}, ensure_ascii=False)
-        payload = {"model": settings.groq_model, "temperature": 0.35, "response_format": {"type": "json_object"}, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
+        payload = {"model": groq_model_id(), "temperature": 0.35, "response_format": {"type": "json_object"}, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
         headers = {"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"}
         async with httpx.AsyncClient(timeout=45.0) as client:
             response = await client.post(self.endpoint, headers=headers, json=payload)
-            response.raise_for_status()
+            if response.status_code >= 400:
+                raise AIUnavailable(groq_error_detail(response, "concluir a análise"))
         content = response.json()["choices"][0]["message"]["content"]
         try:
             result = json.loads(content)

@@ -232,6 +232,8 @@ def create_content(payload: ContentCreate, db: Session = Depends(get_db)):
 def content_config_status():
     cloudflare_ready = bool(settings.cloudflare_account_id and settings.cloudflare_api_token)
     return {
+        "api_version": 2,
+        "feedback_learning": True,
         "art_generation": bool(cloudflare_ready or settings.openai_api_key),
         "art_provider": "Cloudflare Workers AI" if cloudflare_ready else "OpenAI" if settings.openai_api_key else None,
         "storage": bool(settings.site_supabase_url and settings.site_supabase_service_role_key),

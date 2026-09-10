@@ -5,6 +5,7 @@ import { AlertCircle, AlertTriangle, Check, CheckCircle2, Clock3, RefreshCw, Wal
 import { api } from '../../services/api';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
 import { Card, CardHeader } from '../../shared/components/ui/Card';
+import { TopdataAccessAlert } from '../../shared/components/finance/TopdataAccessAlert';
 import { currency, monthLabel, readDeletedDirectSaleIds, readLocalDirectSales, type DirectSale, type ManualFinancial } from './manualFinance';
 import FinancePeriodFilter from './FinancePeriodFilter';
 import { DEFAULT_PERIOD, buildOverviewUrl, isInFinancePeriod, type FinancePeriod } from './financePeriod';
@@ -89,8 +90,10 @@ function FinanceiroCockpit() {
   const [deletedDirectSaleIds, setDeletedDirectSaleIds] = useState<string[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [timelineLoading, setTimelineLoading] = useState(true);
+  const [alertRefreshKey, setAlertRefreshKey] = useState(0);
 
   const load = useCallback((forceRefresh = false) => {
+    if (forceRefresh) setAlertRefreshKey((value) => value + 1);
     setLoading(true);
     setError(null);
     api.get<AsaasData>(buildOverviewUrl(period, forceRefresh))
@@ -171,6 +174,8 @@ function FinanceiroCockpit() {
           <span>{error}</span>
         </div>
       )}
+
+      <TopdataAccessAlert refreshKey={alertRefreshKey} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard label="Saldo em conta" value={loading ? '...' : data?.account_balance != null ? currency(data.account_balance, 2) : '—'} detail="Disponível agora no ASAAS" tone="violet" icon={<Wallet size={16} />} />

@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     instagram_login_access_token: str = ""
     instagram_login_user_id: str = ""
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     openai_api_key: str = ""
     openai_image_model: str = "gpt-image-2"
     cloudflare_account_id: str = ""

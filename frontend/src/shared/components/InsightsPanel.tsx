@@ -40,7 +40,14 @@ export default function InsightsPanel({ focus }:{ focus?:Area }) {
   async function load() {
     setLoading(true);
     try{const {data:payload}=await api.get<Payload>('/marketing/insights');setData(payload);}
-    catch{setData({available:false,reason:'Não foi possível consultar os insights agora.'});}
+    catch(error:any){
+      const detail=error?.response?.data?.detail;
+      const status=error?.response?.status;
+      const reason=typeof detail==='string'&&detail!=='Erro interno na API.'
+        ? detail
+        : `Não foi possível consultar os insights agora${status?` (erro ${status})`:''}.`;
+      setData({available:false,reason});
+    }
     finally{setLoading(false);}
   }
   useEffect(()=>{void load();},[]);

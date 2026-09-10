@@ -7,6 +7,7 @@ import {
 import toast from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../services/api';
+import { TopdataAccessAlert } from '../../shared/components/finance/TopdataAccessAlert';
 import FinancePeriodFilter from './FinancePeriodFilter';
 import { DEFAULT_PERIOD, getPeriodRange, type FinancePeriod } from './financePeriod';
 
@@ -156,7 +157,11 @@ function ChargeDetail({ charge, onClose }: { charge: Charge; onClose: () => void
         {charge.status === 'OVERDUE' && (
           <div className="mt-5 rounded-2xl p-4" style={{ background: '#fff1f2', color: '#9f1239' }}>
             <p className="text-sm font-semibold">Ação recomendada</p>
-            <p className="mt-1 text-sm leading-relaxed">Entre em contato com o cliente, confirme o recebimento da fatura e combine uma nova data quando necessário.</p>
+            <p className="mt-1 text-sm leading-relaxed">
+              {charge.days_overdue > 10
+                ? 'Bloqueie manualmente o acesso deste cliente na Topdata e entre em contato para regularizar a cobrança.'
+                : 'Entre em contato com o cliente, confirme o recebimento da fatura e combine uma nova data quando necessário.'}
+            </p>
           </div>
         )}
 
@@ -437,6 +442,7 @@ export default function CobrancasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Charge | null>(null);
+  const [alertRefreshKey, setAlertRefreshKey] = useState(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(search), 300);
@@ -444,6 +450,7 @@ export default function CobrancasPage() {
   }, [search]);
 
   const load = useCallback((refresh = false) => {
+    if (refresh) setAlertRefreshKey((value) => value + 1);
     const range = getPeriodRange(period);
     const params = new URLSearchParams({ kind, status, limit: '100' });
     if (query) params.set('search', query);
@@ -485,6 +492,8 @@ export default function CobrancasPage() {
       </header>
 
       {error && <div className="flex items-center gap-2 rounded-xl border p-4 text-sm" style={{ background: '#fff1f2', borderColor: '#fecdd3', color: '#9f1239' }}><AlertCircle size={17} />{error}</div>}
+
+      <TopdataAccessAlert refreshKey={alertRefreshKey} />
 
       <DunningCard />
 

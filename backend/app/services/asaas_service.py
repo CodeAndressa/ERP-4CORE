@@ -58,10 +58,66 @@ RECEIVED_STATES = {'RECEIVED', 'RECEIVED_IN_CASH'}
 CONFIRMED_STATES = {'CONFIRMED'}
 PENDING_STATES = {'PENDING'}
 OVERDUE_STATES = {'OVERDUE'}
+TOPDATA_BLOCK_AFTER_DAYS = 10
 
 
 def _payment_method_label(billing_type: str | None) -> str:
     return BILLING_TYPE_LABELS.get((billing_type or '').upper(), billing_type or 'Outro')
+
+
+def build_topdata_access_alerts(
+    charges: list[dict[str, Any]],
+    threshold_days: int = TOPDATA_BLOCK_AFTER_DAYS,
+) -> dict[str, Any]:
+    """Agrupa cobranças vencidas por cliente para orientar o bloqueio manual.
+
+    A regra é estritamente "mais de 10 dias": uma cobrança com 10 dias ainda
+    não entra no alerta; a partir do 11º dia, entra enquanto estiver OVERDUE.
+    """
+    grouped: dict[str, dict[str, Any]] = {}
+    for charge in charges:
+        days_overdue = int(charge.get('days_overdue') or 0)
+        if charge.get('status') != 'OVERDUE' or days_overdue <= threshold_days:
+            continue
+
+        customer_name = charge.get('customer') or 'Cliente'
+        customer_id = charge.get('customer_id')
+        key = customer_id or customer_name.casefold().strip()
+        item = grouped.setdefault(key, {
+            'customer_id': customer_id,
+            'customer': customer_name,
+            'customer_email': charge.get('customer_email'),
+            'customer_phone': charge.get('customer_phone'),
+            'days_overdue': 0,
+            'oldest_due_date': charge.get('due_date'),
+            'overdue_value': 0.0,
+            'charge_count': 0,
+            'charge_ids': [],
+        })
+        item['days_overdue'] = max(item['days_overdue'], days_overdue)
+        due_date = charge.get('due_date')
+        if due_date and (not item['oldest_due_date'] or due_date < item['oldest_due_date']):
+            item['oldest_due_date'] = due_date
+        item['overdue_value'] += float(charge.get('value') or 0)
+        item['charge_count'] += 1
+        if charge.get('id'):
+            item['charge_ids'].append(charge['id'])
+
+    items = list(grouped.values())
+    for item in items:
+        item['overdue_value'] = round(item['overdue_value'], 2)
+    items.sort(key=lambda item: (-item['days_overdue'], item['customer'].casefold()))
+
+    return {
+        'source': 'asaas',
+        'updated_at': datetime.now().isoformat(timespec='seconds'),
+        'threshold_days': threshold_days,
+        'action': 'block_topdata_access',
+        'total_clients': len(items),
+        'total_charges': sum(item['charge_count'] for item in items),
+        'total_value': round(sum(item['overdue_value'] for item in items), 2),
+        'items': items,
+    }
 
 
 # Mantem a operacao financeira atual sem transformar a listagem em polling.
@@ -280,6 +336,12 @@ class AsaasService:
             'limit': limit,
             'data': serialized[offset:offset + limit],
         }
+
+    async def topdata_access_alerts(self) -> dict[str, Any]:
+        raw = await self.all_payments()
+        customers = await self._customer_map()
+        serialized = [self._serialize_charge(item, customers) for item in raw]
+        return build_topdata_access_alerts(serialized)
 
     async def charge_detail(self, payment_id: str) -> dict[str, Any]:
         if not payment_id or '/' in payment_id:

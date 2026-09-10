@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.marketing import MarketingArtFeedback, MarketingArtLesson, MarketingContent
+from app.services.groq_service import groq_model_id
 
 
 # As tags que a tela oferece. O roteamento por tag é o que mantém o aprendizado
@@ -41,7 +42,10 @@ ASPECT_LABELS = {
     "marca": "logo e link do site",
 }
 COPY_ASPECTS = {"texto", "tom"}
-IMAGE_ASPECTS = {"imagem", "cores", "legibilidade", "marca"}
+# Marca e texto nunca são delegados ao gerador de imagem: o backend os compõe de
+# forma determinística. Feedback dessas tags continua salvo e auditável, mas não
+# volta ao prompt visual (mencionar "logo" costuma induzir o modelo a desenhá-lo).
+IMAGE_ASPECTS = {"imagem", "cores"}
 
 SENTIMENTS = {"liked", "disliked"}
 
@@ -174,7 +178,7 @@ async def _distill(db: Session, items: list[MarketingArtFeedback], total: int) -
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
             json={
-                "model": settings.groq_model,
+                "model": groq_model_id(),
                 "temperature": 0.2,
                 "response_format": {"type": "json_object"},
                 "messages": [

@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+import unittest
+
+from PIL import Image, ImageStat
+
+from app.core.config import settings
+from app.services.groq_service import DEFAULT_GROQ_MODEL, groq_model_id
+from app.services.marketing_brand_system import (
+    build_image_prompt,
+    normalize_pt_br_text,
+    sentence_case,
+)
+from app.services.marketing_content_service import _sanitize_generated_layout
+
+
+class MarketingGenerationTests(unittest.TestCase):
+    def test_deprecated_groq_model_uses_supported_replacement(self) -> None:
+        previous = settings.groq_model
+        try:
+            settings.groq_model = "llama-3.3-70b-versatile"
+            self.assertEqual(groq_model_id(), DEFAULT_GROQ_MODEL)
+        finally:
+            settings.groq_model = previous
+
+    def test_image_prompt_never_receives_brand_or_headline(self) -> None:
+        prompt = build_image_prompt(
+            "Gestão de risco trabalhista",
+            "A Brazilian HR manager reviewing time records beside the 4Core logo",
+            "Never repeat the 4Core.site logo or wordmark",
+            "Avoid the 4Core brand mark",
+        ).lower()
+
+        self.assertNotIn("gestão de risco trabalhista", prompt)
+        self.assertNotIn("4core", prompt)
+        self.assertNotIn("4core.site", prompt)
+        self.assertNotIn("logo", prompt)
+        self.assertNotIn("wordmark", prompt)
+        self.assertNotIn("brand mark", prompt)
+
+    def test_common_portuguese_accents_are_restored(self) -> None:
+        value = normalize_pt_br_text("Gestao e seguranca: voce nao esta sozinho na operacao")
+        self.assertEqual(value, "Gestão e segurança: você não esta sozinho na operação")
+        self.assertEqual(sentence_case("GESTAO DE RISCO TRABALHISTA"), "Gestão de risco trabalhista")
+
+    def test_generated_template_area_is_neutralized(self) -> None:
+        source = Image.new("RGBA", (720, 1280), (255, 255, 255, 255))
+        result = _sanitize_generated_layout(source)
+        top_left = result.crop((0, 0, 300, 400)).convert("RGB")
+        untouched_right = result.crop((600, 400, 720, 700)).convert("RGB")
+
+        self.assertLess(sum(ImageStat.Stat(top_left).mean), 250)
+        self.assertGreater(sum(ImageStat.Stat(untouched_right).mean), 700)
+
+
+if __name__ == "__main__":
+    unittest.main()

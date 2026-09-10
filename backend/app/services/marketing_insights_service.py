@@ -9,6 +9,7 @@ responde, isso é declarado em vez de virar generalização.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -16,10 +17,14 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.services.groq_service import groq_error_detail, groq_model_id
 from app.models.marketing import ExternalScheduledPost, MarketingContent
 from app.services.marketing_brand_system import sentence_case
 from app.services.meta_marketing_service import MetaMarketingService
 from app.services.site_analytics_service import get_site_dashboard
+
+
+logger = logging.getLogger(__name__)
 
 
 # Abaixo de CRITICAL a fila está prestes a secar; abaixo de WARNING já é hora de
@@ -133,6 +138,16 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
         },
         "checked_at": now.isoformat().replace("+00:00", "Z"),
     }
+
+
+def safe_schedule_coverage(db: Session, errors: dict[str, str]) -> dict[str, Any]:
+    """Mantém os insights disponíveis se a agenda estiver temporariamente indisponível."""
+    try:
+        return schedule_coverage(db)
+    except Exception as exc:
+        logger.exception("marketing insights: schedule coverage failed")
+        errors["cobertura_agendamento"] = type(exc).__name__
+        return {"erro": "Cobertura de agendamento não respondeu"}
 
 
 def _delta(current: float, previous: float) -> dict[str, Any]:
@@ -250,6 +265,7 @@ async def build_insights(db: Session) -> dict[str, Any]:
     try:
         site_signals = _site_signals(await get_site_dashboard(30))
     except Exception as exc:
+        logger.exception("marketing insights: site analytics failed")
         errors["site"] = f"Analytics do site não respondeu: {type(exc).__name__}"
 
     meta = MetaMarketingService()
@@ -274,6 +290,7 @@ async def build_insights(db: Session) -> dict[str, Any]:
             else:
                 growth = result
         except Exception as exc:
+            logger.exception("marketing insights: Instagram source %s failed", name)
             errors[f"instagram_{name}"] = f"{type(exc).__name__}"
     if profile or insights or media:
         instagram_signals = _instagram_signals(profile, insights, media, growth)
@@ -281,7 +298,7 @@ async def build_insights(db: Session) -> dict[str, Any]:
     signals = {
         "site": site_signals or {"erro": errors.get("site", "sem dados")},
         "instagram": instagram_signals or {"erro": "Instagram não respondeu"},
-        "cobertura_agendamento": schedule_coverage(db),
+        "cobertura_agendamento": safe_schedule_coverage(db, errors),
     }
     if not site_signals and not instagram_signals:
         return {
@@ -304,7 +321,7 @@ async def build_insights(db: Session) -> dict[str, Any]:
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
                 json={
-                    "model": settings.groq_model,
+                    "model": groq_model_id(),
                     "temperature": 0.3,
                     "response_format": {"type": "json_object"},
                     "messages": [
@@ -314,9 +331,19 @@ async def build_insights(db: Session) -> dict[str, Any]:
                 },
             )
         if response.status_code >= 400:
-            raise ValueError(response.text[:200])
+            logger.error(
+                "marketing insights: Groq returned status %s",
+                response.status_code,
+            )
+            return {
+                "available": False,
+                "reason": groq_error_detail(response, "gerar a leitura dos insights"),
+                "errors": errors,
+                "signals": signals,
+            }
         analysis = json.loads(response.json()["choices"][0]["message"]["content"])
     except (httpx.HTTPError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        logger.exception("marketing insights: AI response processing failed")
         return {
             "available": False,
             "reason": f"Os números estão disponíveis, mas a IA não retornou a leitura: {type(exc).__name__}",

@@ -9,7 +9,7 @@ from typing import Any
 
 import httpx
 from fastapi import HTTPException
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 FONT_PATH = Path(__file__).resolve().parents[1] / "assets" / "fonts" / "Inter-Variable.ttf"
 
@@ -26,9 +26,11 @@ def _font(size: int, weight: str = "Regular") -> ImageFont.FreeTypeFont:
     return font
 
 from app.core.config import settings
+from app.services.groq_service import groq_error_detail, groq_model_id
 from app.services.marketing_asset_service import store_generated_art
 from app.services.marketing_brand_system import (
     AI_LOOK_NEGATIVE,
+    normalize_pt_br_text,
     sentence_case,
     build_caption_only_system_prompt,
     build_copy_system_prompt,
@@ -115,7 +117,7 @@ async def suggest_content_topics(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
             json={
-                "model": settings.groq_model,
+                "model": groq_model_id(),
                 "temperature": 0.78,
                 "response_format": {"type": "json_object"},
                 "messages": [
@@ -125,17 +127,17 @@ async def suggest_content_topics(
             },
         )
     if response.status_code >= 400:
-        raise HTTPException(502, f"Falha ao sugerir temas: {response.text[:220]}")
+        raise HTTPException(502, groq_error_detail(response, "sugerir temas"))
     try:
         raw = json.loads(response.json()["choices"][0]["message"]["content"])["suggestions"]
         suggestions = []
         used_titles = {" ".join(title.lower().split()) for title in existing_titles}
         for value in raw[:6]:
             suggestion = {
-                "title": str(value["title"]).strip()[:180],
+                "title": normalize_pt_br_text(str(value["title"]))[:180],
                 "pillar": str(value["pillar"]).strip()[:60],
-                "objective": str(value["objective"]).strip()[:500],
-                "brief": str(value["brief"]).strip()[:2000],
+                "objective": normalize_pt_br_text(str(value["objective"]))[:500],
+                "brief": normalize_pt_br_text(str(value["brief"]))[:2000],
             }
             normalized_title = " ".join(suggestion["title"].lower().split())
             if len(suggestion["title"]) >= 3 and normalized_title not in used_titles:
@@ -184,10 +186,10 @@ async def generate_copy_and_prompt(
     formado ao gerador de imagem sem custar uma chamada extra de tradução."""
     learned = learned or {}
     if not settings.groq_api_key:
-        headline = " ".join(title.split())[:90]
+        headline = normalize_pt_br_text(" ".join(title.split()))[:90]
         return {
             "headline": headline,
-            "caption": f"{title}\n\n{brief}".strip(),
+            "caption": normalize_pt_br_text(f"{title}\n\n{brief}".strip()),
             "image_prompt": build_image_prompt(
                 headline,
                 brief or title,
@@ -206,7 +208,7 @@ async def generate_copy_and_prompt(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
             json={
-                "model": settings.groq_model,
+                "model": groq_model_id(),
                 "temperature": 0.55,
                 "response_format": {"type": "json_object"},
                 "messages": [
@@ -216,13 +218,13 @@ async def generate_copy_and_prompt(
             },
         )
     if response.status_code >= 400:
-        raise HTTPException(502, f"Falha ao gerar a redação: {response.text[:220]}")
+        raise HTTPException(502, groq_error_detail(response, "gerar a redação"))
     try:
         result = json.loads(response.json()["choices"][0]["message"]["content"])
-        headline = str(result["headline"])
+        headline = normalize_pt_br_text(str(result["headline"]))
         return {
             "headline": headline,
-            "caption": str(result["caption"]),
+            "caption": normalize_pt_br_text(str(result["caption"])),
             "image_prompt": build_image_prompt(
                 headline,
                 str(result["visual_concept"]),
@@ -258,7 +260,7 @@ async def generate_caption_only(
             "https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
             json={
-                "model": settings.groq_model,
+                "model": groq_model_id(),
                 "temperature": 0.55,
                 "response_format": {"type": "json_object"},
                 "messages": [
@@ -268,10 +270,10 @@ async def generate_caption_only(
             },
         )
     if response.status_code >= 400:
-        raise HTTPException(502, f"Falha ao gerar a legenda: {response.text[:220]}")
+        raise HTTPException(502, groq_error_detail(response, "gerar a legenda"))
     try:
         result = json.loads(response.json()["choices"][0]["message"]["content"])
-        return str(result["caption"])
+        return normalize_pt_br_text(str(result["caption"]))
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(502, "A IA de redação retornou um formato inválido.") from exc
 
@@ -385,6 +387,34 @@ def _story_scrim(width: int, height: int) -> Image.Image:
     return column.resize((width, height), Image.Resampling.NEAREST)
 
 
+def _sanitize_generated_layout(image: Image.Image) -> Image.Image:
+    """Neutraliza as regiões em que geradores costumam inventar cabeçalho,
+    wordmark e texto de template.
+
+    A fotografia é solicitada com o protagonista à direita. Assim podemos tornar
+    topo e quadrante superior esquerdo áreas de respiro determinísticas sem cobrir
+    a parte importante da cena. Blur remove formas de letras; a camada ameixa
+    impede que um wordmark alucinado continue reconhecível por baixo.
+    """
+    result = image.convert("RGBA")
+    width, height = result.size
+    regions = (
+        (0, 0, width, round(height * 0.16), 218),
+        (0, round(height * 0.14), round(width * 0.60), round(height * 0.43), 205),
+    )
+    for left, top, right, bottom, opacity in regions:
+        crop = result.crop((left, top, right, bottom))
+        radius = max(8, round(width * 0.018))
+        crop = crop.filter(ImageFilter.GaussianBlur(radius=radius))
+        shade = Image.new("RGBA", crop.size, (*PLUM, opacity))
+        crop = Image.alpha_composite(crop, shade)
+        mask = Image.new("L", crop.size, 255)
+        feather = max(10, round(width * 0.025))
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=feather))
+        result.paste(crop, (left, top), mask)
+    return result
+
+
 def _film_grain(image: Image.Image, strength: float = 0.11) -> Image.Image:
     """Grão sutil aplicado por cima de tudo, tipografia incluída. Fundo liso com
     texto perfeitamente limpo é um dos sinais mais fáceis de imagem gerada por
@@ -402,7 +432,7 @@ def _compose_brand_art(background: bytes, logo_content: bytes, headline: str) ->
     O alinhamento à esquerda é intencional. Tudo centralizado, com filete decorativo
     no meio, é a assinatura de template automático — e contradizia a própria direção
     de arte da marca, que descreve o bloco de título à esquerda."""
-    canvas = Image.open(io.BytesIO(background)).convert("RGBA")
+    canvas = _sanitize_generated_layout(Image.open(io.BytesIO(background)))
     width, height = canvas.size
     canvas = Image.alpha_composite(canvas, _story_scrim(width, height))
     draw = ImageDraw.Draw(canvas)
@@ -521,6 +551,7 @@ async def _generate_cloudflare_art(prompt: str, headline: str) -> bytes:
                 "prompt": prompt,
                 "negative_prompt": (
                     f"{AI_LOOK_NEGATIVE}, "
+                    "logo, logotype, wordmark, monogram, emblem, brand mark, company name, "
                     "flowers, lavender flowers, violet flowers, plants, leaves, garden, nature, landscape, "
                     "wellness, cosmetics, unrelated decorative object, any text, words, letters, numbers, "
                     "typography, pseudo-text, watermarks, misspelled text, invented logo, "

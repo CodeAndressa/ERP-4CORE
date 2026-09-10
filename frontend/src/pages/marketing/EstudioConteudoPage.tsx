@@ -7,7 +7,7 @@ import { kindVisual } from '../../shared/scheduleKinds';
 type Status = 'draft' | 'generating' | 'awaiting_approval' | 'approved' | 'scheduled' | 'publishing' | 'published' | 'rejected' | 'failed';
 type Layout = 'feed' | 'story';
 type Content = { id:number; title:string; brief:string; caption:string; headline:string; revision_notes:string; channel:'instagram'|'facebook'|'both'; layout:Layout; status:Status; scheduled_at:string|null; approved_at:string|null; published_at:string|null; art_ready:boolean; error_message:string; updated_at:string };
-type ConfigStatus = { art_generation:boolean; art_provider:string|null; storage:boolean; meta:boolean; scheduler:boolean };
+type ConfigStatus = { api_version?:number; feedback_learning?:boolean; art_generation:boolean; art_provider:string|null; storage:boolean; meta:boolean; scheduler:boolean };
 type TopicSuggestion = { title:string; pillar:string; objective:string; brief:string };
 type Sentiment = 'liked' | 'disliked';
 type Feedback = { id:number; sentiment:Sentiment; aspects:string[]; notes:string; headline:string; created_at:string };
@@ -35,7 +35,11 @@ function localInput(iso?: string|null) {
 }
 function tomorrow() { const d=new Date(); d.setDate(d.getDate()+1); d.setHours(10,0,0,0); return localInput(d.toISOString()); }
 function isBillingError(value:string) { const text=value.toLowerCase(); return text.includes('billing hard limit')||text.includes('limite de cobrança')||text.includes('insufficient_quota'); }
-function friendlyError(value:string) { return isBillingError(value)?'A OpenAI bloqueou a geração porque o limite de cobrança do projeto foi atingido. Regularize os créditos ou aumente o limite e tente novamente.':value; }
+function friendlyError(value:string) {
+  if(isBillingError(value))return 'A OpenAI bloqueou a geração porque o limite de cobrança do projeto foi atingido. Regularize os créditos ou aumente o limite e tente novamente.';
+  if(value.includes('model_not_found')||value.includes('does not exist'))return 'O modelo de IA configurado foi descontinuado. Atualize o backend e tente gerar novamente.';
+  return value;
+}
 function message(error:unknown) { const detail=(error as {response?:{data?:{detail?:string}}}).response?.data?.detail; return friendlyError(detail||'Não foi possível concluir esta ação.'); }
 function Pill({status}:{status:Status}) { const [label,color,bg]=statusInfo[status]; return <span className="inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{color,background:bg}}>{label}</span>; }
 
@@ -59,23 +63,24 @@ export default function EstudioConteudoPage() {
   const selected=items.find(x=>x.id===selectedId)||null;
   const activeStatuses=filters.find(x=>x[0]===filter)?.[2]||[];
   const visible=useMemo(()=>items.filter(x=>!activeStatuses.length||(activeStatuses as readonly string[]).includes(x.status)),[items,activeStatuses]);
+  const feedbackEnabled=config?.feedback_learning===true;
 
   async function load(id?:number) {
-    try { const [{data},{data:ready}]=await Promise.all([api.get<{items:Content[]}>('/marketing/content'),api.get<ConfigStatus>('/marketing/content/config/status')]); setItems(data.items); setConfig(ready); setSelectedId(v=>id??v??data.items[0]?.id??null); }
+    try { const [{data},{data:ready}]=await Promise.all([api.get<{items:Content[]}>('/marketing/content'),api.get<ConfigStatus>('/marketing/content/config/status')]); setItems(data.items); setConfig(ready); setSelectedId(v=>id??(v&&data.items.some(item=>item.id===v)?v:null)??data.items[0]?.id??null); if(ready.feedback_learning)void loadLearning(); }
     catch(e){toast.error(message(e));} finally{setLoading(false);}
   }
   async function loadLearning() {
     try{const {data}=await api.get<Learning>('/marketing/content/learning');setLearning(data);}catch{/* aprendizado nunca bloqueia a tela */}
   }
-  useEffect(()=>{void load();void loadLearning();},[]);
+  useEffect(()=>{void load();},[]);
   useEffect(()=>{
     setEdit({caption:selected?.caption||'',scheduled_at:localInput(selected?.scheduled_at)}); setArtUrl(''); setCaptionRef(''); setEditingScheduled(false);
     setComposer(''); setNotes(''); setAspects([]); setFeedback([]);
-    if(selected)api.get<{items:Feedback[]}>(`/marketing/content/${selected.id}/feedback`).then(({data})=>setFeedback(data.items)).catch(()=>undefined);
+    if(selected&&config?.feedback_learning)api.get<{items:Feedback[]}>(`/marketing/content/${selected.id}/feedback`).then(({data})=>setFeedback(data.items)).catch(()=>undefined);
     if(!selected?.art_ready)return; let active=true,url='';
     api.get(`/marketing/content/${selected.id}/art`,{responseType:'blob'}).then(({data})=>{url=URL.createObjectURL(data);if(active)setArtUrl(url);}).catch(()=>undefined);
     return()=>{active=false;if(url)URL.revokeObjectURL(url);};
-  },[selected?.id,selected?.art_ready,selected?.updated_at]);
+  },[selected?.id,selected?.art_ready,selected?.updated_at,config?.feedback_learning]);
 
   async function create() {
     if(form.title.trim().length<3)return toast.error('Informe um título curto para identificar a publicação.');
@@ -121,6 +126,7 @@ export default function EstudioConteudoPage() {
   function toggleAspect(value:string) { setAspects(list=>list.includes(value)?list.filter(x=>x!==value):[...list,value]); }
   async function sendFeedback() {
     if(!selected)return;
+    if(!feedbackEnabled)return toast.error('O aprendizado requer a versão atualizada do backend.');
     if(!notes.trim()&&!aspects.length)return toast.error('Escreva o que achou ou marque ao menos um aspecto.');
     setBusy('feedback');
     try {
@@ -136,6 +142,7 @@ export default function EstudioConteudoPage() {
     } catch(e){toast.error(message(e),{duration:6000});} finally{setBusy('');}
   }
   async function removeFeedback(id:number) {
+    if(!feedbackEnabled)return toast.error('O aprendizado requer a versão atualizada do backend.');
     setBusy(`fb-${id}`);
     try{await api.delete(`/marketing/content/learning/feedback/${id}`);setFeedback(list=>list.filter(x=>x.id!==id));await loadLearning();toast.success('Feedback removido do aprendizado.');}
     catch(e){toast.error(message(e));}finally{setBusy('');}

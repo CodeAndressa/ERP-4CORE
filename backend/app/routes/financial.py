@@ -87,6 +87,19 @@ async def list_charges(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
+@router.get('/topdata-access-alerts')
+async def topdata_access_alerts(refresh: bool = Query(default=False)):
+    """Clientes com cobrança ASAAS vencida há mais de 10 dias.
+
+    A Topdata não possui integração neste ERP; o retorno serve para sinalizar
+    de forma explícita a ação manual de bloqueio à equipe financeira.
+    """
+    try:
+        return await AsaasService(force_refresh=refresh).topdata_access_alerts()
+    except AsaasUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @router.get('/charges/{payment_id}')
 async def get_charge(payment_id: str, refresh: bool = Query(default=False)):
     try:

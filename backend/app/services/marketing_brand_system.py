@@ -18,6 +18,58 @@ BRAND_SPELLINGS = {
     "facebook": "Facebook",
 }
 
+# Correções determinísticas para os erros sem acento mais recorrentes nas saídas
+# editoriais. O modelo continua responsável pela redação; esta camada impede que
+# uma grafia obviamente inválida chegue à arte por uma oscilação do provedor.
+PT_BR_SPELLINGS = {
+    "acao": "ação",
+    "acoes": "ações",
+    "acentuacao": "acentuação",
+    "administracao": "administração",
+    "analise": "análise",
+    "analises": "análises",
+    "automacao": "automação",
+    "automatico": "automático",
+    "codigo": "código",
+    "configuracao": "configuração",
+    "conexao": "conexão",
+    "correcao": "correção",
+    "gestao": "gestão",
+    "integracao": "integração",
+    "ja": "já",
+    "nao": "não",
+    "operacao": "operação",
+    "portugues": "português",
+    "protecao": "proteção",
+    "publicacao": "publicação",
+    "publicacoes": "publicações",
+    "reducao": "redução",
+    "relacao": "relação",
+    "revisao": "revisão",
+    "seguranca": "segurança",
+    "solucao": "solução",
+    "solucoes": "soluções",
+    "tambem": "também",
+    "usuarios": "usuários",
+    "voce": "você",
+    "voces": "vocês",
+}
+
+
+def normalize_pt_br_text(text: str) -> str:
+    normalized = text.replace("\u00a0", " ").strip()
+    for wrong, right in PT_BR_SPELLINGS.items():
+        def replace(match: re.Match[str]) -> str:
+            value = match.group(0)
+            if value.isupper():
+                return right.upper()
+            if value[:1].isupper():
+                return right[:1].upper() + right[1:]
+            return right
+
+        normalized = re.sub(rf"\b{re.escape(wrong)}\b", replace, normalized, flags=re.IGNORECASE)
+    return normalized
+
 
 def sentence_case(text: str) -> str:
     """pt-BR: só a primeira letra maiúscula, sem Capitalizar Cada Palavra.
@@ -26,7 +78,7 @@ def sentence_case(text: str) -> str:
     escreve em nome da 4Core: a frase da arte do story e os títulos dos insights. O
     modelo recebe a regra no prompt, mas não a cumpre de forma confiável, então a
     caixa é imposta no código."""
-    normalized = " ".join(text.strip().split())
+    normalized = " ".join(normalize_pt_br_text(text).split())
     if not normalized:
         return normalized
     words = []
@@ -216,10 +268,30 @@ def build_image_prompt(
     visual_constraints: str = "",
     learned_image_guidance: str = "",
 ) -> str:
-    clean_headline = " ".join(headline.strip().split())[:90]
+    # `headline` fica deliberadamente fora do prompt. Mandar as palavras que serão
+    # desenhadas depois induz o modelo de imagem a tentar escrevê-las no fundo.
+    # O parâmetro permanece na assinatura por compatibilidade com os chamadores.
+    _ = headline
     clean_concept = " ".join(visual_concept.strip().split())[:520]
     clean_constraints = " ".join((visual_constraints or "").strip().split())[:400]
     learned = " ".join((learned_image_guidance or "").strip().split())[:900]
+    # O gerador de imagem nunca deve receber o nome da empresa, domínio ou pedido
+    # de logo. Esses elementos são adicionados uma única vez pelo Pillow.
+    forbidden_brand_terms = (
+        r"4core\.site", r"4\s*core", r"four\s*core", r"logo(?:type)?",
+        r"wordmark", r"brand\s+mark", r"website", r"web\s+address",
+    )
+    for pattern in forbidden_brand_terms:
+        clean_concept = re.sub(pattern, "", clean_concept, flags=re.IGNORECASE)
+        clean_constraints = re.sub(pattern, "", clean_constraints, flags=re.IGNORECASE)
+        learned = re.sub(pattern, "", learned, flags=re.IGNORECASE)
+    clean_concept = " ".join(clean_concept.split())
+    clean_constraints = " ".join(clean_constraints.split())
+    learned = " ".join(learned.split())
+    if len(clean_constraints) < 24:
+        clean_constraints = ""
+    if len(learned) < 24:
+        learned = ""
     forbidden_subjects = (
         "flower", "lavender", "plant", "leaves", "leaf", "garden", "nature",
         "landscape", "wellness", "cosmetic", "flor", "lavanda", "planta",
@@ -232,7 +304,7 @@ def build_image_prompt(
             "realistic biometric time clock and a discreet warning indicator."
         )
     feedback_section = (
-        f"\n\nTEAM FEEDBACK ON PREVIOUS STORIES — these are corrections, obey them:\n{learned}"
+        f"\n\nTEAM FEEDBACK ON PREVIOUS BACKGROUNDS — these are corrections, obey them:\n{learned}"
         if learned
         else ""
     )
@@ -242,9 +314,10 @@ def build_image_prompt(
         else ""
     )
     return f"""
-Create a candid documentary PHOTOGRAPH, vertical 9:16, to be used as the background
-of a 4Core Instagram Story. 4Core is a Brazilian B2B company specialized in
-time-attendance, access control and labor compliance.
+Create a candid documentary PHOTOGRAPH, vertical 9:16, for a Brazilian B2B
+editorial background about time-attendance, access control and labor compliance.
+Generate only an unbranded photograph. This is not an advertisement or a finished
+social-media layout.
 
 This must read as a real photo taken on a real assignment, not as a generated or
 rendered image. Anyone scrolling should assume a photographer was in the room.
@@ -273,16 +346,14 @@ PHOTOGRAPHIC TREATMENT — this is what keeps it believable:
 
 COMPOSITION FOR THE STORY FRAME:
 - keep the subject in the upper and middle thirds, weighted slightly to the right;
-- keep the LOWER 45 PERCENT quiet and dark: headline, site address and logo are
-  drawn there afterwards by the application;
+- keep the LOWER 45 PERCENT quiet, dark and visually simple for a later editorial
+  overlay;
 - keep the very top clear, because Instagram overlays the avatar and close button;
 - off-centre and slightly imperfect framing is preferred over a symmetrical one.
 
-CAMPAIGN TOPIC — semantic reference only, DO NOT render it:
-"{clean_headline}"
-Render no letters, words, numbers, typography, logo, subtitle, caption, hashtag,
-CTA, web address, interface label, signage, seal or any other readable or
-pseudo-readable text. The application adds all typography later.{feedback_section}{revision_section}
+The frame is purely photographic and contains no graphic overlays or written
+elements. It must look like an untouched editorial background, not a composed
+campaign piece.{feedback_section}{revision_section}
 
 ABSOLUTELY AVOID: {AI_LOOK_NEGATIVE}, flowers, lavender, plants, leaves, nature,
 landscape, wellness or cosmetics imagery, generic blue corporate template,

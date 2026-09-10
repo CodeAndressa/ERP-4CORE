@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Bell, CalendarClock, CheckCircle2, RefreshCw, UserPlus, WalletCards, X } from 'lucide-react';
+import { AlertTriangle, Bell, CalendarClock, CheckCircle2, LockKeyhole, RefreshCw, UserPlus, WalletCards, X } from 'lucide-react';
 import { api } from '../services/api';
+import type { TopdataAccessAlertsResponse } from '../shared/components/finance/TopdataAccessAlert';
 
 type Lead = {
   id: string;
@@ -64,7 +65,7 @@ function isOpenLead(lead: Lead) {
   return lead.status !== 'perdido' && lead.stage !== 'fechado';
 }
 
-function buildNotifications(leads: Lead[], finance: FinanceOverview | null): NotificationItem[] {
+function buildNotifications(leads: Lead[], finance: FinanceOverview | null, topdata: TopdataAccessAlertsResponse | null): NotificationItem[] {
   const openLeads = leads.filter(isOpenLead);
   const overdue = openLeads.filter((lead) => lead.next_contact_date && daysUntil(lead.next_contact_date) < 0);
   const today = openLeads.filter((lead) => lead.next_contact_date && daysUntil(lead.next_contact_date) === 0);
@@ -74,7 +75,20 @@ function buildNotifications(leads: Lead[], finance: FinanceOverview | null): Not
 
   const items: NotificationItem[] = [];
 
-  if ((finance?.overdue_count ?? 0) > 0) {
+  if ((topdata?.total_clients ?? 0) > 0) {
+    const first = topdata!.items[0];
+    items.push({
+      id: 'topdata-access-block',
+      title: `${topdata!.total_clients} ${topdata!.total_clients === 1 ? 'cliente exige' : 'clientes exigem'} bloqueio`,
+      body: `${first.customer} está há ${first.days_overdue} dias em atraso. Bloqueie o acesso na Topdata.`,
+      meta: 'Ação manual',
+      path: '/financeiro/cobrancas?status=overdue',
+      tone: 'danger',
+      icon: <LockKeyhole size={16} />,
+    });
+  }
+
+  if ((finance?.overdue_count ?? 0) > 0 && (topdata?.total_clients ?? 0) === 0) {
     items.push({
       id: 'finance-overdue',
       title: `${finance?.overdue_count} cobranca${finance?.overdue_count === 1 ? '' : 's'} em atraso`,
@@ -167,6 +181,7 @@ export function NotificationsMenu() {
   const [open, setOpen] = useState(false);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [finance, setFinance] = useState<FinanceOverview | null>(null);
+  const [topdata, setTopdata] = useState<TopdataAccessAlertsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -176,9 +191,10 @@ export function NotificationsMenu() {
     setLoading(true);
     setError(null);
     try {
-      const [leadResult, financeResult] = await Promise.allSettled([
+      const [leadResult, financeResult, topdataResult] = await Promise.allSettled([
         api.get('/leads?soft=true'),
         api.get('/financial/overview?days=30'),
+        api.get<TopdataAccessAlertsResponse>('/financial/topdata-access-alerts'),
       ]);
 
       if (leadResult.status === 'fulfilled') {
@@ -190,6 +206,12 @@ export function NotificationsMenu() {
 
       if (financeResult.status === 'fulfilled') setFinance(financeResult.value.data ?? null);
       else setFinance(null);
+
+      if (topdataResult.status === 'fulfilled') setTopdata(topdataResult.value.data ?? null);
+      else {
+        setTopdata(null);
+        setError((current) => current || 'Não foi possível verificar os bloqueios da Topdata agora.');
+      }
     } finally {
       setLoading(false);
     }
@@ -213,7 +235,7 @@ export function NotificationsMenu() {
     };
   }, [open]);
 
-  const notifications = useMemo(() => buildNotifications(leads, finance), [leads, finance]);
+  const notifications = useMemo(() => buildNotifications(leads, finance, topdata), [leads, finance, topdata]);
   const urgentCount = notifications.filter((item) => item.tone === 'danger' || item.tone === 'warning').length;
   const badgeCount = notifications.length;
 

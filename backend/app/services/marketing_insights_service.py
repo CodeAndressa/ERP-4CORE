@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -50,41 +51,44 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
 
     upcoming: list[dict[str, Any]] = []
-    for item in (
-        db.query(MarketingContent)
-        .filter(MarketingContent.status.in_(SCHEDULED_STATUSES))
-        .filter(MarketingContent.scheduled_at.isnot(None))
-        .all()
-    ):
-        when = item.scheduled_at if item.scheduled_at.tzinfo else item.scheduled_at.replace(tzinfo=timezone.utc)
-        if when > now:
-            upcoming.append(
-                {
-                    "id": item.id,
-                    "title": item.title,
-                    "kind": "story" if item.layout == "story" else "feed",
-                    "source": "erp",
-                    "scheduled_at": when.isoformat().replace("+00:00", "Z"),
-                    "_when": when,
-                }
-            )
+    source_errors: dict[str, str] = {}
 
-    for item in db.query(ExternalScheduledPost).all():
-        when = item.scheduled_at if item.scheduled_at.tzinfo else item.scheduled_at.replace(tzinfo=timezone.utc)
-        if when > now:
-            upcoming.append(
-                {
-                    "id": item.id,
-                    "title": item.title,
-                    # kind é sempre post ou story, inclusive no externo: são dois
-                    # eixos independentes e misturá-los num só campo obrigava a
-                    # escolher entre saber o formato e saber a origem.
-                    "kind": "story" if item.layout == "story" else "feed",
-                    "source": "externo",
-                    "scheduled_at": when.isoformat().replace("+00:00", "Z"),
-                    "_when": when,
-                }
-            )
+    # Selecionar o modelo inteiro faz o SQL incluir todas as colunas declaradas.
+    # Em uma implantação cujo migration de `layout` ainda não rodou, isso derruba
+    # a consulta mesmo que id, título e data — o necessário para a contagem — já
+    # estejam disponíveis. A inspeção mantém compatibilidade e assume feed para
+    # registros do schema antigo.
+    for model, source in ((MarketingContent, "erp"), (ExternalScheduledPost, "externo")):
+        try:
+            table_columns = {
+                column["name"]
+                for column in inspect(db.get_bind()).get_columns(model.__tablename__)
+            }
+            selected = [model.id, model.title, model.scheduled_at]
+            if "layout" in table_columns:
+                selected.append(model.layout)
+            query = db.query(*selected)
+            if model is MarketingContent:
+                query = query.filter(MarketingContent.status.in_(SCHEDULED_STATUSES))
+                query = query.filter(MarketingContent.scheduled_at.isnot(None))
+
+            for item in query.all():
+                when = item.scheduled_at if item.scheduled_at.tzinfo else item.scheduled_at.replace(tzinfo=timezone.utc)
+                if when > now:
+                    upcoming.append(
+                        {
+                            "id": item.id,
+                            "title": item.title,
+                            "kind": "story" if getattr(item, "layout", "feed") == "story" else "feed",
+                            "source": source,
+                            "scheduled_at": when.isoformat().replace("+00:00", "Z"),
+                            "_when": when,
+                        }
+                    )
+        except Exception as exc:
+            db.rollback()
+            logger.exception("schedule coverage: %s source failed", source)
+            source_errors[source] = type(exc).__name__
 
     upcoming.sort(key=lambda entry: entry["_when"])
     # Contado aqui, sobre a lista inteira, porque `upcoming` sai truncado no payload.
@@ -96,14 +100,18 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
     days_ahead = _days_between(now, covered_until) if covered_until else 0.0
     days_to_next = _days_between(now, next_at) if next_at else None
 
-    if not upcoming or days_ahead < COVERAGE_CRITICAL_DAYS:
+    if source_errors and not upcoming:
+        level = "warning"
+    elif not upcoming or days_ahead < COVERAGE_CRITICAL_DAYS:
         level = "critical"
     elif days_ahead < COVERAGE_WARNING_DAYS or (days_to_next is not None and days_to_next > GAP_WARNING_DAYS):
         level = "warning"
     else:
         level = "ok"
 
-    if not upcoming:
+    if source_errors and not upcoming:
+        message = "Não foi possível verificar todos os agendamentos agora. Atualize novamente em instantes."
+    elif not upcoming:
         message = "Nenhum post ou story agendado. A partir de agora a conta fica sem publicação."
     elif days_ahead < COVERAGE_CRITICAL_DAYS:
         message = f"A fila acaba em {days_ahead:.1f} dia(s). Agende novas peças hoje."
@@ -113,6 +121,9 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
         message = f"Agendamento cobre só os próximos {days_ahead:.1f} dia(s)."
     else:
         message = f"Agendamento coberto pelos próximos {days_ahead:.1f} dia(s)."
+
+    if source_errors and upcoming:
+        message += " Uma fonte do calendário não pôde ser verificada."
 
     for entry in upcoming:
         entry.pop("_when", None)
@@ -126,6 +137,8 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
         "days_to_next": days_to_next,
         "total_upcoming": len(upcoming),
         "in_next_7_days": in_next_7_days,
+        "partial": bool(source_errors),
+        "errors": source_errors,
         "by_kind": {kind: sum(1 for entry in upcoming if entry["kind"] == kind) for kind in ("story", "feed")},
         "by_source": {
             source: sum(1 for entry in upcoming if entry["source"] == source) for source in ("erp", "externo")
@@ -143,7 +156,10 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
 def safe_schedule_coverage(db: Session, errors: dict[str, str]) -> dict[str, Any]:
     """Mantém os insights disponíveis se a agenda estiver temporariamente indisponível."""
     try:
-        return schedule_coverage(db)
+        coverage = schedule_coverage(db)
+        for source, error in coverage.get("errors", {}).items():
+            errors[f"agendamento_{source}"] = error
+        return coverage
     except Exception as exc:
         logger.exception("marketing insights: schedule coverage failed")
         errors["cobertura_agendamento"] = type(exc).__name__

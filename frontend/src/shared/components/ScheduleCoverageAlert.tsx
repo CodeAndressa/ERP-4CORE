@@ -10,6 +10,7 @@ export type Coverage = {
   level:Level; message:string; covered_until:string|null; days_ahead:number;
   next_at:string|null; days_to_next:number|null; total_upcoming:number;
   in_next_7_days:number;
+  partial?:boolean; errors?:Record<string,string>;
   by_kind:Record<string,number>; by_source:Record<string,number>; upcoming:Upcoming[];
 };
 
@@ -58,7 +59,7 @@ export default function ScheduleCoverageAlert({ compact=false, coverage }:{ comp
         <Icon size={18} className="mt-0.5 shrink-0" style={{color:style.text}}/>
         <div className="min-w-0">
           <p className="text-sm font-semibold" style={{color:style.text}}>
-            {until?<>Agendado até {until}</>:'Nenhuma publicação agendada'}
+            {until?<>Agendado até {until}</>:data.partial?'Agenda parcialmente verificada':'Nenhuma publicação agendada'}
           </p>
           <p className="mt-1 text-xs leading-relaxed" style={{color:style.text,opacity:.85}}>{data.message}</p>
           {data.total_upcoming>0&&<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold">

@@ -181,6 +181,7 @@ export default function DashboardPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [coverage, setCoverage] = useState<Coverage | null>(null);
+  const [coverageFailed, setCoverageFailed] = useState(false);
   const [igProfile, setIgProfile] = useState<IgProfile | null>(null);
   const [secondaryLoading, setSecondaryLoading] = useState(true);
 
@@ -200,6 +201,7 @@ export default function DashboardPage() {
     loadAsaas(forceRefresh);
     setSiteLoading(true);
     setSecondaryLoading(true);
+    setCoverageFailed(false);
 
     api.get<SiteData>('/site/dashboard?days=30')
       .then(({ data }) => setSite(data))
@@ -217,6 +219,7 @@ export default function DashboardPage() {
         // Buscado aqui e repassado ao alerta como prop: os dois precisam do mesmo
         // dado, e sem isso a mesma rota seria chamada duas vezes na mesma tela.
         setCoverage(coverageResult.status === 'fulfilled' ? coverageResult.value.data : null);
+        setCoverageFailed(coverageResult.status === 'rejected');
         if (leadResult.status === 'fulfilled') setLeads(normalizeList<Lead>(leadResult.value.data));
         if (clientResult.status === 'fulfilled') setClients(normalizeList<Client>(clientResult.value.data));
         // Sem invenção de post: quando a Meta não responde ou não há publicação, o
@@ -285,14 +288,16 @@ export default function DashboardPage() {
     {
       key: 'posts',
       icon: <CalendarDays size={16} />,
-      label: scheduledThisWeek > 0 ? 'Conteúdo desta semana' : 'Nada agendado esta semana',
-      detail: scheduledThisWeek > 0
+      label: coverageFailed ? 'Agenda não verificada' : scheduledThisWeek > 0 ? 'Conteúdo desta semana' : 'Nada agendado esta semana',
+      detail: coverageFailed
+        ? 'Não foi possível consultar os próximos agendamentos'
+        : scheduledThisWeek > 0
         ? (scheduledThisWeek === 1 ? '1 publicação agendada nos próximos 7 dias' : `${fmt.format(scheduledThisWeek)} publicações agendadas nos próximos 7 dias`)
         : 'Sem post nem story nos próximos 7 dias',
-      value: fmt.format(scheduledThisWeek),
+      value: coverageFailed ? '—' : fmt.format(scheduledThisWeek),
       // O tom estava invertido: semana vazia aparecia em verde e semana cheia em
       // âmbar, o oposto do que o cartão "precisa de atenção" quer dizer.
-      tone: scheduledThisWeek > 0 ? 'emerald' : 'amber',
+      tone: !coverageFailed && scheduledThisWeek > 0 ? 'emerald' : 'amber',
       to: '/marketing/calendario',
     },
   ];

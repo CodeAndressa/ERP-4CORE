@@ -471,7 +471,12 @@ async def scheduled_run(request: Request, db: Session = Depends(get_db)):
     followups = await process_due_followups(db)
     discovery: dict[str, Any] = {"skipped": True, "reason": "Fonte ainda não configurada."}
     if settings.casa_dos_dados_api_key:
-        discovery = await discover_companies(db, requested=max(15, campaign.daily_per_seller * 9))
+        try:
+            discovery = await discover_companies(db, requested=max(15, campaign.daily_per_seller * 9))
+        except HTTPException as exc:
+            if exc.status_code != 409:
+                raise
+            discovery = {"skipped": True, "reason": str(exc.detail)}
     distribution = distribute_daily_queue(db)
     return {"inbox": inbox, "followups": followups, "discovery": discovery, "distribution": distribution}
 

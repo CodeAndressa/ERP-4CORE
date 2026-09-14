@@ -294,9 +294,14 @@ async def discover_companies(db: Session, requested: int = 45) -> dict[str, Any]
     campaign = get_or_create_campaign(db)
     reset_monthly_spend(campaign)
     remaining = max(0, campaign.monthly_budget_cents - campaign.spent_cents)
-    limit = min(max(1, requested), remaining // CASA_CNPJ_PRICE_CENTS)
+    remaining_queries = remaining // CASA_CNPJ_PRICE_CENTS
+    configured_query_limit = max(0, settings.prospecting_monthly_query_limit)
+    if configured_query_limit:
+        used_queries = campaign.spent_cents // CASA_CNPJ_PRICE_CENTS
+        remaining_queries = min(remaining_queries, max(0, configured_query_limit - used_queries))
+    limit = min(max(1, requested), remaining_queries)
     if limit <= 0:
-        raise HTTPException(409, "O limite mensal de prospecção foi atingido.")
+        raise HTTPException(409, "O limite mensal de consultas da prospecção foi atingido.")
 
     today = date.today()
     base_body = {
@@ -390,7 +395,18 @@ async def discover_companies(db: Session, requested: int = 45) -> dict[str, Any]
     campaign.spent_cents += charged
     campaign.last_discovery_at = datetime.now(timezone.utc)
     db.commit()
-    return {"found": len(items), "added": added, "skipped": skipped, "charged_cents": charged, "remaining_cents": max(0, campaign.monthly_budget_cents - campaign.spent_cents)}
+    used_queries = campaign.spent_cents // CASA_CNPJ_PRICE_CENTS
+    query_limit = max(0, settings.prospecting_monthly_query_limit)
+    return {
+        "found": len(items),
+        "added": added,
+        "skipped": skipped,
+        "charged_cents": charged,
+        "remaining_cents": max(0, campaign.monthly_budget_cents - campaign.spent_cents),
+        "queries_used": used_queries,
+        "query_limit": query_limit or None,
+        "queries_remaining": max(0, query_limit - used_queries) if query_limit else None,
+    }
 
 
 def seller_ids_for_campaign(db: Session, campaign: ProspectingCampaign) -> list[int]:

@@ -91,6 +91,13 @@ def config_status(db: Session = Depends(get_db)):
             "provider": "Casa dos Dados",
             "configured": bool(settings.casa_dos_dados_api_key),
             "price_per_company_cents": 1,
+            "query_limit": max(0, settings.prospecting_monthly_query_limit) or None,
+            "queries_used": campaign.spent_cents,
+            "queries_remaining": (
+                max(0, settings.prospecting_monthly_query_limit - campaign.spent_cents)
+                if settings.prospecting_monthly_query_limit > 0
+                else None
+            ),
         },
         "email": {
             "provider": "Hostinger",

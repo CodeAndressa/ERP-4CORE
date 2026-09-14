@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     hostinger_imap_port: int = 993
     prospecting_cron_secret: str = ""
     prospecting_dry_run: bool = True
+    # Limite adicional de consultas da fonte. Zero desativa o limite e mantém
+    # apenas o teto financeiro da campanha. Útil para não ultrapassar créditos
+    # gratuitos ou um pacote pré-pago sem autorização.
+    prospecting_monthly_query_limit: int = 0
     prospecting_privacy_url: str = "https://4core.site/privacidade"
 
     class Config:

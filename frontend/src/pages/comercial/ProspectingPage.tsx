@@ -63,7 +63,10 @@ interface Activity {
 interface TeamMember { id: number; full_name: string; email: string }
 
 interface Config {
-  source: { provider: string; configured: boolean; price_per_company_cents: number };
+  source: {
+    provider: string; configured: boolean; price_per_company_cents: number;
+    query_limit?: number | null; queries_used: number; queries_remaining?: number | null;
+  };
   email: { provider: string; address: string; configured: boolean; dry_run: boolean };
   scheduler: boolean;
   privacy_url: string;
@@ -354,6 +357,9 @@ function SettingsView({ config, team, onSaved }: { config: Config; team: TeamMem
   const [sellerIds, setSellerIds] = useState<number[]>(config.campaign.seller_ids);
   const [saving, setSaving] = useState(false);
   const budgetPercent = Math.min(100, Math.round((config.campaign.spent_cents / Math.max(1, config.campaign.monthly_budget_cents)) * 100));
+  const queryPercent = config.source.query_limit
+    ? Math.min(100, Math.round((config.source.queries_used / config.source.query_limit) * 100))
+    : 0;
 
   async function save() {
     setSaving(true);
@@ -403,9 +409,15 @@ function SettingsView({ config, team, onSaved }: { config: Config; team: TeamMem
           </div>
         </Card>
         <Card>
-          <div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Orçamento mensal</h2><strong className="text-sm" style={{ color: 'var(--erp-text)' }}>{moneyFromCents(config.campaign.spent_cents)} / {moneyFromCents(config.campaign.monthly_budget_cents)}</strong></div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: 'var(--erp-surface-3)' }}><div className="h-full rounded-full" style={{ width: `${budgetPercent}%`, background: budgetPercent >= 80 ? 'var(--erp-amber)' : 'var(--erp-violet)' }} /></div>
-          <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>A busca para automaticamente ao atingir R$ 50 no mês.</p>
+          {config.source.query_limit ? <>
+            <div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Consultas gratuitas</h2><strong className="text-sm" style={{ color: 'var(--erp-text)' }}>{config.source.queries_used} / {config.source.query_limit}</strong></div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: 'var(--erp-surface-3)' }}><div className="h-full rounded-full" style={{ width: `${queryPercent}%`, background: queryPercent >= 80 ? 'var(--erp-amber)' : 'var(--erp-violet)' }} /></div>
+            <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>Restam {config.source.queries_remaining ?? 0} consultas. A busca para ao completar o pacote gratuito, antes de gerar cobrança.</p>
+          </> : <>
+            <div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>Limite interno mensal</h2><strong className="text-sm" style={{ color: 'var(--erp-text)' }}>{moneyFromCents(config.campaign.spent_cents)} / {moneyFromCents(config.campaign.monthly_budget_cents)}</strong></div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: 'var(--erp-surface-3)' }}><div className="h-full rounded-full" style={{ width: `${budgetPercent}%`, background: budgetPercent >= 80 ? 'var(--erp-amber)' : 'var(--erp-violet)' }} /></div>
+            <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>A busca para automaticamente ao atingir o limite interno do mês.</p>
+          </>}
         </Card>
       </div>
     </div>

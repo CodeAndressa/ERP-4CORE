@@ -18,6 +18,8 @@ O módulo `/comercial/prospeccao` organiza a busca, qualificação, distribuiç�
 
 Crie uma chave da API e configure `CASA_DOS_DADOS_API_KEY`. A campanha possui limite rígido de R$ 50,00 por mês e registra o consumo estimado antes de continuar as buscas.
 
+Para aproveitar um pacote gratuito ou pré-pago sem gerar cobrança, configure `PROSPECTING_MONTHLY_QUERY_LIMIT` com o total de consultas autorizado. A contagem usa o mesmo consumo mensal já registrado pela campanha e a busca para automaticamente ao atingir esse número. Use `0` para desativar esse limite adicional.
+
 Os CNPJs retornados pela busca são enriquecidos pela BrasilAPI. A BrasilAPI não substitui a fonte contratada nem confirma quantidade de funcionários.
 
 ### Hostinger

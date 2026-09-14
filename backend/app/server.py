@@ -22,6 +22,7 @@ from app.models.marketing import (
 from app.models.financial import DunningLog, TopdataAccessControl
 from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
+from app.services.marketing_content_service import cloudflare_image_models
 
 
 logger = logging.getLogger(__name__)
@@ -146,4 +147,12 @@ for router in [auth.router, dashboard.router, financial.router, leads.router, cl
 
 @app.get('/health')
 def health_check():
-    return {'status': 'ok'}
+    image_models = cloudflare_image_models()
+    return {
+        'status': 'ok',
+        'api_version': 3,
+        'image_generation': {
+            'primary': image_models[0],
+            'fallback': image_models[1] if len(image_models) > 1 else None,
+        },
+    }

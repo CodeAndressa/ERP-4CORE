@@ -44,6 +44,13 @@ BRAND_LOGO_URL = (
     "Logo%20com%20Tipografia%204Core%20-%20Principal%20Transparente.png"
 )
 
+CLOUDFLARE_KLEIN_MODEL = "@cf/black-forest-labs/flux-2-klein-4b"
+CLOUDFLARE_SCHNELL_MODEL = "@cf/black-forest-labs/flux-1-schnell"
+# A variável pode continuar salva com o valor antigo na Vercel. Esse modelo custa
+# dezenas de vezes mais neurônios por story, então fazemos a migração também em
+# runtime e não dependemos de uma alteração manual no painel.
+DEPRECATED_CLOUDFLARE_IMAGE_MODELS = {"@cf/leonardo/lucid-origin"}
+
 
 FALLBACK_TOPIC_SUGGESTIONS = [
     {
@@ -530,65 +537,116 @@ def _compose_brand_art(background: bytes, logo_content: bytes, headline: str) ->
     return output.getvalue()
 
 
-async def _generate_cloudflare_art(prompt: str, headline: str) -> bytes:
-    model = settings.cloudflare_image_model.strip() or "@cf/leonardo/lucid-origin"
-    endpoint = (
-        "https://api.cloudflare.com/client/v4/accounts/"
-        f"{settings.cloudflare_account_id.strip()}/ai/run/{model}"
+def _cloudflare_candidate_models() -> list[str]:
+    primary = settings.cloudflare_image_model.strip() or CLOUDFLARE_KLEIN_MODEL
+    if primary.lower() in DEPRECATED_CLOUDFLARE_IMAGE_MODELS:
+        primary = CLOUDFLARE_KLEIN_MODEL
+    fallback = settings.cloudflare_image_fallback_model.strip() or CLOUDFLARE_SCHNELL_MODEL
+    return list(dict.fromkeys((primary, fallback)))
+
+
+def _cloudflare_request_kwargs(model: str, prompt: str) -> dict[str, Any]:
+    headers = {"Authorization": f"Bearer {settings.cloudflare_api_token.strip()}"}
+    if "flux-2-klein" in model.lower():
+        # O Klein exige multipart mesmo em text-to-image. Não se define Content-Type
+        # manualmente: o httpx inclui o boundary correto ao serializar `files`.
+        return {
+            "headers": headers,
+            "files": {
+                "prompt": (None, prompt),
+                "width": (None, "720"),
+                "height": (None, "1280"),
+            },
+        }
+    if "flux-1-schnell" in model.lower():
+        return {
+            "headers": {**headers, "Content-Type": "application/json"},
+            "json": {"prompt": prompt, "width": 720, "height": 1280, "steps": 4},
+        }
+    return {
+        "headers": {**headers, "Content-Type": "application/json"},
+        "json": {
+            "prompt": prompt,
+            "negative_prompt": (
+                f"{AI_LOOK_NEGATIVE}, "
+                "logo, logotype, wordmark, monogram, emblem, brand mark, company name, "
+                "flowers, lavender flowers, violet flowers, plants, leaves, garden, nature, landscape, "
+                "wellness, cosmetics, unrelated decorative object, any text, words, letters, numbers, "
+                "typography, pseudo-text, watermarks, misspelled text, invented logo, "
+                "fake certification, generic blue corporate style, handshake, "
+                "analog clock, calendar, clutter, tiny typography, malformed hands, distorted device"
+            ),
+            "width": 720,
+            "height": 1280,
+            "num_steps": 20,
+            "guidance": 6,
+        },
+    }
+
+
+def _cloudflare_image_bytes(response: httpx.Response) -> bytes:
+    content_type = response.headers.get("content-type", "").lower()
+    raw = response.content
+    looks_like_image = (
+        raw.startswith(b"\x89PNG")
+        or raw.startswith(b"\xff\xd8\xff")
+        or (raw.startswith(b"RIFF") and raw[8:12] == b"WEBP")
     )
+    if content_type.startswith("image/") or looks_like_image:
+        return raw
+    payload = response.json()
+    result = payload.get("result", payload)
+    encoded = result.get("image") if isinstance(result, dict) else result
+    if not isinstance(encoded, str):
+        raise ValueError("Resposta sem imagem")
+    if encoded.startswith("data:"):
+        encoded = encoded.split(",", 1)[1]
+    return base64.b64decode(encoded, validate=True)
+
+
+async def _generate_cloudflare_art(prompt: str, headline: str) -> bytes:
+    models = _cloudflare_candidate_models()
+    content: bytes | None = None
+    cropped: bytes | None = None
+    last_error: HTTPException | None = None
     async with httpx.AsyncClient(timeout=180.0) as client:
-        response = await client.post(
-            endpoint,
-            headers={
-                "Authorization": f"Bearer {settings.cloudflare_api_token.strip()}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "prompt": prompt,
-                "negative_prompt": (
-                    f"{AI_LOOK_NEGATIVE}, "
-                    "logo, logotype, wordmark, monogram, emblem, brand mark, company name, "
-                    "flowers, lavender flowers, violet flowers, plants, leaves, garden, nature, landscape, "
-                    "wellness, cosmetics, unrelated decorative object, any text, words, letters, numbers, "
-                    "typography, pseudo-text, watermarks, misspelled text, invented logo, "
-                    "fake certification, generic blue corporate style, handshake, "
-                    "analog clock, calendar, clutter, tiny typography, malformed hands, distorted device"
-                ),
-                "width": 720,
-                "height": 1280,
-                "num_steps": 20,
-                "guidance": 6,
-            },
-        )
-    if response.status_code >= 400:
-        raise _cloudflare_error(response)
-    try:
-        content_type = response.headers.get("content-type", "").lower()
-        raw = response.content
-        looks_like_image = (
-            raw.startswith(b"\x89PNG")
-            or raw.startswith(b"\xff\xd8\xff")
-            or (raw.startswith(b"RIFF") and raw[8:12] == b"WEBP")
-        )
-        if content_type.startswith("image/") or looks_like_image:
-            content = response.content
-        else:
-            payload = response.json()
-            result = payload.get("result", payload)
-            encoded = result.get("image") if isinstance(result, dict) else result
-            if not isinstance(encoded, str):
-                raise ValueError("Resposta sem imagem")
-            if encoded.startswith("data:"):
-                encoded = encoded.split(",", 1)[1]
-            content = base64.b64decode(encoded)
-        cropped = _crop_to_story(content)
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            logo_response = await client.get(BRAND_LOGO_URL)
+        for index, model in enumerate(models):
+            endpoint = (
+                "https://api.cloudflare.com/client/v4/accounts/"
+                f"{settings.cloudflare_account_id.strip()}/ai/run/{model}"
+            )
+            try:
+                response = await client.post(endpoint, **_cloudflare_request_kwargs(model, prompt))
+            except httpx.HTTPError as exc:
+                last_error = HTTPException(502, f"Não foi possível acessar o modelo {model} na Cloudflare.")
+                if index == len(models) - 1:
+                    raise last_error from exc
+                continue
+            if response.status_code >= 400:
+                last_error = _cloudflare_error(response)
+                # Credencial inválida ou cota diária esgotada também impedirá o
+                # fallback na mesma conta; nesse caso não gastamos outra chamada.
+                if last_error.status_code in {429, 503} or index == len(models) - 1:
+                    raise last_error
+                continue
+            try:
+                content = _cloudflare_image_bytes(response)
+                cropped = _crop_to_story(content)
+                break
+            except (TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+                last_error = HTTPException(502, f"O modelo {model} não retornou uma imagem válida.")
+                if index == len(models) - 1:
+                    raise last_error from exc
+
+        if content is None or cropped is None:
+            raise last_error or HTTPException(502, "A Cloudflare não retornou uma imagem válida.")
+        logo_response = await client.get(BRAND_LOGO_URL, timeout=30.0)
         if logo_response.status_code >= 400:
             raise HTTPException(502, "Nao foi possivel carregar a logo oficial da 4Core.")
-        return _compose_brand_art(cropped, logo_response.content, headline)
-    except (TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
-        raise HTTPException(502, "A Cloudflare não retornou uma imagem válida.") from exc
+        try:
+            return _compose_brand_art(cropped, logo_response.content, headline)
+        except (TypeError, ValueError, OSError) as exc:
+            raise HTTPException(502, "Não foi possível finalizar a arte gerada.") from exc
 
 
 async def _generate_openai_art(prompt: str, headline: str) -> bytes:

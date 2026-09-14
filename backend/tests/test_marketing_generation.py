@@ -11,7 +11,13 @@ from app.services.marketing_brand_system import (
     normalize_pt_br_text,
     sentence_case,
 )
-from app.services.marketing_content_service import _sanitize_generated_layout
+from app.services.marketing_content_service import (
+    CLOUDFLARE_KLEIN_MODEL,
+    CLOUDFLARE_SCHNELL_MODEL,
+    _cloudflare_candidate_models,
+    _cloudflare_request_kwargs,
+    _sanitize_generated_layout,
+)
 
 
 class MarketingGenerationTests(unittest.TestCase):
@@ -55,6 +61,34 @@ class MarketingGenerationTests(unittest.TestCase):
         self.assertLess(left_mean, 500)
         self.assertLess(abs(left_mean - right_mean), 2)
         self.assertGreater(sum(ImageStat.Stat(untouched_middle).mean), 750)
+
+    def test_legacy_cloudflare_model_is_migrated_to_free_klein_model(self) -> None:
+        previous_model = settings.cloudflare_image_model
+        previous_fallback = settings.cloudflare_image_fallback_model
+        try:
+            settings.cloudflare_image_model = "@cf/leonardo/lucid-origin"
+            settings.cloudflare_image_fallback_model = CLOUDFLARE_SCHNELL_MODEL
+            self.assertEqual(
+                _cloudflare_candidate_models(),
+                [CLOUDFLARE_KLEIN_MODEL, CLOUDFLARE_SCHNELL_MODEL],
+            )
+        finally:
+            settings.cloudflare_image_model = previous_model
+            settings.cloudflare_image_fallback_model = previous_fallback
+
+    def test_klein_uses_multipart_without_adjustable_steps(self) -> None:
+        kwargs = _cloudflare_request_kwargs(CLOUDFLARE_KLEIN_MODEL, "real office photo")
+        self.assertIn("files", kwargs)
+        self.assertNotIn("json", kwargs)
+        self.assertNotIn("Content-Type", kwargs["headers"])
+        self.assertNotIn("steps", kwargs["files"])
+        self.assertEqual(kwargs["files"]["width"], (None, "720"))
+        self.assertEqual(kwargs["files"]["height"], (None, "1280"))
+
+    def test_schnell_fallback_uses_four_steps(self) -> None:
+        kwargs = _cloudflare_request_kwargs(CLOUDFLARE_SCHNELL_MODEL, "real office photo")
+        self.assertEqual(kwargs["json"]["steps"], 4)
+        self.assertNotIn("num_steps", kwargs["json"])
 
 
 if __name__ == "__main__":

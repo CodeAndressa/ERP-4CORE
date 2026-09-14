@@ -388,30 +388,26 @@ def _story_scrim(width: int, height: int) -> Image.Image:
 
 
 def _sanitize_generated_layout(image: Image.Image) -> Image.Image:
-    """Neutraliza as regiões em que geradores costumam inventar cabeçalho,
-    wordmark e texto de template.
+    """Neutraliza letras inventadas no topo sem desenhar um bloco sobre a foto.
 
-    A fotografia é solicitada com o protagonista à direita. Assim podemos tornar
-    topo e quadrante superior esquerdo áreas de respiro determinísticas sem cobrir
-    a parte importante da cena. Blur remove formas de letras; a camada ameixa
-    impede que um wordmark alucinado continue reconhecível por baixo.
+    O tratamento anterior cobria também o quadrante superior esquerdo com dois
+    recortes opacos. Mesmo com feather, os limites do segundo recorte apareciam
+    como um quadrado escuro sobre a fotografia. Agora o blur e a cor se dissipam
+    verticalmente por toda a largura, dentro da área já reservada para a interface
+    do Instagram.
     """
     result = image.convert("RGBA")
     width, height = result.size
-    regions = (
-        (0, 0, width, round(height * 0.16), 218),
-        (0, round(height * 0.14), round(width * 0.60), round(height * 0.43), 205),
-    )
-    for left, top, right, bottom, opacity in regions:
-        crop = result.crop((left, top, right, bottom))
-        radius = max(8, round(width * 0.018))
-        crop = crop.filter(ImageFilter.GaussianBlur(radius=radius))
-        shade = Image.new("RGBA", crop.size, (*PLUM, opacity))
-        crop = Image.alpha_composite(crop, shade)
-        mask = Image.new("L", crop.size, 255)
-        feather = max(10, round(width * 0.025))
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=feather))
-        result.paste(crop, (left, top), mask)
+    top_span = max(1, round(height * 0.20))
+    softened = result.filter(ImageFilter.GaussianBlur(radius=max(8, round(width * 0.018))))
+    softened = Image.alpha_composite(softened, Image.new("RGBA", result.size, (*PLUM, 178)))
+
+    mask = Image.new("L", result.size, 0)
+    mask_draw = ImageDraw.Draw(mask)
+    for y in range(top_span):
+        opacity = round(236 * (1 - y / top_span) ** 1.8)
+        mask_draw.line((0, y, width, y), fill=opacity)
+    result.paste(softened, (0, 0), mask)
     return result
 
 

@@ -43,14 +43,18 @@ class MarketingGenerationTests(unittest.TestCase):
         self.assertEqual(value, "Gestão e segurança: você não esta sozinho na operação")
         self.assertEqual(sentence_case("GESTAO DE RISCO TRABALHISTA"), "Gestão de risco trabalhista")
 
-    def test_generated_template_area_is_neutralized(self) -> None:
+    def test_generated_template_area_has_no_rectangular_overlay(self) -> None:
         source = Image.new("RGBA", (720, 1280), (255, 255, 255, 255))
         result = _sanitize_generated_layout(source)
-        top_left = result.crop((0, 0, 300, 400)).convert("RGB")
-        untouched_right = result.crop((600, 400, 720, 700)).convert("RGB")
+        top_left = result.crop((0, 0, 300, 120)).convert("RGB")
+        top_right = result.crop((420, 0, 720, 120)).convert("RGB")
+        untouched_middle = result.crop((0, 360, 300, 700)).convert("RGB")
 
-        self.assertLess(sum(ImageStat.Stat(top_left).mean), 250)
-        self.assertGreater(sum(ImageStat.Stat(untouched_right).mean), 700)
+        left_mean = sum(ImageStat.Stat(top_left).mean)
+        right_mean = sum(ImageStat.Stat(top_right).mean)
+        self.assertLess(left_mean, 500)
+        self.assertLess(abs(left_mean - right_mean), 2)
+        self.assertGreater(sum(ImageStat.Stat(untouched_middle).mean), 750)
 
 
 if __name__ == "__main__":

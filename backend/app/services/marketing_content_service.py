@@ -537,7 +537,7 @@ def _compose_brand_art(background: bytes, logo_content: bytes, headline: str) ->
     return output.getvalue()
 
 
-def _cloudflare_candidate_models() -> list[str]:
+def cloudflare_image_models() -> list[str]:
     primary = settings.cloudflare_image_model.strip() or CLOUDFLARE_KLEIN_MODEL
     if primary.lower() in DEPRECATED_CLOUDFLARE_IMAGE_MODELS:
         primary = CLOUDFLARE_KLEIN_MODEL
@@ -605,7 +605,7 @@ def _cloudflare_image_bytes(response: httpx.Response) -> bytes:
 
 
 async def _generate_cloudflare_art(prompt: str, headline: str) -> bytes:
-    models = _cloudflare_candidate_models()
+    models = cloudflare_image_models()
     content: bytes | None = None
     cropped: bytes | None = None
     last_error: HTTPException | None = None

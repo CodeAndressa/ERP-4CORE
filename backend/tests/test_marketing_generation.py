@@ -14,9 +14,9 @@ from app.services.marketing_brand_system import (
 from app.services.marketing_content_service import (
     CLOUDFLARE_KLEIN_MODEL,
     CLOUDFLARE_SCHNELL_MODEL,
-    _cloudflare_candidate_models,
     _cloudflare_request_kwargs,
     _sanitize_generated_layout,
+    cloudflare_image_models,
 )
 
 
@@ -69,7 +69,7 @@ class MarketingGenerationTests(unittest.TestCase):
             settings.cloudflare_image_model = "@cf/leonardo/lucid-origin"
             settings.cloudflare_image_fallback_model = CLOUDFLARE_SCHNELL_MODEL
             self.assertEqual(
-                _cloudflare_candidate_models(),
+                cloudflare_image_models(),
                 [CLOUDFLARE_KLEIN_MODEL, CLOUDFLARE_SCHNELL_MODEL],
             )
         finally:

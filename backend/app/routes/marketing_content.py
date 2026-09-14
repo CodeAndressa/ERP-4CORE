@@ -25,6 +25,7 @@ from app.services.marketing_asset_service import art_response, read_art_bytes, s
 from app.services.marketing_canva_service import build_canva_pptx
 from app.services.marketing_content_service import (
     FALLBACK_TOPIC_SUGGESTIONS,
+    cloudflare_image_models,
     generate_art,
     generate_caption_only,
     generate_copy_and_prompt,
@@ -231,11 +232,18 @@ def create_content(payload: ContentCreate, db: Session = Depends(get_db)):
 @router.get("/config/status")
 def content_config_status():
     cloudflare_ready = bool(settings.cloudflare_account_id and settings.cloudflare_api_token)
+    cloudflare_models = cloudflare_image_models() if cloudflare_ready else []
     return {
-        "api_version": 2,
+        "api_version": 3,
         "feedback_learning": True,
         "art_generation": bool(cloudflare_ready or settings.openai_api_key),
         "art_provider": "Cloudflare Workers AI" if cloudflare_ready else "OpenAI" if settings.openai_api_key else None,
+        "art_model": (
+            cloudflare_models[0]
+            if cloudflare_models
+            else settings.openai_image_model if settings.openai_api_key else None
+        ),
+        "art_fallback_model": cloudflare_models[1] if len(cloudflare_models) > 1 else None,
         "storage": bool(settings.site_supabase_url and settings.site_supabase_service_role_key),
         "meta": bool(
             (settings.meta_page_access_token or settings.meta_access_token)

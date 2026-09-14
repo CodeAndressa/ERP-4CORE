@@ -218,7 +218,7 @@ interface DetailProps {
 function ProspectDetail({ prospect, activities, config, onRefresh }: DetailProps) {
   const navigate = useNavigate();
   const [working, setWorking] = useState('');
-  const [note, setNote] = useState('Conversei com a empresa para entender como realizam o controle de jornada.');
+  const [note, setNote] = useState('Retorno recebido por e-mail ou WhatsApp.');
   const [draft, setDraft] = useState({ subject: '', email: '', call_script: '' });
   const [emailPreview, setEmailPreview] = useState('');
 
@@ -310,14 +310,21 @@ function ProspectDetail({ prospect, activities, config, onRefresh }: DetailProps
           <div className="flex min-h-11 items-center gap-2 rounded-xl px-3" style={{ background: 'var(--erp-surface-2)', color: 'var(--erp-text-muted)' }}><UserRoundCheck size={14} /><span className="truncate">{prospect.assigned_to_name || 'Ainda sem responsável'}</span></div>
         </section>
 
-        {canContact ? (
+        {canContact && prospect.status === 'new' ? (
           <section>
-            <label className="text-xs font-semibold" htmlFor="prospect-note" style={{ color: 'var(--erp-text)' }}>Registro da abordagem</label>
-            <textarea id="prospect-note" value={note} onChange={(event) => setNote(event.target.value)} rows={3} className={`${inputClass} mt-2 resize-y py-2.5`} style={{ background: 'var(--erp-surface-2)', borderColor: 'var(--erp-border)', color: 'var(--erp-text)' }} />
+            <h3 className="text-xs font-semibold" style={{ color: 'var(--erp-text)' }}>Revisão antes do primeiro contato</h3>
+            <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>Confira os dados públicos da empresa. Ao aprovar, o envio do primeiro e-mail será liberado.</p>
+            <Button className="mt-3" size="sm" loading={working === 'approve'} onClick={() => action('approve', () => api.post(`/prospecting/prospects/${prospect.id}/approve`), 'Empresa aprovada para contato por e-mail.')} icon={<ShieldCheck size={14} />}>Aprovar para e-mail</Button>
+          </section>
+        ) : null}
+
+        {canContact && ['emailing', 'replied'].includes(prospect.status) ? (
+          <section>
+            <label className="text-xs font-semibold" htmlFor="prospect-note" style={{ color: 'var(--erp-text)' }}>Classificar retorno</label>
+            <p className="mt-1 text-[11px] leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>Use após receber uma resposta por e-mail ou uma conversa pelo WhatsApp.</p>
+            <textarea id="prospect-note" value={note} onChange={(event) => setNote(event.target.value)} rows={2} className={`${inputClass} mt-2 resize-y py-2.5`} style={{ background: 'var(--erp-surface-2)', borderColor: 'var(--erp-border)', color: 'var(--erp-text)' }} />
             <div className="mt-2 flex flex-wrap gap-2">
-              {prospect.status === 'new' ? <Button size="sm" loading={working === 'approve'} onClick={() => action('approve', () => api.post(`/prospecting/prospects/${prospect.id}/approve`), 'Abordagem aprovada.')} icon={<ShieldCheck size={14} />}>Aprovar</Button> : null}
-              <Button size="sm" variant="secondary" loading={working === 'call'} onClick={() => action('call', () => api.post(`/prospecting/prospects/${prospect.id}/contact`, { outcome: 'call_made', note }), 'Ligação registrada.')} icon={<Phone size={14} />}>Registrar ligação</Button>
-              <Button size="sm" variant="outline" loading={working === 'interest'} onClick={() => action('interest', () => api.post(`/prospecting/prospects/${prospect.id}/contact`, { outcome: 'interested', note }), 'Interesse registrado; o envio por e-mail foi liberado.')} icon={<CheckCircle2 size={14} />}>Tem interesse</Button>
+              <Button size="sm" variant="secondary" loading={working === 'interest'} onClick={() => action('interest', () => api.post(`/prospecting/prospects/${prospect.id}/contact`, { outcome: 'interested', note }), 'Interesse registrado.')} icon={<CheckCircle2 size={14} />}>Tem interesse</Button>
               <Button size="sm" variant="ghost" loading={working === 'reject'} onClick={() => action('reject', () => api.post(`/prospecting/prospects/${prospect.id}/contact`, { outcome: 'no_interest', note: note || 'Informou que não tem interesse.' }), 'Empresa adicionada à lista de não contato.')} icon={<XCircle size={14} />}>Sem interesse</Button>
             </div>
           </section>
@@ -326,12 +333,11 @@ function ProspectDetail({ prospect, activities, config, onRefresh }: DetailProps
         <section>
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h3 className="text-xs font-semibold" style={{ color: 'var(--erp-text)' }}>Abordagem sugerida</h3>
-              <p className="mt-0.5 text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>A IA usa apenas os dados públicos exibidos acima.</p>
+              <h3 className="text-xs font-semibold" style={{ color: 'var(--erp-text)' }}>Primeiro contato por e-mail</h3>
+              <p className="mt-0.5 text-[11px]" style={{ color: 'var(--erp-text-muted)' }}>A IA prepara uma mensagem curta usando apenas os dados públicos exibidos acima.</p>
             </div>
-            <Button size="xs" variant="outline" loading={working === 'draft'} onClick={generate} icon={<Sparkles size={13} />}>Preparar</Button>
+            <Button size="xs" variant="outline" loading={working === 'draft'} onClick={generate} icon={<Sparkles size={13} />}>Preparar e-mail</Button>
           </div>
-          {draft.call_script ? <div className="mt-2 rounded-xl p-3 text-xs leading-relaxed" style={{ background: 'var(--erp-violet-dim)', color: 'var(--erp-text)' }}>{draft.call_script}</div> : null}
           {draft.email ? (
             <div className="mt-3 space-y-2">
               <input aria-label="Assunto do e-mail" value={draft.subject} onChange={(event) => setDraft((value) => ({ ...value, subject: event.target.value }))} className={inputClass} style={{ background: 'var(--erp-surface-2)', borderColor: 'var(--erp-border)', color: 'var(--erp-text)' }} />

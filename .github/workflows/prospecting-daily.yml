@@ -1,0 +1,24 @@
+name: Prospecção diária 4Core
+
+on:
+  schedule:
+    - cron: "0 12 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: prospecting-daily
+  cancel-in-progress: false
+
+jobs:
+  run-prospecting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Buscar, distribuir e acompanhar prospectos
+        env:
+          PROSPECTING_CRON_SECRET: ${{ secrets.PROSPECTING_CRON_SECRET }}
+        run: |
+          test -n "$PROSPECTING_CRON_SECRET"
+          curl --fail-with-body --silent --show-error --retry 2 \
+            --request POST \
+            --header "Authorization: Bearer $PROSPECTING_CRON_SECRET" \
+            https://4core-backend.vercel.app/prospecting/run

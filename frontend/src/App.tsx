@@ -43,6 +43,7 @@ const ComerciaisPage = lazy(() => import('./pages/relatorios/ComerciaisPage'));
 const FollowupPage = lazy(() => import('./pages/comercial/FollowupPage'));
 const AgendaPage = lazy(() => import('./pages/comercial/AgendaPage'));
 const FunilPage = lazy(() => import('./pages/comercial/FunilPage'));
+const ProspectingPage = lazy(() => import('./pages/comercial/ProspectingPage'));
 
 const ReceitasPage = lazy(() => import('./pages/financeiro/ReceitasPage'));
 const CobrancasPage = lazy(() => import('./pages/financeiro/CobrancasPage'));
@@ -75,6 +76,7 @@ function App() {
             <Route path="clientes" element={<ClientsPage />} />
             <Route path="pipeline" element={<PipelinePage />} />
             <Route path="funil" element={<FunilPage />} />
+            <Route path="prospeccao" element={<ProspectingPage />} />
             <Route path="propostas" element={<ProposalsPage />} />
             <Route path="contratos" element={<ContractsPage />} />
             <Route path="agenda" element={<AgendaPage />} />

@@ -50,6 +50,16 @@ class Settings(BaseSettings):
     email_to: str = ""
     collections_dry_run: bool = True
     collections_cron_secret: str = ""
+    casa_dos_dados_api_key: str = ""
+    hostinger_email_address: str = "comercial@4core.site"
+    hostinger_email_password: str = ""
+    hostinger_smtp_host: str = "smtp.hostinger.com"
+    hostinger_smtp_port: int = 465
+    hostinger_imap_host: str = "imap.hostinger.com"
+    hostinger_imap_port: int = 993
+    prospecting_cron_secret: str = ""
+    prospecting_dry_run: bool = True
+    prospecting_privacy_url: str = "https://4core.site/privacidade"
 
     class Config:
         env_file = str(Path(__file__).resolve().parents[3] / ".env")

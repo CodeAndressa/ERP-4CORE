@@ -1,0 +1,24 @@
+name: Sincronização da caixa comercial
+
+on:
+  schedule:
+    - cron: "*/30 12-21 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: prospecting-inbox
+  cancel-in-progress: true
+
+jobs:
+  sync-inbox:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar respostas da Hostinger
+        env:
+          PROSPECTING_CRON_SECRET: ${{ secrets.PROSPECTING_CRON_SECRET }}
+        run: |
+          test -n "$PROSPECTING_CRON_SECRET"
+          curl --fail-with-body --silent --show-error --retry 2 \
+            --request POST \
+            --header "Authorization: Bearer $PROSPECTING_CRON_SECRET" \
+            https://4core-backend.vercel.app/prospecting/inbox/run

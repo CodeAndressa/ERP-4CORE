@@ -20,7 +20,8 @@ from app.models.marketing import (
     MarketingContent,
 )
 from app.models.financial import DunningLog, TopdataAccessControl
-from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, settings as settings_routes
+from app.models.prospecting import Prospect, ProspectingActivity, ProspectingCampaign, ProspectingSuppression
+from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, prospecting, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
 from app.services.marketing_content_service import cloudflare_image_models
 
@@ -95,6 +96,14 @@ async def require_authentication(request: Request, call_next):
         request.url.path == '/financial/collections/run'
         and bool(settings.collections_cron_secret)
         and secrets.compare_digest(cron_authorization, f'Bearer {settings.collections_cron_secret}')
+    ) or (
+        request.url.path == '/prospecting/run'
+        and bool(settings.prospecting_cron_secret)
+        and secrets.compare_digest(cron_authorization, f'Bearer {settings.prospecting_cron_secret}')
+    ) or (
+        request.url.path == '/prospecting/inbox/run'
+        and bool(settings.prospecting_cron_secret)
+        and secrets.compare_digest(cron_authorization, f'Bearer {settings.prospecting_cron_secret}')
     )
     # O redirect_uri do OAuth Meta aponta para a página do frontend (ConexoesMarketingPage),
     # que lê o "code" da própria URL e chama /marketing/meta/callback via SPA já autenticado —
@@ -141,7 +150,7 @@ def on_startup():
         db.close()
 
 
-for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, marketing_content.router, marketing_insights.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, settings_routes.router]:
+for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, marketing_content.router, marketing_insights.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, prospecting.router, settings_routes.router]:
     app.include_router(router)
 
 

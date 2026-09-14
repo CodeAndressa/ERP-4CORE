@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, ChevronDown, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageCircle, MessageSquare, MoreHorizontal, ScrollText, Settings2, Target, Users, WalletCards } from 'lucide-react';
+import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, ChevronDown, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageCircle, MessageSquare, MoreHorizontal, Radar, ScrollText, Settings2, Target, Users, WalletCards } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
 import { NotificationsMenu } from './NotificationsMenu';
@@ -48,6 +48,7 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[]; overflow?: HeaderTab[] 
       { label: 'Funil', path: '/comercial/funil', icon: <Target size={14} /> },
     ],
     overflow: [
+      { label: 'Prospecção', path: '/comercial/prospeccao', icon: <Radar size={14} /> },
       { label: 'Propostas', path: '/comercial/propostas', icon: <FileText size={14} /> },
       { label: 'Clientes', path: '/comercial/clientes', icon: <Building2 size={14} /> },
       { label: 'Contratos', path: '/comercial/contratos', icon: <ScrollText size={14} /> },
@@ -313,6 +314,7 @@ const COMMANDS = [
   { group: 'Comercial', label: 'Leads', path: '/comercial/leads', keys: 'leads oportunidades comercial' },
   { group: 'Comercial', label: 'Clientes', path: '/comercial/clientes', keys: 'clientes empresas' },
   { group: 'Comercial', label: 'Pipeline', path: '/comercial/pipeline', keys: 'pipeline kanban funil' },
+  { group: 'Comercial', label: 'Prospecção', path: '/comercial/prospeccao', keys: 'prospectar empresas cnpj comercial campanha' },
   { group: 'Comercial', label: 'Propostas', path: '/comercial/propostas', keys: `propostas ${t.orcamentos}` },
   { group: 'Financeiro', label: t.visao, path: '/financeiro', keys: 'financeiro controle caixa' },
   { group: 'Financeiro', label: 'Cobranças', path: '/financeiro/cobrancas', keys: 'cobrancas recebidas confirmadas pendentes vencidas assinaturas avulsas' },
@@ -395,6 +397,7 @@ function pageTitle(pathname: string): string {
     '/comercial/leads': 'Leads',
     '/comercial/clientes': 'Clientes',
     '/comercial/pipeline': 'Pipeline',
+    '/comercial/prospeccao': 'Prospecção',
     '/comercial/propostas': 'Propostas',
     '/comercial/followup': 'Follow-up',
     '/comercial/agenda': 'Agenda',

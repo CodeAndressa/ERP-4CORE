@@ -9,6 +9,7 @@ from datetime import date, datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from app.models.prospecting import Prospect, ProspectingActivity, ProspectingCam
 from app.models.user import User
 from app.services.prospecting_service import (
     VALID_PROSPECT_STATUSES,
+    build_prospect_email_html,
     discover_companies,
     distribute_daily_queue,
     generate_draft,
@@ -313,6 +315,14 @@ async def email_prospect(prospect_id: str, payload: EmailPayload, db: Session = 
     if not prospect:
         raise HTTPException(404, "Prospecto não encontrado.")
     return await send_prospect_email(db, prospect, payload.subject, payload.body)
+
+
+@router.post("/prospects/{prospect_id}/preview-email", response_class=HTMLResponse)
+def preview_prospect_email(prospect_id: str, payload: EmailPayload, db: Session = Depends(get_db)):
+    prospect = db.get(Prospect, prospect_id)
+    if not prospect:
+        raise HTTPException(404, "Prospecto não encontrado.")
+    return HTMLResponse(build_prospect_email_html(payload.body, prospect.trade_name or prospect.company_name))
 
 
 @router.post("/prospects/{prospect_id}/demonstration")

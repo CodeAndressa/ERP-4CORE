@@ -11,8 +11,9 @@ from email import message_from_bytes
 from email.header import decode_header, make_header
 from email.message import EmailMessage
 from email.utils import make_msgid, parseaddr, parsedate_to_datetime
-from html import unescape
+from html import escape, unescape
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from fastapi import HTTPException
@@ -28,6 +29,10 @@ from app.services.groq_service import groq_error_detail, groq_model_id
 CASA_SEARCH_URL = "https://api.casadosdados.com.br/v5/cnpj/pesquisa"
 BRASILAPI_CNPJ_URL = "https://brasilapi.com.br/api/cnpj/v1"
 CASA_CNPJ_PRICE_CENTS = 1
+PROSPECTING_EMAIL_LOGO_URL = "https://4core-backend.vercel.app/financial/collections/logo.png"
+PROSPECTING_SITE_URL = "https://4core.site"
+PROSPECTING_WHATSAPP_NUMBER = "5541988476431"
+PROSPECTING_WHATSAPP_TEXT = "Olá! Recebi um e-mail da 4Core e gostaria de entender melhor as soluções de controle de ponto."
 
 SEGMENT_CNAES: dict[str, set[str]] = {
     "Saúde": {
@@ -465,23 +470,41 @@ def add_business_days(value: datetime, days: int) -> datetime:
 
 def default_draft(prospect: Prospect) -> dict[str, str]:
     company = prospect.trade_name or prospect.company_name
-    segment_detail = prospect.segment.lower() if prospect.segment else "sua operação"
     return {
-        "subject": f"Diagnóstico gratuito de controle de ponto — {company}",
+        "subject": f"Controle de ponto na {company}",
         "email": (
-            f"Olá, tudo bem?\n\n"
-            f"Acompanhamos empresas de {segment_detail} que estão estruturando equipes e rotinas de jornada. "
-            "A 4Core realiza um diagnóstico gratuito para identificar riscos trabalhistas, retrabalho no fechamento "
-            "do ponto e a solução mais adequada — relógio, sistema em nuvem ou aplicativo.\n\n"
-            "Podemos agendar uma demonstração online de 15 minutos?\n\n"
+            "Olá, tudo bem?\n\n"
+            "Sou da 4Core. Ajudamos empresas a simplificar o controle de ponto e reduzir o retrabalho no fechamento da jornada.\n\n"
+            f"Esse tema faz sentido para a {company} hoje? Se preferir, podemos conversar pelo WhatsApp.\n\n"
+            "Conheça a 4Core: https://4core.site\n\n"
             "Equipe Comercial 4Core"
         ),
         "call_script": (
-            f"Olá, falo da 4Core. Nós ajudamos empresas de {segment_detail} a implantar controle de ponto "
-            "em conformidade com a Portaria 671. Gostaria de entender como a empresa controla a jornada hoje "
-            "e oferecer um diagnóstico gratuito de 15 minutos."
+            "Olá, tudo bem? Falo da 4Core. Ajudamos empresas a simplificar o controle de ponto e reduzir retrabalho. "
+            f"Queria entender se esse tema faz sentido para a {company} hoje. Se preferir, podemos continuar pelo WhatsApp."
         ),
     }
+
+
+def _generated_draft_or_fallback(value: Any, fallback: dict[str, str]) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return fallback
+    draft = {key: str(value.get(key) or fallback[key]).strip() for key in fallback}
+    email_lower = draft["email"].lower()
+    call_lower = draft["call_script"].lower()
+    scheduling_terms = ("agendar", "agenda", "calendário", "demonstração", "15 minutos", "horário")
+    if (
+        len(draft["email"].split()) > 75
+        or "4core.site" not in email_lower
+        or "whatsapp" not in email_lower
+        or any(term in email_lower for term in scheduling_terms)
+    ):
+        draft["email"] = fallback["email"]
+    if len(draft["call_script"].split()) > 50 or any(term in call_lower for term in scheduling_terms):
+        draft["call_script"] = fallback["call_script"]
+    if len(draft["subject"]) > 80:
+        draft["subject"] = fallback["subject"]
+    return draft
 
 
 async def generate_draft(prospect: Prospect) -> dict[str, str]:
@@ -498,12 +521,13 @@ async def generate_draft(prospect: Prospect) -> dict[str, str]:
         "motivos": json_list(prospect.score_reasons),
     }
     system = (
-        "Você é SDR sênior da 4Core, especialista em controle de ponto, Topdata, aplicativo móvel e Portaria 671. "
-        "Gere JSON com subject, email e call_script. Português brasileiro impecável. Seja humano, breve, específico "
-        "e consultivo. Não afirme que sabe qual sistema a empresa usa e não invente fatos. O CTA é um diagnóstico "
-        "e demonstração online gratuitos de 15 minutos. O e-mail deve ter no máximo 120 palavras e terminar com "
-        "'Equipe Comercial 4Core'. Não use campos entre colchetes, nomes fictícios, o termo SDR, urgência artificial "
-        "ou emojis."
+        "Você é um especialista em primeiro contato comercial da 4Core, empresa de controle de ponto e acesso. "
+        "Gere JSON com subject, email e call_script em português brasileiro impecável. O primeiro contato deve ser "
+        "humano, direto e consultivo: apenas valide se melhorar o controle de ponto faz sentido para a empresa. "
+        "Não ofereça agenda, reunião, diagnóstico ou demonstração nesta etapa. Convide a pessoa a responder ao e-mail "
+        "ou continuar pelo WhatsApp. O e-mail deve ter no máximo 70 palavras, citar https://4core.site e terminar com "
+        "'Equipe Comercial 4Core'. O roteiro de ligação deve ter no máximo 45 palavras. Não afirme que sabe qual sistema "
+        "a empresa usa, não invente fatos e não use campos entre colchetes, nomes fictícios, urgência artificial ou emojis."
     )
     async with httpx.AsyncClient(timeout=40.0) as client:
         response = await client.post(
@@ -520,7 +544,7 @@ async def generate_draft(prospect: Prospect) -> dict[str, str]:
         raise HTTPException(502, groq_error_detail(response, "preparar a abordagem"))
     try:
         value = json.loads(response.json()["choices"][0]["message"]["content"])
-        return {key: str(value.get(key) or fallback[key]).strip() for key in fallback}
+        return _generated_draft_or_fallback(value, fallback)
     except (KeyError, TypeError, ValueError, json.JSONDecodeError):
         return fallback
 
@@ -528,12 +552,72 @@ async def generate_draft(prospect: Prospect) -> dict[str, str]:
 def _email_footer() -> str:
     return (
         "\n\n—\nEquipe Comercial 4Core | Curitiba - PR\n"
+        "Site: https://4core.site\n"
+        f"WhatsApp: https://wa.me/{PROSPECTING_WHATSAPP_NUMBER}\n"
         f"Privacidade: {settings.prospecting_privacy_url}\n"
         "Se não quiser receber novos contatos, responda com 'não tenho interesse'."
     )
 
 
-def _smtp_send(to_email: str, subject: str, body: str, prospect_id: str) -> str:
+def build_prospect_email_html(body: str, company_name: str) -> str:
+    whatsapp_url = (
+        f"https://wa.me/{PROSPECTING_WHATSAPP_NUMBER}"
+        f"?text={quote(PROSPECTING_WHATSAPP_TEXT)}"
+    )
+    paragraphs = []
+    for block in re.split(r"\n\s*\n", body.strip()):
+        cleaned = block.strip()
+        if not cleaned or cleaned.lower() == "equipe comercial 4core":
+            continue
+        paragraphs.append(
+            '<p style="margin:0 0 16px; font-size:15px; line-height:1.65; color:#40394f;">'
+            f'{escape(cleaned).replace(chr(10), "<br>")}</p>'
+        )
+    safe_company = escape(company_name or "sua empresa")
+    safe_privacy_url = escape(settings.prospecting_privacy_url, quote=True)
+    return f"""<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="margin:0; padding:0; background:#f8f7fb;">
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent;">Uma conversa simples sobre controle de ponto na {safe_company}.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f7fb; padding:32px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%; max-width:560px; overflow:hidden; border:1px solid #e4dfec; border-radius:16px; background:#ffffff; font-family:Arial,Helvetica,sans-serif;">
+        <tr>
+          <td align="center" style="background:#ffffff; padding:26px 32px; border-bottom:4px solid #7c3aed; text-align:center;">
+            <img src="{PROSPECTING_EMAIL_LOGO_URL}" alt="4Core" height="64" style="display:inline-block; height:64px; width:auto; max-width:190px; border:0;">
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px 32px 12px;">{''.join(paragraphs)}</td>
+        </tr>
+        <tr>
+          <td style="padding:0 32px 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+              <td style="border-radius:12px; background:#5b21b6;">
+                <a href="{whatsapp_url}" style="display:inline-block; padding:13px 20px; border-radius:12px; color:#ffffff; font-size:14px; font-weight:700; text-decoration:none;">Conversar pelo WhatsApp</a>
+              </td>
+              <td style="padding-left:18px;">
+                <a href="{PROSPECTING_SITE_URL}" style="color:#2b165c; font-size:13px; font-weight:700; text-decoration:underline;">Conhecer a 4Core</a>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+        <tr>
+          <td style="border-top:1px solid #e4dfec; background:#f4f2f8; padding:22px 32px;">
+            <p style="margin:0 0 5px; color:#2b165c; font-size:13px; font-weight:700;">Equipe Comercial 4Core</p>
+            <p style="margin:0 0 14px; color:#6f687c; font-size:12px; line-height:1.5;">Controle de ponto e acesso · Curitiba, PR · Atendimento em todo o Brasil</p>
+            <p style="margin:0; color:#9189a3; font-size:10px; line-height:1.5;">Esta mensagem foi enviada com base em dados empresariais públicos. <a href="{safe_privacy_url}" style="color:#6f687c;">Privacidade</a>. Se não quiser receber novos contatos, responda “não tenho interesse”.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def _smtp_send(to_email: str, subject: str, body: str, prospect_id: str, company_name: str) -> str:
     sender = settings.hostinger_email_address
     domain = sender.split("@", 1)[-1] if "@" in sender else "4core.site"
     message_id = make_msgid(domain=domain)
@@ -544,6 +628,7 @@ def _smtp_send(to_email: str, subject: str, body: str, prospect_id: str) -> str:
     message["Message-ID"] = message_id
     message["X-4Core-Prospect-ID"] = prospect_id
     message.set_content(body.rstrip() + _email_footer())
+    message.add_alternative(build_prospect_email_html(body, company_name), subtype="html")
     with smtplib.SMTP_SSL(settings.hostinger_smtp_host, settings.hostinger_smtp_port, timeout=25) as smtp:
         smtp.login(sender, settings.hostinger_email_password)
         smtp.send_message(message)
@@ -551,8 +636,10 @@ def _smtp_send(to_email: str, subject: str, body: str, prospect_id: str) -> str:
 
 
 async def send_prospect_email(db: Session, prospect: Prospect, subject: str, body: str, automatic: bool = False) -> dict[str, Any]:
-    if not prospect.contact_permission:
-        raise HTTPException(409, "Registre o interesse ou a autorização do contato antes de enviar e-mail.")
+    if prospect.status == "new":
+        raise HTTPException(409, "Aprove a abordagem antes de enviar o primeiro e-mail.")
+    if prospect.status in {"suppressed", "rejected"}:
+        raise HTTPException(409, "Este prospecto está na lista de não contato.")
     if not prospect.email:
         raise HTTPException(422, "Este prospecto não possui e-mail válido.")
     if not settings.hostinger_email_password:
@@ -561,7 +648,14 @@ async def send_prospect_email(db: Session, prospect: Prospect, subject: str, bod
         return {"sent": False, "dry_run": True, "subject": subject, "body": body}
 
     try:
-        message_id = await asyncio.to_thread(_smtp_send, prospect.email, subject, body, prospect.id)
+        message_id = await asyncio.to_thread(
+            _smtp_send,
+            prospect.email,
+            subject,
+            body,
+            prospect.id,
+            prospect.trade_name or prospect.company_name,
+        )
     except (OSError, smtplib.SMTPException) as exc:
         raise HTTPException(502, "A Hostinger recusou ou não concluiu o envio.") from exc
     now = datetime.now(timezone.utc)
@@ -713,11 +807,18 @@ async def process_due_followups(db: Session) -> dict[str, int]:
     for prospect in due:
         company = prospect.trade_name or prospect.company_name
         if prospect.follow_up_step == 1:
-            subject = f"Re: diagnóstico de controle de ponto — {company}"
-            body = "Olá! Retomando nossa conversa: posso separar 15 minutos para mostrar as opções de ponto em nuvem, aplicativo e equipamentos Topdata. Qual horário funciona melhor?"
+            subject = f"Re: controle de ponto na {company}"
+            body = (
+                f"Olá! Passando para confirmar se melhorar o controle de ponto é um tema em análise na {company}. "
+                f"Se preferir, podemos conversar pelo WhatsApp: https://wa.me/{PROSPECTING_WHATSAPP_NUMBER}"
+            )
         else:
-            subject = f"Re: diagnóstico de controle de ponto — {company}"
-            body = "Olá! Este é meu último retorno sobre o diagnóstico gratuito de controle de ponto. Se fizer sentido revisar a jornada da equipe, fico à disposição para agendarmos uma demonstração online."
+            subject = f"Re: controle de ponto na {company}"
+            body = (
+                "Olá! Encerrando meu contato por aqui. Se controle de ponto, jornada ou acesso entrar nas prioridades "
+                f"da {company}, conheça https://4core.site ou fale conosco pelo WhatsApp: "
+                f"https://wa.me/{PROSPECTING_WHATSAPP_NUMBER}"
+            )
         try:
             result = await send_prospect_email(db, prospect, subject, body, automatic=True)
             if result.get("sent"):

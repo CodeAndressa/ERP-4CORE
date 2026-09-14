@@ -12,6 +12,8 @@ from app.models.prospecting import Prospect, ProspectingCampaign
 from app.models.user import User
 from app.services.prospecting_service import (
     add_business_days,
+    build_prospect_email_html,
+    default_draft,
     distribute_daily_queue,
     normalize_casa_company,
     score_company,
@@ -72,11 +74,34 @@ class ProspectingRulesTests(unittest.TestCase):
         friday = datetime(2026, 9, 18, 12, tzinfo=timezone.utc)
         self.assertEqual(add_business_days(friday, 1).date(), date(2026, 9, 21))
 
-    def test_email_requires_recorded_interest(self):
-        prospect = Prospect(cnpj="12345678000190", company_name="Empresa", email="contato@empresa.test", contact_permission=False)
+    def test_email_requires_approved_approach(self):
+        prospect = Prospect(cnpj="12345678000190", company_name="Empresa", email="contato@empresa.test", status="new")
         with self.assertRaises(HTTPException) as context:
             asyncio.run(send_prospect_email(None, prospect, "Assunto", "Mensagem"))
         self.assertEqual(context.exception.status_code, 409)
+
+    def test_default_draft_opens_conversation_without_asking_for_a_meeting(self):
+        prospect = Prospect(cnpj="12345678000190", company_name="Empresa Exemplo")
+        draft = default_draft(prospect)
+
+        self.assertIn("4core.site", draft["email"])
+        self.assertIn("WhatsApp", draft["email"])
+        self.assertNotIn("agendar", draft["email"].lower())
+        self.assertNotIn("demonstração", draft["email"].lower())
+        self.assertLessEqual(len(draft["email"].split()), 75)
+
+    def test_html_email_has_brand_ctas_and_escapes_dynamic_content(self):
+        html = build_prospect_email_html(
+            "Olá!\n\nVamos conversar sobre <controle de ponto>?\n\nEquipe Comercial 4Core",
+            "Empresa <Exemplo>",
+        )
+
+        self.assertIn('lang="pt-BR"', html)
+        self.assertIn("Conversar pelo WhatsApp", html)
+        self.assertIn("https://4core.site", html)
+        self.assertIn("&lt;controle de ponto&gt;", html)
+        self.assertIn("Empresa &lt;Exemplo&gt;", html)
+        self.assertNotIn("Empresa <Exemplo>", html)
 
 
 class ProspectingDistributionTests(unittest.TestCase):

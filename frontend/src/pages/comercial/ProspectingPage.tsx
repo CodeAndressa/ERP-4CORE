@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight, Building2, CheckCircle2, CircleDollarSign, Clock3, ExternalLink,
-  FileSpreadsheet, Inbox, Mail, MapPin, Phone, RefreshCw, Search, Settings2,
+  Eye, FileSpreadsheet, Inbox, Mail, MapPin, Phone, RefreshCw, Search, Settings2,
   ShieldCheck, Sparkles, Target, UserRoundCheck, Users, XCircle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,6 +12,7 @@ import { Badge } from '../../shared/components/ui/Badge';
 import { Button } from '../../shared/components/ui/Button';
 import { Card } from '../../shared/components/ui/Card';
 import { EmptyState } from '../../shared/components/ui/EmptyState';
+import { Modal } from '../../shared/components/ui/Modal';
 
 type ProspectStatus = 'new' | 'approved' | 'contacted' | 'interested' | 'emailing' | 'replied' | 'rejected' | 'suppressed' | 'converted' | 'sequence_complete';
 type View = 'queue' | 'all' | 'conversations' | 'settings';
@@ -219,8 +220,12 @@ function ProspectDetail({ prospect, activities, config, onRefresh }: DetailProps
   const [working, setWorking] = useState('');
   const [note, setNote] = useState('Conversei com a empresa para entender como realizam o controle de jornada.');
   const [draft, setDraft] = useState({ subject: '', email: '', call_script: '' });
+  const [emailPreview, setEmailPreview] = useState('');
 
-  useEffect(() => { setDraft({ subject: '', email: '', call_script: '' }); }, [prospect.id]);
+  useEffect(() => {
+    setDraft({ subject: '', email: '', call_script: '' });
+    setEmailPreview('');
+  }, [prospect.id]);
 
   async function action(label: string, request: () => Promise<unknown>, success: string) {
     setWorking(label);
@@ -249,9 +254,26 @@ function ProspectDetail({ prospect, activities, config, onRefresh }: DetailProps
     }
   }
 
+  async function previewEmail() {
+    setWorking('preview');
+    try {
+      const { data } = await api.post<string>(
+        `/prospecting/prospects/${prospect.id}/preview-email`,
+        { subject: draft.subject, body: draft.email },
+        { responseType: 'text' },
+      );
+      setEmailPreview(data);
+    } catch (error) {
+      toast.error(errorMessage(error, 'Não foi possível abrir a prévia do e-mail.'));
+    } finally {
+      setWorking('');
+    }
+  }
+
   const confidence = CONFIDENCE[prospect.employee_confidence] || CONFIDENCE.low;
   const prospectActivities = activities.filter((item) => item.prospect_id === prospect.id).slice(0, 8);
   const canContact = !['suppressed', 'converted', 'rejected'].includes(prospect.status);
+  const canSendFirstEmail = prospect.status !== 'new';
 
   return (
     <aside className="min-w-0 border-t bg-white lg:border-l lg:border-t-0" style={{ borderColor: 'var(--erp-border)' }}>
@@ -314,17 +336,36 @@ function ProspectDetail({ prospect, activities, config, onRefresh }: DetailProps
             <div className="mt-3 space-y-2">
               <input aria-label="Assunto do e-mail" value={draft.subject} onChange={(event) => setDraft((value) => ({ ...value, subject: event.target.value }))} className={inputClass} style={{ background: 'var(--erp-surface-2)', borderColor: 'var(--erp-border)', color: 'var(--erp-text)' }} />
               <textarea aria-label="Mensagem do e-mail" value={draft.email} onChange={(event) => setDraft((value) => ({ ...value, email: event.target.value }))} rows={8} className={`${inputClass} resize-y py-2.5`} style={{ background: 'var(--erp-surface-2)', borderColor: 'var(--erp-border)', color: 'var(--erp-text)' }} />
-              <Button
-                size="sm"
-                disabled={!prospect.contact_permission || !prospect.email || !config.email.configured}
-                loading={working === 'send'}
-                onClick={() => action('send', () => api.post(`/prospecting/prospects/${prospect.id}/send-email`, { subject: draft.subject, body: draft.email }), config.email.dry_run ? 'Simulação concluída; nenhum e-mail foi enviado.' : 'E-mail enviado pela caixa comercial.')}
-                icon={<Mail size={14} />}
-              >Enviar pela 4Core</Button>
-              {!prospect.contact_permission ? <p className="text-[11px]" style={{ color: 'var(--erp-amber)' }}>O envio só é liberado depois de registrar o interesse.</p> : null}
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" loading={working === 'preview'} onClick={previewEmail} icon={<Eye size={14} />}>Ver e-mail pronto</Button>
+                <Button
+                  size="sm"
+                  disabled={!canSendFirstEmail || !prospect.email || !config.email.configured}
+                  loading={working === 'send'}
+                  onClick={() => action('send', () => api.post(`/prospecting/prospects/${prospect.id}/send-email`, { subject: draft.subject, body: draft.email }), config.email.dry_run ? 'Simulação concluída; nenhum e-mail foi enviado.' : 'E-mail enviado pela caixa comercial.')}
+                  icon={<Mail size={14} />}
+                >Enviar pela 4Core</Button>
+              </div>
+              {!canSendFirstEmail ? <p className="text-[11px]" style={{ color: 'var(--erp-amber)' }}>Revise os dados e aprove a abordagem antes do primeiro envio.</p> : null}
             </div>
           ) : null}
         </section>
+
+        <Modal
+          open={Boolean(emailPreview)}
+          onClose={() => setEmailPreview('')}
+          title="Prévia do e-mail"
+          description="Esta é a versão visual que chegará ao prospecto."
+          size="lg"
+        >
+          <iframe
+            title="Prévia do e-mail de prospecção"
+            srcDoc={emailPreview}
+            className="h-[62vh] w-full rounded-xl border"
+            style={{ borderColor: 'var(--erp-border)', background: 'var(--erp-surface-2)' }}
+            sandbox="allow-popups allow-popups-to-escape-sandbox"
+          />
+        </Modal>
 
         {prospect.status === 'interested' || prospect.status === 'emailing' ? (
           <section className="flex flex-wrap gap-2 border-t pt-4" style={{ borderColor: 'var(--erp-border)' }}>

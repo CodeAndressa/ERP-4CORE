@@ -99,9 +99,25 @@ class PipelineTests(unittest.TestCase):
     def tearDown(self):
         self.db.close()
 
-    def _fake_ask_json(self, system_prompt, payload, action, temperature=0.5, timeout=90.0):
+    def _fake_ask_json(
+        self, system_prompt, payload, action, temperature=0.5, timeout=90.0, creative=False
+    ):
+        """A resposta falsa de cada agente, escolhida pela `action`.
+
+        A versao anterior escolhia procurando palavra dentro do system prompt
+        ("estrategista", "revisor de texto", "diretor de arte"). Quebrou na
+        primeira vez que os prompts foram reescritos: o prompt do redator deixou
+        de dizer "diretora editorial senior", caiu no galho do estrategista e a
+        esteira recebeu uma lista de pautas onde esperava uma legenda. O teste
+        acusou "agendador no lugar de redator", que nao tem relacao obvia com a
+        causa.
+
+        A `action` e estavel porque nao e texto de prompt: e o rotulo que aparece
+        na mensagem de erro da tela, e mudar ele e mudar o que o usuario le.
+        """
         usage = Usage("fake", "modelo-de-teste", 100, 50, cost_usd=0.001, measured=True)
-        if "estrategista" in system_prompt or "comparativo" in system_prompt:
+
+        if action == "analisar os concorrentes":
             return {
                 "leitura": "A 4Core publica menos que a média observada.",
                 "pontos_fortes": ["Legenda com voz técnica consistente"],
@@ -117,7 +133,16 @@ class PipelineTests(unittest.TestCase):
                     }
                 ],
             }, usage
-        if "revisor de texto" in system_prompt:
+
+        if action == "dirigir a criação":
+            return {
+                "angulo": "O espelho que não prova nada",
+                "tensao": "A empresa acha que tem prova e não tem",
+                "elemento_visual": "assinatura faltando na folha",
+                "tom": "direto",
+            }, usage
+
+        if action == "revisar o texto":
             return {
                 "aprovado": False,
                 "nota": 7,
@@ -125,18 +150,23 @@ class PipelineTests(unittest.TestCase):
                 "headline_final": "Seu espelho de ponto prova alguma coisa?",
                 "caption_final": "Legenda revisada, sem clichê, terminando em pergunta aberta.",
             }, usage
-        if "diretor de arte" in system_prompt:
+
+        if action == "dirigir a arte":
             return {
                 "visual_concept": "HR manager reviewing timesheet on a tablet",
                 "visual_constraints": "no analog clocks, no handshakes",
                 "justificativa": "Cena coerente com o gancho",
             }, usage
-        return {
-            "headline": "Espelho de ponto sem assinatura",
-            "caption": "Texto cru do redator.",
-            "visual_concept": "office scene",
-            "visual_constraints": "",
-        }, usage
+
+        if action == "escrever a peça":
+            return {
+                "headline": "Espelho de ponto sem assinatura",
+                "caption": "Texto cru do redator.",
+                "visual_concept": "office scene",
+                "visual_constraints": "",
+            }, usage
+
+        raise AssertionError(f"agente sem resposta falsa para a ação {action!r}")
 
     async def _fake_generate_art(self, prompt, headline, layout="feed", product=None, fact=None, template=""):
         self.assertEqual(layout, "feed")
@@ -389,42 +419,73 @@ class PecasDoHistoricoTests(unittest.TestCase):
 
 
 class EscolhaDeLayoutTests(unittest.TestCase):
-    """O rodizio pelo id da peca e o que garante que duas pecas seguidas nao saiam
-    com o mesmo layout, sem guardar estado novo no banco."""
+    """A roda de layouts, depois de a fotografia virar a regra.
+
+    O feedback que motivou a mudanca foi "as imagens estao muito simples, queria
+    pessoas, sistemas, empresas". A causa era aritmetica: tres dos quatro layouts
+    sao montados no Pillow, com gradiente e recorte do aparelho, e com rodizio
+    uniforme a fotografia aparecia em uma peca de cada tres ou quatro.
+
+    O que estes testes travam e a proporcao e a alternancia. Mexer na constante
+    FOTOGRAFICAS_POR_MONTADA muda a proporcao de proposito; mexer na montagem da
+    roda sem querer quebra a alternancia, e e isso que faz duas pecas seguidas
+    sairem com a mesma cara.
+    """
 
     PRODUTO = {"name": "REP-P facial", "contraste": {"sem": ["x"], "com": ["y"]}}
     SEM_CONTRASTE = {"name": "Produto sem contraste"}
     FATO = {"numero": "R$ 6 mil"}
 
+    FOTOGRAFICOS = {"cena", "foto"}
+
+    def _roda(self, product, fact, voltas=12, scene_ok=True, image_ok=True):
+        return [
+            pipeline.choose_template(product, fact, seed, scene_ok, image_ok)
+            for seed in range(voltas)
+        ]
+
     def test_sem_nada_cai_na_foto(self):
-        self.assertEqual(pipeline.choose_template(None, None, 0, True), "foto")
+        self.assertEqual(pipeline.choose_template(None, None, 0, True, True), "foto")
 
-    def test_produto_com_contraste_e_cena_tem_tres_opcoes(self):
-        vistos = {
-            pipeline.choose_template(self.PRODUTO, None, seed, True) for seed in range(6)
-        }
-        self.assertEqual(vistos, {"produto", "comparativo", "cena"})
-
-    def test_sem_provedor_de_cena_a_opcao_some(self):
-        vistos = {
-            pipeline.choose_template(self.PRODUTO, None, seed, False) for seed in range(6)
-        }
-        self.assertEqual(vistos, {"produto", "comparativo"})
-
-    def test_produto_sem_contraste_nao_vira_comparativo(self):
-        vistos = {
-            pipeline.choose_template(self.SEM_CONTRASTE, None, seed, False) for seed in range(6)
-        }
-        self.assertEqual(vistos, {"produto"})
-
-    def test_fato_de_risco_entra_como_peca_de_dado(self):
-        self.assertEqual(pipeline.choose_template(None, self.FATO, 0, True), "dado")
+    def test_a_fotografia_e_a_maioria(self):
+        roda = self._roda(self.PRODUTO, self.FATO, voltas=9)
+        fotograficas = [item for item in roda if item in self.FOTOGRAFICOS]
+        self.assertGreater(len(fotograficas), len(roda) - len(fotograficas), roda)
 
     def test_pecas_seguidas_nao_repetem_o_layout(self):
-        seguidas = [
-            pipeline.choose_template(self.PRODUTO, self.FATO, pid, True) for pid in (10, 11, 12)
-        ]
-        self.assertEqual(len(set(seguidas)), 3, seguidas)
+        roda = self._roda(self.PRODUTO, self.FATO, voltas=9)
+        seguidas = [(a, b) for a, b in zip(roda, roda[1:]) if a == b]
+        self.assertEqual(seguidas, [], roda)
+
+    def test_os_layouts_montados_continuam_aparecendo(self):
+        """A arte de produto nao pode desaparecer: e a unica em que o aparelho sai
+        com fidelidade garantida, porque vem da foto do catalogo em vez de ser
+        desenhada pelo modelo."""
+        roda = set(self._roda(self.PRODUTO, self.FATO, voltas=9))
+        self.assertEqual(roda, {"cena", "foto", "produto", "comparativo", "dado"})
+
+    def test_sem_provedor_de_cena_a_cena_some_mas_a_foto_fica(self):
+        roda = set(self._roda(self.PRODUTO, None, voltas=8, scene_ok=False))
+        self.assertNotIn("cena", roda)
+        self.assertIn("foto", roda)
+
+    def test_sem_modelo_de_imagem_sobram_os_montados(self):
+        roda = set(self._roda(self.PRODUTO, None, voltas=8, scene_ok=False, image_ok=False))
+        self.assertEqual(roda, {"produto", "comparativo"})
+
+    def test_produto_sem_contraste_nao_vira_comparativo(self):
+        roda = set(self._roda(self.SEM_CONTRASTE, None, voltas=8))
+        self.assertNotIn("comparativo", roda)
+        self.assertIn("produto", roda)
+
+    def test_fato_de_risco_entra_como_peca_de_dado(self):
+        roda = set(self._roda(None, self.FATO, voltas=6))
+        self.assertIn("dado", roda)
+
+    def test_sem_nenhum_provedor_a_peca_de_dado_ainda_sai(self):
+        """O layout de dado nao depende de modelo de imagem: ele e montado aqui."""
+        roda = set(self._roda(None, self.FATO, voltas=4, scene_ok=False, image_ok=False))
+        self.assertEqual(roda, {"dado"})
 
 
 if __name__ == "__main__":

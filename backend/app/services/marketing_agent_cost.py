@@ -25,6 +25,14 @@ TEXT_PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "openai/gpt-oss-120b": (0.15, 0.75),
     "openai/gpt-oss-20b": (0.10, 0.50),
 }
+# Os criativos rodam no OpenRouter, que informa o custo real da chamada. A tabela
+# existe para o caso de a resposta vir sem `usage.cost`, e os valores sao os
+# publicados em openrouter.ai/models, conferidos em 16/11/2026.
+TEXT_PRICES_USD_PER_MTOK.update({
+    "anthropic/claude-haiku-5.5": (0.10, 0.50),
+    "anthropic/claude-sonnet-5": (2.00, 10.00),
+})
+
 DEFAULT_TEXT_PRICE = (0.20, 0.80)
 
 # Preço por imagem, em dólar, para 1080x1350 (cerca de 1,46 megapixel).

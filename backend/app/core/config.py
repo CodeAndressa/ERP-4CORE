@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_image_model: str = "black-forest-labs/flux.2-klein-4b"
     openrouter_text_model: str = ""
+    # O modelo de quem escreve e de quem julga texto. Vem preenchido porque a
+    # qualidade de escrita era o problema relatado, e deixar vazio manteria o
+    # padrao ruim. Trocar por "anthropic/claude-sonnet-5" custa vinte vezes mais
+    # por token e cerca de US$ 0,03 por peca, que ainda e pouco ao lado da arte.
+    # String vazia devolve tudo ao Groq.
+    openrouter_creative_model: str = "anthropic/claude-haiku-5.5"
     openrouter_vision_model: str = ""
     openrouter_site_url: str = "https://app.4core.site"
     cloudflare_image_model: str = "@cf/black-forest-labs/flux-2-klein-4b"

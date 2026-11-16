@@ -29,6 +29,50 @@ from app.services.groq_service import groq_error_detail, groq_model_id
 CASA_SEARCH_URL = "https://api.casadosdados.com.br/v5/cnpj/pesquisa"
 BRASILAPI_CNPJ_URL = "https://brasilapi.com.br/api/cnpj/v1"
 CASA_CNPJ_PRICE_CENTS = 1
+
+
+def casa_error_detail(response: httpx.Response) -> str:
+    """O erro da Casa dos Dados como frase, com o que fazer em cada caso.
+
+    Os codigos aqui pedem acoes diferentes: chave recusada se resolve no painel
+    deles, credito acabado se resolve comprando, filtro invalido e bug nosso e
+    limite de requisicao passa sozinho. A versao anterior chamava os quatro de
+    "indisponivel", que e o unico diagnostico que nao serve para nenhum."""
+    status = response.status_code
+    corpo = ""
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            corpo = str(payload.get("message") or payload.get("detail") or payload.get("erro") or "")
+    except ValueError:
+        corpo = response.text[:160]
+    corpo = " ".join(corpo.split())[:160]
+    final = f" A Casa dos Dados respondeu: {corpo}" if corpo else ""
+
+    if status in {401, 403}:
+        return (
+            "A Casa dos Dados recusou a chave de API. Confira se ela continua valida em "
+            "casadosdados.com.br e atualize CASA_DOS_DADOS_API_KEY." + final
+        )
+    if status == 402:
+        return (
+            "A conta da Casa dos Dados esta sem credito para novas consultas. "
+            "Recarregue no painel deles para a prospeccao voltar a buscar." + final
+        )
+    if status in {400, 422}:
+        return (
+            "A Casa dos Dados recusou os filtros da busca. Isso e erro da nossa "
+            "consulta, nao da conta: os CNAEs ou as datas do segmento precisam de "
+            "ajuste." + final
+        )
+    if status == 429:
+        return (
+            "A Casa dos Dados limitou as requisicoes por minuto. A busca pode ser "
+            "repetida em alguns minutos." + final
+        )
+    if status >= 500:
+        return f"A Casa dos Dados esta fora do ar agora (erro {status}). Tente mais tarde."
+    return f"A Casa dos Dados recusou a busca (erro {status})." + final
 PROSPECTING_EMAIL_LOGO_URL = "https://4core-backend.vercel.app/financial/collections/logo.png"
 PROSPECTING_SITE_URL = "https://4core.site"
 PROSPECTING_WHATSAPP_NUMBER = "5541988476431"
@@ -306,7 +350,21 @@ async def discover_companies(db: Session, requested: int = 45) -> dict[str, Any]
         remaining_queries = min(remaining_queries, max(0, configured_query_limit - used_queries))
     limit = min(max(1, requested), remaining_queries)
     if limit <= 0:
-        raise HTTPException(409, "O limite mensal de consultas da prospecção foi atingido.")
+        # Quanto era o teto e quando ele volta sao as duas unicas coisas que mudam
+        # a decisao de quem leu este aviso. Sem elas, a frase so informa que nao
+        # vai funcionar.
+        gastas = campaign.spent_cents // CASA_CNPJ_PRICE_CENTS
+        teto = (
+            configured_query_limit
+            or campaign.monthly_budget_cents // CASA_CNPJ_PRICE_CENTS
+        )
+        virada = shift_months(date.today().replace(day=1), 1)
+        raise HTTPException(
+            409,
+            f"O limite mensal da prospecção foi atingido: {gastas} de {teto} consultas "
+            f"usadas neste mês. A contagem zera em {virada.strftime('%d/%m/%Y')}, e o "
+            "teto pode ser aumentado na campanha.",
+        )
 
     today = date.today()
     base_body = {
@@ -344,7 +402,7 @@ async def discover_companies(db: Session, requested: int = 45) -> dict[str, Any]
             json=body,
         )
         if response.status_code >= 400:
-            raise HTTPException(502, f"Casa dos Dados indisponível ({response.status_code}).")
+            raise HTTPException(502, casa_error_detail(response))
         payload = response.json()
         values = payload.get("cnpjs") or payload.get("empresas") or payload.get("dados") or []
         output = []
@@ -366,11 +424,27 @@ async def discover_companies(db: Session, requested: int = 45) -> dict[str, Any]
         return raw
 
     async with httpx.AsyncClient(timeout=45.0) as client:
-        groups = await asyncio.gather(*[
-            search_segment(client, segment, codes, allocation)
-            for (segment, codes), allocation in zip(segment_items, allocations)
-        ])
-        found_items = [item for group in groups for item in group]
+        # `return_exceptions` porque sem ele a primeira falha cancela o conjunto: um
+        # CNAE que a API recusa apagava tambem os segmentos que responderam bem, e a
+        # rodada voltava vazia como se nao houvesse empresa nenhuma no pais.
+        groups = await asyncio.gather(
+            *[
+                search_segment(client, segment, codes, allocation)
+                for (segment, codes), allocation in zip(segment_items, allocations)
+            ],
+            return_exceptions=True,
+        )
+        falhas = [erro for erro in groups if isinstance(erro, BaseException)]
+        found_items = [item for group in groups if isinstance(group, list) for item in group]
+
+        # Todos falharam: ai a causa e geral (chave, credito, API fora) e precisa
+        # subir, porque uma rodada sem nenhuma resposta nao e uma rodada vazia.
+        if falhas and not found_items:
+            primeira = falhas[0]
+            if isinstance(primeira, HTTPException):
+                raise primeira
+            raise HTTPException(502, "Não foi possível falar com a Casa dos Dados agora.")
+
         items = await asyncio.gather(*[enrich_company(client, item) for item in found_items])
 
     added = 0
@@ -397,6 +471,11 @@ async def discover_companies(db: Session, requested: int = 45) -> dict[str, Any]
         db.add(ProspectingActivity(prospect_id=prospect.id, kind="discovered", body="Empresa encontrada e qualificada automaticamente."))
         added += 1
 
+    segmentos_com_falha = [
+        str(getattr(erro, "detail", erro))
+        for erro in falhas
+    ][:3]
+
     campaign.spent_cents += charged
     campaign.last_discovery_at = datetime.now(timezone.utc)
     db.commit()
@@ -411,6 +490,9 @@ async def discover_companies(db: Session, requested: int = 45) -> dict[str, Any]
         "queries_used": used_queries,
         "query_limit": query_limit or None,
         "queries_remaining": max(0, query_limit - used_queries) if query_limit else None,
+        "segments_failed": len(falhas),
+        "segments_total": len(segment_items),
+        "failures": segmentos_com_falha,
     }
 
 

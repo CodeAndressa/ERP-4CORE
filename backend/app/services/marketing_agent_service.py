@@ -35,6 +35,7 @@ from app.services.marketing_agent_llm import ask_json, has_text_model
 from app.services.marketing_art_learning import learned_guidance
 from app.services.marketing_brand_system import (
     FOURCORE_BRAND_SYSTEM,
+    VOZ_HUMANA,
     build_copy_system_prompt,
     build_image_prompt,
     match_product,
@@ -45,6 +46,7 @@ from app.services.marketing_brand_system import (
 from app.services.marketing_competitor_service import build_benchmark, sync_all
 from app.services.marketing_content_service import (
     generate_art_with_usage,
+    image_model_available,
     scene_model_available,
 )
 from app.services.marketing_schedule_service import plan as plan_schedule
@@ -215,6 +217,8 @@ Não use travessão longo em nenhum texto."""
 REVIEWER_PROMPT = f"""Você é o revisor de texto da 4Core. Você não escreve a peça: você
 reprova o que está fraco e devolve corrigido.
 
+{VOZ_HUMANA}
+
 {FOURCORE_BRAND_SYSTEM}
 
 Recebe o gancho da arte e a legenda escritos pelo redator. Verifique, nesta ordem:
@@ -226,14 +230,25 @@ Recebe o gancho da arte e a legenda escritos pelo redator. Verifique, nesta orde
    "não é apenas X, é Y", "imagine poder", entusiasmo vazio, adjetivo empilhado,
    frase que poderia ser de qualquer empresa de qualquer setor, simetria perfeita
    entre as frases, emoji decorando cada linha.
-3. VOZ DA MARCA: especialista, segura, direta e humana. Alguém que já resolveu esse
+3. TEXTO DE FOLHETO: reprove qualquer palavra da lista proibida da voz acima, e
+   reprove gerúndio em cadeia ("registrando, eliminando, garantindo"). Reprove
+   também frase com três verbos: ela precisa virar duas frases.
+4. ABERTURA: a primeira linha é uma cena concreta, com hora, lugar, pessoa ou
+   objeto. Reprove abertura que começa pelo nome da categoria ("Ponto inteligente
+   evita multas", "O reconhecimento facial é"), que é título de catálogo.
+5. RESPIRO: a legenda tem 3 ou 4 parágrafos curtos separados por linha em branco.
+   Bloco único de texto reprova, mesmo quando o conteúdo está certo.
+6. VOZ DA MARCA: especialista, segura, direta e humana. Alguém que já resolveu esse
    problema várias vezes falando com quem está vivendo ele agora. Nada de alarmismo,
    nada de vendedor.
-4. PROMESSA: reprove número, percentual, selo, certificação ou garantia que não foi
+7. PROMESSA: reprove número, percentual, selo, certificação ou garantia que não foi
    fornecido. A 4Core não promete resultado quantificado.
-5. CHAMADA: a legenda precisa terminar provocando resposta, comentário ou
-   mensagem. Pergunta fechada que se responde com "sim" não conta.
-6. GANCHO COMPLETO: o headline vai sozinho na arte, em letra grande, sem a legenda
+8. FECHO: ou uma pergunta específica, que alguém responderia porque é sobre a
+   rotina dela ("Quantas batidas você ajusta na mão todo mês?"), ou um convite
+   curto e direto. Reprove o pedido genérico de engajamento ("compartilhe nos
+   comentários", "conte pra gente", "comente aqui embaixo") e reprove pergunta
+   fechada que se responde com "sim".
+9. GANCHO COMPLETO: o headline vai sozinho na arte, em letra grande, sem a legenda
    ao lado. Ele precisa fechar sentido por si. Reprove frase cortada no meio, como
    "Horas extras não registradas custam" ou "O que acontece quando o ponto", que
    deixam o leitor esperando o resto que nunca vem.
@@ -258,6 +273,31 @@ ART_DIRECTOR_PROMPT = f"""Você é o diretor de arte da 4Core.
 Recebe o gancho aprovado e o conceito visual do redator. Sua função é decidir a
 imagem de fundo da peça de feed 4:5.
 
+TODA CENA TEM TRÊS CAMADAS, E NENHUMA É OPCIONAL
+
+1. GENTE. Pelo menos uma pessoa brasileira real trabalhando, pega no meio da
+   tarefa, de perfil ou de três quartos, nunca olhando para a câmera e nunca
+   sorrindo para ela. Quem aparece é quem vive o problema do gancho: a analista
+   de DP conferindo o espelho de ponto, o encarregado liberando a entrada do
+   turno, o gestor fechando a folha. Cena sem pessoa é cena reprovada.
+
+2. O SISTEMA EM USO. O equipamento ou a tela precisa estar sendo usado, não
+   posando. Um dedo no leitor biométrico, um rosto a meio metro do terminal
+   facial, um monitor com a jornada do mês aberta e a pessoa apontando uma
+   divergência, um tablet com o relatório na mão de quem caminha pelo setor.
+   Descreva o gesto, não o aparelho parado numa bancada.
+
+3. A EMPRESA EM VOLTA. O lugar tem de ser reconhecível como uma empresa
+   brasileira de verdade, com desgaste: parede pintada, papelada empilhada,
+   piso marcado, crachá de visitante na mesa, cadeira surrada. Varie o setor
+   conforme o tema do gancho, escolhendo um destes:
+   obra com equipe de capacete; galpão de logística com empilhadeira ao fundo;
+   recepção de clínica; piso de fábrica com linha de produção; retaguarda de
+   loja; portaria de condomínio; corredor de hospital; refeitório no fim do
+   turno; sala de DP com arquivos; catraca na entrada de um escritório.
+   Não repita "escritório moderno iluminado": é o ambiente que a concorrência
+   toda usa e o que faz a peça parecer banco de imagem.
+
 Lembre que a aplicação desenha depois, por cima da sua imagem: o gancho em tipografia
 grande alinhado à esquerda, um filete violeta, o logo da 4Core e o endereço do site,
 tudo na metade de baixo. Então a metade inferior da sua imagem precisa ser área
@@ -265,7 +305,7 @@ calma, sem rosto, sem texto e sem elemento importante.
 
 Responda SEMPRE em JSON válido:
 {{
-  "visual_concept": "a cena, em inglês, descrita como briefing de fotografia",
+  "visual_concept": "a cena, em inglês, num parágrafo só, nomeando quem é a pessoa e o que ela faz, o gesto com o sistema e o setor da empresa",
   "visual_constraints": "o que não pode aparecer, em inglês",
   "justificativa": "uma frase em português dizendo por que essa cena serve a esse gancho"
 }}"""
@@ -409,6 +449,7 @@ async def agent_diretor_criacao(pauta: dict[str, Any]) -> tuple[dict[str, Any], 
             },
             "dirigir a criação",
             temperature=0.75,
+            creative=True,
         )
     except HTTPException:
         logger.warning("diretor de criacao indisponivel, seguindo com a pauta crua")
@@ -421,11 +462,18 @@ async def agent_diretor_criacao(pauta: dict[str, Any]) -> tuple[dict[str, Any], 
     }, usage
 
 
+# Quantas peças fotográficas entram na roda para cada peça montada no Pillow.
+# Dois é o que faz a fotografia ser a maioria sem apagar a arte de produto, que é
+# a única em que o aparelho aparece com fidelidade garantida, da foto do catálogo.
+FOTOGRAFICAS_POR_MONTADA = 2
+
+
 def choose_template(
     product: dict[str, Any] | None,
     fact: dict[str, str] | None,
     seed: int,
     scene_ok: bool,
+    image_ok: bool = True,
 ) -> str:
     """Qual layout a peça usa.
 
@@ -433,22 +481,48 @@ def choose_template(
     cadastrado, dado só com fato de risco, cena só com produto e com um provedor
     que aceite imagem de entrada.
 
-    O desempate é um rodízio pelo id da peça. Sortear repetiria layout em sequência
+    Os layouts se dividem em dois tipos, e a diferença é o que explica a regra:
+
+    - **fotográficos** (`cena`, `foto`) passam por modelo de imagem e entregam
+      pessoa trabalhando, sistema em uso e ambiente de empresa;
+    - **montados** (`produto`, `comparativo`, `dado`) são compostos no Pillow, com
+      gradiente, recorte do aparelho e tipografia. Saem sem custo de imagem e sem
+      risco de texto ilegível, e justamente por isso saem sem gente e sem ambiente.
+
+    Com rodízio uniforme entre os quatro, só uma peça em três ou quatro chegava a
+    ser uma fotografia, e o feed ficava com cara de template. A roda agora põe
+    duas fotográficas para cada montada, intercaladas: a fotografia é a maioria e
+    duas peças seguidas continuam não repetindo layout.
+
+    O desempate continua sendo o id da peça. Sortear repetiria layout em sequência
     com frequência alta, e guardar o último usado pediria coluna nova no banco por
     uma decisão que o próprio id já resolve.
     """
-    opcoes: list[str] = []
+    fotograficos: list[str] = []
+    if product and scene_ok:
+        fotograficos.append("cena")
+    if image_ok:
+        fotograficos.append("foto")
+
+    montados: list[str] = []
     if product:
-        opcoes.append("produto")
+        montados.append("produto")
         if (product.get("contraste") or {}).get("sem"):
-            opcoes.append("comparativo")
-        if scene_ok:
-            opcoes.append("cena")
+            montados.append("comparativo")
     if fact:
-        opcoes.append("dado")
-    if not opcoes:
-        return "foto"
-    return opcoes[seed % len(opcoes)]
+        montados.append("dado")
+
+    if not montados:
+        return fotograficos[seed % len(fotograficos)] if fotograficos else "foto"
+    if not fotograficos:
+        return montados[seed % len(montados)]
+
+    roda: list[str] = []
+    for indice, montado in enumerate(montados):
+        for passo in range(FOTOGRAFICAS_POR_MONTADA):
+            roda.append(fotograficos[(indice * FOTOGRAFICAS_POR_MONTADA + passo) % len(fotograficos)])
+        roda.append(montado)
+    return roda[seed % len(roda)]
 
 
 async def agent_redator(
@@ -479,6 +553,7 @@ async def agent_redator(
         payload,
         "escrever a peça",
         temperature=0.6,
+        creative=True,
     )
     return {
         "headline": normalize_pt_br_text(str(result.get("headline") or pauta["title"])),
@@ -494,7 +569,9 @@ async def agent_revisor_texto(draft: dict[str, Any], pauta: dict[str, Any]) -> t
         "headline": draft["headline"],
         "caption": draft["caption"],
     }
-    result, usage = await ask_json(REVIEWER_PROMPT, payload, "revisar o texto", temperature=0.3)
+    result, usage = await ask_json(
+        REVIEWER_PROMPT, payload, "revisar o texto", temperature=0.3, creative=True
+    )
     headline = normalize_pt_br_text(str(result.get("headline_final") or draft["headline"]))
     caption = normalize_pt_br_text(str(result.get("caption_final") or draft["caption"]))
     return {
@@ -520,6 +597,7 @@ async def agent_diretor_arte(
             {"headline": headline, "conceito_do_redator": draft.get("visual_concept", "")},
             "dirigir a arte",
             temperature=0.5,
+            creative=True,
         )
         concept = str(result.get("visual_concept") or draft.get("visual_concept") or "")
         constraints = str(result.get("visual_constraints") or draft.get("visual_constraints") or "")
@@ -708,7 +786,9 @@ async def _produce(
                 )
                 product = match_product(*textos)
                 fact = match_risk_fact(*textos)
-                template = choose_template(product, fact, item.id, scene_model_available())
+                template = choose_template(
+                    product, fact, item.id, scene_model_available(), image_model_available()
+                )
 
                 image_prompt = ""
                 # Layout montado no código não usa prompt nenhum. Rodar o diretor de

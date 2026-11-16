@@ -26,14 +26,36 @@ GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
 
-def text_provider() -> tuple[str, str, str, dict[str, str]]:
+def _openrouter_headers() -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {settings.openrouter_api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": settings.openrouter_site_url,
+        "X-Title": "ERP 4Core",
+    }
+
+
+def text_provider(creative: bool = False) -> tuple[str, str, str, dict[str, str]]:
     """Qual provedor atende o texto: (nome, endpoint, modelo, cabeçalhos).
 
-    O Groq vem primeiro quando existe, porque é o que já está em produção e é mais
-    rápido. O OpenRouter só assume o texto se tiver sido configurado um modelo de
+    `creative` separa quem escreve de quem conta. Ler número de concorrente e
+    escolher tema não depende de ouvido para português, e nisso o Groq é rápido e
+    gratuito. Escrever legenda e revisar texto dependem, e era o Groq que vinha
+    entregando frase de folheto com três gerúndios. Então os papéis criativos vão
+    para o modelo bom quando houver um configurado, e os analíticos ficam no rápido.
+
+    Fora disso o Groq continua vindo primeiro, porque é o que já está em produção.
+    O OpenRouter só assume o texto geral se tiver sido configurado um modelo de
     texto nele de propósito, para ninguém trocar de provedor sem querer só por ter
     colado a chave para gerar imagem.
     """
+    if creative and settings.openrouter_api_key and settings.openrouter_creative_model.strip():
+        return (
+            "openrouter",
+            OPENROUTER_ENDPOINT,
+            settings.openrouter_creative_model.strip(),
+            _openrouter_headers(),
+        )
     if settings.groq_api_key:
         return (
             "groq",
@@ -46,12 +68,7 @@ def text_provider() -> tuple[str, str, str, dict[str, str]]:
             "openrouter",
             OPENROUTER_ENDPOINT,
             settings.openrouter_text_model.strip(),
-            {
-                "Authorization": f"Bearer {settings.openrouter_api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": settings.openrouter_site_url,
-                "X-Title": "ERP 4Core",
-            },
+            _openrouter_headers(),
         )
     raise HTTPException(503, "Configure GROQ_API_KEY ou OPENROUTER_API_KEY com um modelo de texto.")
 
@@ -120,19 +137,42 @@ async def _post_with_retry(
         return response
 
 
+def _unfence(raw: str | None) -> str:
+    """Tira a cerca de markdown que alguns modelos poem em volta do JSON.
+
+    `response_format: {"type": "json_object"}` nao e respeitado por todos os
+    provedores: os modelos da Anthropic via OpenRouter devolvem o JSON correto
+    dentro de ```json ... ```, e o `json.loads` morre no primeiro acento grave.
+    Isso derrubava a esteira inteira ao trocar o modelo de escrita, com a
+    mensagem "a IA devolveu um formato invalido", que aponta para o modelo quando
+    o problema era o parse daqui.
+    """
+    texto = (raw or "").strip()
+    if not texto.startswith("```"):
+        return texto
+    # Primeira quebra de linha: pula a cerca e o rotulo da linguagem, se houver.
+    corpo = texto.split("\n", 1)[1] if "\n" in texto else ""
+    fim = corpo.rfind("```")
+    return (corpo[:fim] if fim != -1 else corpo).strip()
+
+
 async def ask_json(
     system_prompt: str,
     payload: Any,
     action: str,
     temperature: float = 0.5,
     timeout: float = 90.0,
+    creative: bool = False,
 ) -> tuple[dict[str, Any], Usage]:
     """Uma pergunta, uma resposta em JSON, e o consumo da chamada.
 
     `action` entra só na mensagem de erro mostrada na tela ("não foi possível
     <action> com a IA"), para o usuário saber qual agente falhou.
+
+    `creative` manda a chamada para o modelo de escrita em vez do rápido. Vale
+    para quem redige ou julga texto; ver `text_provider`.
     """
-    provider, endpoint, model, headers = text_provider()
+    provider, endpoint, model, headers = text_provider(creative)
     body = {
         "model": model,
         "temperature": temperature,
@@ -160,7 +200,7 @@ async def ask_json(
 
     try:
         data = response.json()
-        content = json.loads(data["choices"][0]["message"]["content"])
+        content = json.loads(_unfence(data["choices"][0]["message"]["content"]))
     except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
         raise HTTPException(502, f"A IA devolveu um formato inválido ao {action}.") from exc
     if not isinstance(content, dict):

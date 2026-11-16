@@ -1323,6 +1323,15 @@ SCENE_GUARDRAILS = (
     "screen, same housing, same brand mark. Do not redesign it, do not invent another "
     "model. No text, no watermark, no logo overlay anywhere in the image. "
     "Photorealistic candid documentary photograph, natural light, shallow depth of field."
+    # A referencia e a foto do aparelho sozinho, em fundo branco de catalogo. Sem
+    # este trecho o modelo devolvia o aparelho um pouco maior, ainda sozinho numa
+    # parede limpa: tecnicamente uma cena, na pratica a mesma foto de catalogo.
+    " At least one real Brazilian worker must be in the frame, actively using the "
+    "device, mid-gesture, in profile or three quarters, never looking at the lens. "
+    "The device is mounted or placed where it would really be, inside a recognisable "
+    "Brazilian workplace with everyday wear: a company entrance, a factory floor, a "
+    "construction site, a clinic reception, a warehouse, a shop back office. Never an "
+    "empty room, never a bare studio wall, never the device alone."
 )
 
 
@@ -1501,6 +1510,19 @@ def scene_model_available() -> bool:
     """A cena com produto real so existe com OpenRouter: e o unico provedor ligado
     aqui que aceita imagem de entrada. A Cloudflare so recebe texto."""
     return bool(settings.openrouter_api_key)
+
+
+def image_model_available() -> bool:
+    """Se existe algum provedor capaz de gerar imagem a partir de texto.
+
+    Separado de `scene_model_available` porque o layout "foto" nao precisa de
+    imagem de entrada: ele roda na Cloudflare tambem. Sem essa distincao, uma
+    instalacao so com Cloudflare perderia o unico layout fotografico que ela
+    consegue fazer."""
+    return bool(
+        settings.openrouter_api_key
+        or (settings.cloudflare_account_id and settings.cloudflare_api_token)
+    )
 
 
 async def generate_art_with_usage(

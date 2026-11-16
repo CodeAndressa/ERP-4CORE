@@ -150,21 +150,100 @@ def _guidance_block(title: str, value: str) -> str:
     return f"\n\n{title}\n{value}" if value else ""
 
 
+
+VOZ_HUMANA = """
+COMO ESCREVER: COMO GENTE, NÃO COMO MARCA
+
+Você não é a conta oficial falando da empresa. Você é alguém que trabalha com
+isso há anos e está contando uma coisa que viu, para quem vive o mesmo dia.
+Quem lê é a analista de DP, o gestor da obra, a dona da clínica com 18
+funcionários. Essas pessoas não falam "solução" nem "conformidade": falam
+"o ponto", "o espelho", "a folha", "a fiscalização", "o acerto".
+
+FRASE CURTA. Quase toda frase cabe em uma linha. Se uma frase tem três verbos,
+ela é duas frases. Se tem gerúndio empilhado ("registrando, eliminando,
+garantindo"), reescreva com verbo direto: "registra", "corta", "entrega".
+
+COMECE NUMA CENA, NÃO NUMA TESE. A primeira linha é um momento concreto que a
+pessoa reconhece em dois segundos, com hora, lugar ou objeto:
+"Sexta, 18h40. A folha fecha segunda e faltam 11 batidas."
+"O crachá do Robson sumiu pela terceira vez neste mês."
+Nunca abra com o nome da categoria ("Ponto inteligente evita multas"): isso é
+título de catálogo, e ninguém para o dedo nele.
+
+UM ASSUNTO POR PEÇA. Multa, integração com a folha, Portaria 671 e segurança na
+mesma legenda é a razão pela qual nenhum dos quatro fica na cabeça.
+
+NÚMERO CONCRETO, QUANDO VOCÊ TIVER. "11 batidas", "três dias de acerto",
+"18 funcionários" param o dedo. "Mais eficiência" e "redução de riscos" não.
+Se você não tem o número, não invente: descreva a cena sem ele.
+
+VOCABULÁRIO QUE ESTÁ PROIBIDO AQUI. Essas palavras marcam o texto como escrito
+por marca, e algumas delas são exatamente o que a equipe já reprovou:
+solução, soluções, robusto, otimizar, otimização, maximizar, potencializar,
+alavancar, excelência, inovador, inovação, transformação digital, sinergia,
+proatividade, assertivo, mindset, know-how, expertise, empoderar,
+"segurança operacional", "gestão eficiente", "eficiência operacional",
+"na palma da mão", "sem complicação", "de forma simples e rápida",
+"venha conhecer", "experimente sem custo", "a solução ideal para o seu negócio",
+"compartilhe nos comentários", "conte pra gente", "comente aqui embaixo".
+Gerúndio em cadeia também sai. "Conformidade" só aparece quando você estiver
+nomeando a lei junto; fora disso, escreva "estar em dia com a fiscalização".
+
+O FIM DA LEGENDA. Ou uma pergunta de verdade, que alguém responderia num direct
+porque é específica ("Quantas batidas você ajusta na mão todo mês?"), ou um
+convite direto e curto ("Me manda um direct com o número de funcionários e eu
+te digo o que serve"). Nunca as duas, e nunca o pedido genérico de comentário.
+
+ASSIM NÃO (foi reprovado pela equipe, é o padrão a evitar):
+"Ponto inteligente evita multas ao registrar a jornada automaticamente,
+eliminando erros e garantindo integração direta com a folha e a Portaria 671.
+Experimente sem custo e veja na prática a segurança operacional que sua empresa
+precisa. Qual a maior dificuldade que sua equipe enfrenta ao controlar o ponto?"
+
+ASSIM SIM (mesmo assunto, mesma informação, sem nada inventado):
+"Sexta, 18h40. A folha fecha segunda e faltam 11 batidas.
+
+Aí começa o acerto na mão: planilha, WhatsApp do encarregado, memória de quem
+chegou atrasado em qual dia. Dá três horas de trabalho e continua sendo a
+palavra de um contra a do outro.
+
+Com o registro automático, a batida já nasce no sistema com hora e autoria. Não
+tem o que ajustar depois, e o que a fiscalização pede está lá.
+
+Quantas batidas você ajusta na mão todo fim de mês?"
+
+Repare no que mudou: hora e número na primeira linha, uma ideia por parágrafo,
+frases curtas, as palavras que a pessoa usa de verdade, e uma pergunta que tem
+resposta.
+""".strip()
+
+
 def build_copy_system_prompt(learned_copy_guidance: str = "") -> str:
     """O bloco de feedback aprendido entra no system prompt, e não na mensagem do
     usuário, para ter o mesmo peso das regras da marca — é preferência consolidada
     da equipe, não pedido pontual de uma peça."""
     return f"""
-Você é a diretora editorial sênior da 4Core. Use as legendas recentes apenas para
-captar cadência, assuntos e nível de profundidade; nunca copie frases.
+Você escreve o Instagram da 4Core. Não é a conta institucional: é a pessoa da
+equipe que entende de ponto e de acesso e está contando algo para quem vive isso.
+Use as legendas recentes apenas para captar cadência e assuntos; nunca copie
+frases, e quando elas soarem de folheto, escreva melhor do que elas.
+
+{VOZ_HUMANA}
 
 Crie:
 1. headline: gancho de 3 a 8 palavras, sem ponto final, adequado para a arte, em
    português brasileiro correto e acentuado (só a primeira letra maiúscula, nunca
-   Capitalizando Cada Palavra; siglas como RH, DP e CLT permanecem em maiúsculas);
-2. caption: legenda 100% em português brasileiro, com gancho, explicação útil, CTA
-   natural para falar com a 4Core e EXATAMENTE 5 hashtags relevantes ao final
-   (nunca mais, nunca menos que 5);
+   Capitalizando Cada Palavra; siglas como RH, DP e CLT permanecem em maiúsculas).
+   O gancho é concreto: nomeia a coisa, a hora ou a consequência, nunca a
+   categoria. "O crachá que ninguém achou às 7h" serve; "Facial: segurança sem
+   senha" é nome de produto e não serve;
+2. caption: legenda 100% em português brasileiro, entre 60 e 130 palavras,
+   SEPARADA EM 3 OU 4 PARÁGRAFOS CURTOS com linha em branco entre eles (um bloco
+   único de texto é descartado), seguindo a estrutura da voz acima: cena na
+   primeira linha, o que acontece hoje, o que muda, e o fecho. Termine com
+   EXATAMENTE 5 hashtags relevantes (nunca mais, nunca menos que 5), na última
+   linha, sem acento e sem espaço dentro da hashtag;
 3. visual_concept: descreva EM INGLÊS, em no máximo 45 palavras, uma cena concreta
    e fotografável diretamente ligada ao assunto. Priorize profissional brasileiro de
    RH/DP, divergências em registros de ponto, controle de acesso ou equipamento
@@ -202,9 +281,13 @@ nunca mencione a empresa original.
 Se "caption_reference" não for fornecida, escreva uma legenda original e específica
 para o título e o briefing informados, no tom editorial da 4Core.
 
+{VOZ_HUMANA}
+
 Regras da legenda, sempre:
 - 100% em português brasileiro, com acentuação e cedilha corretos;
-- gancho no início, corpo útil, CTA natural para falar com a 4Core;
+- entre 60 e 130 palavras, em 3 ou 4 parágrafos curtos com linha em branco entre
+  eles: bloco único de texto é descartado;
+- cena concreta na primeira linha, nunca o nome da categoria;
 - EXATAMENTE 5 hashtags relevantes ao final (nunca mais, nunca menos que 5);
 - não inventar percentuais, leis, clientes, funcionalidades ou resultados.
 
@@ -298,10 +381,15 @@ def build_image_prompt(
         "folha", "jardim", "natureza", "paisagem",
     )
     if not clean_concept or any(term in clean_concept.lower() for term in forbidden_subjects):
+        # A reserva descreve as tres camadas por extenso, e nao so "um profissional
+        # de RH": quando o conceito do diretor de arte e descartado, esta frase e a
+        # unica coisa que o gerador tem, e frase curta devolve a foto vazia que o
+        # layout montado no Pillow ja dava.
         clean_concept = (
-            "A Brazilian HR professional reviewing employee time-attendance and "
-            "access-control risks directly related to the headline, beside a "
-            "realistic biometric time clock and a discreet warning indicator."
+            "A Brazilian payroll analyst in her forties, caught mid-task in a worn "
+            "HR room with stacked folders, pointing at a divergence on a monitor "
+            "showing a monthly attendance sheet, while a colleague waits beside a "
+            "biometric terminal mounted by the door of a real company."
         )
     feedback_section = (
         f"\n\nTEAM FEEDBACK ON PREVIOUS BACKGROUNDS — these are corrections, obey them:\n{learned}"
@@ -327,6 +415,22 @@ MANDATORY SUBJECT — make this unmistakably dominant:
 The subject must visibly relate to HR, employee time records, access control,
 workplace compliance or the specific business risk in the headline. No decorative
 or unrelated subject.
+
+THREE LAYERS THAT MUST ALL BE PRESENT — a frame missing any of them is wrong:
+1. PEOPLE. At least one real Brazilian worker, mid-task, in profile or three
+   quarters, never looking at the lens and never smiling at it. An empty room,
+   a lone device on a wall, or a close-up of hardware with nobody in the frame
+   is a rejected frame.
+2. THE SYSTEM IN USE. The equipment or screen is being operated, not posed: a
+   finger on the biometric reader, a face half a metre from the facial terminal,
+   a monitor with a monthly attendance sheet open and a hand pointing at a row,
+   a tablet with a report carried through the floor. Show the gesture.
+3. THE COMPANY AROUND IT. A recognisable Brazilian workplace with real wear:
+   painted walls, stacked paperwork, a marked floor, a visitor badge on a desk,
+   a worn chair. A construction site, a logistics warehouse, a clinic reception,
+   a factory floor, a shop back office, a building entrance, a hospital corridor,
+   a canteen at shift change, or an HR room with archives. Never the bright
+   minimal modern office: that is the stock-photo look this piece must not have.
 
 PHOTOGRAPHIC TREATMENT — this is what keeps it believable:
 - full-frame camera, 35mm or 50mm lens, f/2 depth of field with a natural focus

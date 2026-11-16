@@ -27,6 +27,80 @@ META_SCOPES = [
 _ig_account_id_cache: str = ""
 
 
+# Depois que o conteiner informa FINISHED, a Meta ainda leva um instante para a
+# midia ficar publicavel. Publicar no mesmo segundo devolve 9007 ("Media ID is not
+# available") com o status ja pronto, e a mensagem da propria Meta pede para
+# aguardar. Esta e a espera que ela pede.
+PUBLISH_SETTLE_SECONDS = 2.5
+
+# As esperas da nova tentativa, em segundos. Somadas com a espera inicial dao 24
+# segundos, que e o teto que ainda cabe numa publicacao feita com a pessoa
+# olhando a tela. O agendamento automatico nao se incomoda com o tempo, mas quem
+# clica em "Publicar agora" se incomoda.
+PUBLISH_RETRY_WAITS = (3.0, 6.0, 12.0)
+
+# O 9007 vem com `is_transient: false`, mas e transitorio: e a midia ainda
+# processando do outro lado. O subcodigo 2207027 e a mesma coisa vista pelo
+# caminho do story.
+PUBLISH_NOT_READY = {9007}
+PUBLISH_NOT_READY_SUBCODES = {2207027}
+
+
+def _graph_error(response: httpx.Response) -> dict[str, Any]:
+    """O bloco `error` da resposta, ou vazio quando nao ha JSON para ler."""
+    try:
+        payload = response.json()
+    except ValueError:
+        return {}
+    erro = (payload or {}).get("error")
+    return erro if isinstance(erro, dict) else {}
+
+
+def _publish_error_detail(erro: dict[str, Any], o_que: str) -> str:
+    """O erro de publicacao como frase, e nao como JSON.
+
+    A ordem importa: os casos conhecidos primeiro, porque so eles dizem o que
+    fazer. O `error_user_msg` da Meta vem depois, que e generico mas esta em
+    portugues e foi escrito para ser lido. O codigo cru fica por ultimo, para a
+    mensagem nunca sair vazia."""
+    codigo = erro.get("code")
+    subcodigo = erro.get("error_subcode")
+
+    if codigo in {190, 102} or subcodigo in {463, 467}:
+        return (
+            "O token da Página expirou. Reconecte o Instagram em Marketing > Conexões "
+            "antes de publicar."
+        )
+    if codigo == 9004 or subcodigo == 2207008:
+        return (
+            f"A Meta não conseguiu baixar a imagem {o_que}. A arte precisa estar numa "
+            "URL pública: confira o armazenamento das peças em Conexões."
+        )
+    if subcodigo in {2207009, 2207010, 2207032} or codigo == 36003:
+        return (
+            f"A Meta recusou o formato da arte {o_que}. O feed aceita entre 4:5 e 1.91:1, "
+            "e o story é 9:16."
+        )
+    if codigo == 25002 or subcodigo == 2207042:
+        return (
+            "A conta bateu o limite de publicações da Meta para as últimas 24 horas "
+            "(25 por dia). A peça continua aprovada e pode ser publicada amanhã."
+        )
+    if codigo in PUBLISH_NOT_READY or subcodigo in PUBLISH_NOT_READY_SUBCODES:
+        return (
+            f"A Meta aceitou {o_que} mas não liberou a mídia dentro do tempo de espera. "
+            "A peça não foi publicada e pode ser enviada de novo em alguns minutos."
+        )
+
+    humano = str(erro.get("error_user_msg") or "").strip()
+    if humano:
+        return f"A Meta recusou {o_que}: {humano}"
+    mensagem = str(erro.get("message") or "").strip()
+    if mensagem:
+        return f"A Meta recusou {o_que}: {mensagem} (código {codigo})."
+    return f"A Meta recusou {o_que} sem dizer o motivo."
+
+
 class MetaMarketingService:
     def __init__(self) -> None:
         self.graph_version = settings.meta_graph_version or "v20.0"
@@ -396,11 +470,74 @@ class MetaMarketingService:
             )
         return discovery
 
+    async def _await_container(
+        self,
+        client: httpx.AsyncClient,
+        token: str,
+        container_id: str,
+        o_que: str,
+    ) -> None:
+        """Espera o conteiner terminar de processar do lado da Meta."""
+        for _ in range(10):
+            status = await client.get(
+                f"{self.base_url}/{container_id}",
+                params={"access_token": token, "fields": "status_code,status"},
+            )
+            payload = status.json() if status.status_code < 400 else {}
+            status_code = payload.get("status_code")
+            if status_code == "FINISHED":
+                return
+            if status_code in {"ERROR", "EXPIRED"}:
+                raise HTTPException(
+                    502,
+                    f"A Meta não processou a arte {o_que}: {payload.get('status', status_code)}",
+                )
+            await asyncio.sleep(2)
+        raise HTTPException(
+            504,
+            f"A Meta demorou para processar a arte {o_que}. Tente novamente em instantes.",
+        )
+
+    async def _publish_container(
+        self,
+        client: httpx.AsyncClient,
+        ig_id: str,
+        token: str,
+        container_id: str,
+        o_que: str,
+    ) -> str:
+        """Publica o conteiner pronto e devolve o id da midia.
+
+        A espera antes da primeira tentativa, e a nova tentativa em 9007, existem
+        porque FINISHED nao significa publicavel: a Meta libera a midia um
+        instante depois, e e esse instante que derrubava o story."""
+        await asyncio.sleep(PUBLISH_SETTLE_SECONDS)
+
+        for espera in (0.0, *PUBLISH_RETRY_WAITS):
+            if espera:
+                await asyncio.sleep(espera)
+            published = await client.post(
+                f"{self.base_url}/{ig_id}/media_publish",
+                data={"access_token": token, "creation_id": container_id},
+            )
+            if published.status_code < 400:
+                return str(published.json().get("id", ""))
+
+            erro = _graph_error(published)
+            ainda_processando = (
+                erro.get("code") in PUBLISH_NOT_READY
+                or erro.get("error_subcode") in PUBLISH_NOT_READY_SUBCODES
+            )
+            if not ainda_processando:
+                raise HTTPException(published.status_code, _publish_error_detail(erro, o_que))
+
+        raise HTTPException(504, _publish_error_detail({"code": 9007}, o_que))
+
     async def publish_instagram_image(self, image_url: str, caption: str) -> dict[str, str]:
         """Publica uma imagem aprovada. O agendamento permanece sob controle do ERP."""
         ig_id = await self.get_instagram_account_id()
         _, token = await self._page_token_async(None, None)
-        async with httpx.AsyncClient(timeout=40.0) as client:
+        async with httpx.AsyncClient(timeout=90.0) as client:
             created = await client.post(
                 f"{self.base_url}/{ig_id}/media",
                 data={"access_token": token, "image_url": image_url, "caption": caption},
@@ -411,34 +548,15 @@ class MetaMarketingService:
             if not container_id:
                 raise HTTPException(502, "A Meta não retornou o contêiner da publicação.")
 
-            for _ in range(10):
-                status = await client.get(
-                    f"{self.base_url}/{container_id}",
-                    params={"access_token": token, "fields": "status_code,status"},
-                )
-                status_payload = status.json() if status.status_code < 400 else {}
-                status_code = status_payload.get("status_code")
-                if status_code == "FINISHED":
-                    break
-                if status_code in {"ERROR", "EXPIRED"}:
-                    raise HTTPException(502, f"A Meta não processou a arte: {status_payload.get('status', status_code)}")
-                await asyncio.sleep(2)
-            else:
-                raise HTTPException(504, "A Meta demorou para processar a arte. Tente novamente em instantes.")
-
-            published = await client.post(
-                f"{self.base_url}/{ig_id}/media_publish",
-                data={"access_token": token, "creation_id": container_id},
-            )
-        if published.status_code >= 400:
-            raise HTTPException(published.status_code, f"Falha ao publicar no Instagram: {published.text[:300]}")
-        return {"container_id": container_id, "media_id": published.json().get("id", "")}
+            await self._await_container(client, token, container_id, "da publicação")
+            media_id = await self._publish_container(client, ig_id, token, container_id, "a publicação")
+        return {"container_id": container_id, "media_id": media_id}
 
     async def publish_instagram_story(self, image_url: str) -> dict[str, str]:
         """Publica um Story — a API da Meta nao aceita legenda para media_type=STORIES."""
         ig_id = await self.get_instagram_account_id()
         _, token = await self._page_token_async(None, None)
-        async with httpx.AsyncClient(timeout=40.0) as client:
+        async with httpx.AsyncClient(timeout=90.0) as client:
             created = await client.post(
                 f"{self.base_url}/{ig_id}/media",
                 data={"access_token": token, "image_url": image_url, "media_type": "STORIES"},
@@ -449,28 +567,9 @@ class MetaMarketingService:
             if not container_id:
                 raise HTTPException(502, "A Meta não retornou o contêiner do story.")
 
-            for _ in range(10):
-                status = await client.get(
-                    f"{self.base_url}/{container_id}",
-                    params={"access_token": token, "fields": "status_code,status"},
-                )
-                status_payload = status.json() if status.status_code < 400 else {}
-                status_code = status_payload.get("status_code")
-                if status_code == "FINISHED":
-                    break
-                if status_code in {"ERROR", "EXPIRED"}:
-                    raise HTTPException(502, f"A Meta não processou o story: {status_payload.get('status', status_code)}")
-                await asyncio.sleep(2)
-            else:
-                raise HTTPException(504, "A Meta demorou para processar o story. Tente novamente em instantes.")
-
-            published = await client.post(
-                f"{self.base_url}/{ig_id}/media_publish",
-                data={"access_token": token, "creation_id": container_id},
-            )
-        if published.status_code >= 400:
-            raise HTTPException(published.status_code, f"Falha ao publicar o story: {published.text[:300]}")
-        return {"container_id": container_id, "media_id": published.json().get("id", "")}
+            await self._await_container(client, token, container_id, "do story")
+            media_id = await self._publish_container(client, ig_id, token, container_id, "o story")
+        return {"container_id": container_id, "media_id": media_id}
 
     async def publish_facebook_image(self, image_url: str, caption: str) -> str:
         page_id, token = await self._page_token_async(None, None)

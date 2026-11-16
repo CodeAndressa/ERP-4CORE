@@ -60,7 +60,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter Variable', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Geist Variable', 'Geist', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       fontSize: {

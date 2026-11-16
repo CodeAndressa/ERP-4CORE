@@ -178,7 +178,7 @@ export default function PipelinePage() {
     <div className="flex flex-col gap-6 h-full">
       <style>{`.deal-card:hover { border-color: var(--erp-border-strong) !important; }`}</style>
       <div className="flex items-end justify-between gap-4">
-        <div><p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial</p><h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Pipeline de Vendas</h1><p className="mt-1 text-xs sm:hidden" style={{ color: 'var(--erp-text-muted)' }}>Deslize para ver etapas e arraste cards para atualizar o pipeline.</p></div>
+        <div><h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Pipeline de Vendas</h1><p className="mt-1 text-xs sm:hidden" style={{ color: 'var(--erp-text-muted)' }}>Deslize para ver etapas e arraste cards para atualizar o pipeline.</p></div>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <MetricCard label="Total em pipeline" value={fmt(totalPipeline)} tone="violet" icon={<TrendingUp size={16} />} />

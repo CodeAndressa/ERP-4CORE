@@ -64,7 +64,6 @@ export default function FunilPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial</p>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Funil de Conversão</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Jornada do lead da entrada ao fechamento</p>
       </div>

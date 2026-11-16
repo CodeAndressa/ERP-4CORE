@@ -101,7 +101,6 @@ export default function PostsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Posts</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--erp-text-muted)' }}>
             Publicações reais do Instagram · 4Core Consultoria

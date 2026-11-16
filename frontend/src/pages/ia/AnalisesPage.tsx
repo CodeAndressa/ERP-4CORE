@@ -38,7 +38,6 @@ export default function AnalisesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Inteligência IA</p>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Análises Profundas</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Análise detalhada por área com identificação de riscos e oportunidades</p>
       </div>

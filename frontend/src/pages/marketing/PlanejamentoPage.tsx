@@ -70,7 +70,6 @@ export default function PlanejamentoPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Planejamento Mensal</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Objetivos, pilares de conteúdo e metas do mês</p>
         </div>

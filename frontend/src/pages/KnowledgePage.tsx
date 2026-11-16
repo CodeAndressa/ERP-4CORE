@@ -5,7 +5,6 @@ export default function KnowledgePage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Conhecimento</p>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Base Operacional</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Processos, playbooks e aprendizados da equipe</p>
       </div>

@@ -175,7 +175,7 @@ export default function ReceitasPage() {
       <div className="relative z-[900] flex flex-col gap-3 border-b pb-3 lg:flex-row lg:items-center lg:justify-between" style={{ borderColor: 'var(--erp-border)' }}>
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--erp-violet-light)' }}>Financeiro ASAAS</p>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--erp-text)' }}>Receita</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Receita</h1>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <FinancePeriodFilter value={period} onApply={setPeriod} />

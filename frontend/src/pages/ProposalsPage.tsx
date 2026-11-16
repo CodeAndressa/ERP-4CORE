@@ -177,7 +177,6 @@ export default function ProposalsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Comercial</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Propostas</h1>
         </div>
         <button onClick={() => setShowForm((value) => !value)} className="flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium sm:w-auto" style={{ background: showForm ? 'var(--erp-surface)' : 'var(--erp-violet)', color: showForm ? 'var(--erp-text)' : '#fff', border: '1px solid var(--erp-border)' }}>

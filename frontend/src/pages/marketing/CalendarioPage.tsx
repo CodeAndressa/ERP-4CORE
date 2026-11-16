@@ -124,7 +124,7 @@ export default function CalendarioPage() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <CalendarDays size={16} style={{ color: 'var(--erp-violet-light)' }} />
-          <h1 className="text-base font-bold" style={{ color: 'var(--erp-text)' }}>Calendário</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Calendário</h1>
           {loading && <RefreshCw size={12} className="animate-spin" style={{ color: 'var(--erp-text-muted)' }} />}
         </div>
         <button

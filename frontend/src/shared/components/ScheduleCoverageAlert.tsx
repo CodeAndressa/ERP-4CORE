@@ -53,6 +53,17 @@ export default function ScheduleCoverageAlert({ compact=false, coverage }:{ comp
   const until=longDate(data.covered_until);
   const Icon=data.level==='ok'?CalendarCheck:AlertTriangle;
 
+  // Quando esta tudo coberto, o aviso vira uma linha. Um bloco de quatro linhas
+  // dizendo "esta tudo certo" tomava o topo de toda tela de Marketing e do
+  // painel, acima do conteudo que a pessoa veio ver. Alerta so merece area
+  // quando ha o que resolver.
+  if(data.level==='ok') return <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" style={{color:'var(--erp-text-muted)'}}>
+    <Icon size={14} className="shrink-0" style={{color:'var(--erp-emerald)'}}/>
+    <span>Agendado até {until}.</span>
+    <span style={{opacity:.75}}>{data.total_upcoming} na fila.</span>
+    <Link to="/marketing/calendario" className="font-semibold underline underline-offset-2" style={{color:'var(--erp-violet)'}}>Ver calendário</Link>
+  </div>;
+
   return <section className="rounded-2xl border p-4" style={{borderColor:style.border,background:style.bg}}>
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-2.5">
@@ -78,7 +89,8 @@ export default function ScheduleCoverageAlert({ compact=false, coverage }:{ comp
         </div>
       </div>
       <Link to="/marketing/calendario" className="flex min-h-10 shrink-0 items-center gap-1 rounded-xl px-3 text-xs font-semibold" style={{color:style.text,background:'var(--erp-surface)',border:`1px solid ${style.border}`}}>
-        {data.level==='ok'?'Ver calendário':'Agendar agora'}<ChevronRight size={14}/>
+        {/* Aqui o nivel nunca e ok: esse caso ja retornou como uma linha acima. */}
+        Agendar agora<ChevronRight size={14}/>
       </Link>
     </div>
 

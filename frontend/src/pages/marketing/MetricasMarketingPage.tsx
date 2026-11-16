@@ -140,7 +140,6 @@ export default function MetricasMarketingPage() {
     return (
       <div className="space-y-6">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Métricas de Marketing</h1>
         </div>
         <Card padding="lg">
@@ -165,7 +164,6 @@ export default function MetricasMarketingPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Métricas de Marketing</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Dados dos últimos 30 dias · Instagram @4coreconsultoria</p>
         </div>

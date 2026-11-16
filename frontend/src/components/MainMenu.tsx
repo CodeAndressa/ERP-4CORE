@@ -24,15 +24,38 @@ interface AreaItem {
   match: string[];
 }
 
-const AREAS: AreaItem[] = [
-  { label: 'Visão Geral', path: '/dashboard', icon: LayoutDashboard, match: ['/dashboard', '/site-metrics'] },
-  { label: 'Comercial', path: '/comercial', icon: Users, match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'] },
-  { label: 'Financeiro', path: '/financeiro', icon: DollarSign, match: ['/financeiro', '/financial'] },
-  { label: 'Marketing', path: '/marketing', icon: Megaphone, match: ['/marketing'] },
-  { label: 'IA', path: '/ia', icon: Brain, match: ['/ia', '/ai'] },
-  { label: 'Relatórios', path: '/relatorios', icon: FolderOpen, match: ['/relatorios', '/reports'] },
-  { label: 'Sistema', path: '/settings', icon: Settings2, match: ['/settings', '/knowledge'] },
+interface AreaGroup {
+  label: string;
+  items: AreaItem[];
+}
+
+// Tres grupos, na ordem em que o dia acontece: o que se opera, o que se le e o
+// que se configura. Uma lista plana de sete itens nao conta essa diferenca.
+const GROUPS: AreaGroup[] = [
+  {
+    label: 'Operação',
+    items: [
+      { label: 'Visão Geral', path: '/dashboard', icon: LayoutDashboard, match: ['/dashboard', '/site-metrics'] },
+      { label: 'Comercial', path: '/comercial', icon: Users, match: ['/comercial', '/clients', '/leads', '/proposals', '/contracts'] },
+      { label: 'Financeiro', path: '/financeiro', icon: DollarSign, match: ['/financeiro', '/financial'] },
+      { label: 'Marketing', path: '/marketing', icon: Megaphone, match: ['/marketing'] },
+    ],
+  },
+  {
+    label: 'Leitura',
+    items: [
+      { label: 'IA', path: '/ia', icon: Brain, match: ['/ia', '/ai'] },
+      { label: 'Relatórios', path: '/relatorios', icon: FolderOpen, match: ['/relatorios', '/reports'] },
+    ],
+  },
+  {
+    label: 'Ajustes',
+    items: [
+      { label: 'Sistema', path: '/settings', icon: Settings2, match: ['/settings', '/knowledge'] },
+    ],
+  },
 ];
+
 
 function isAreaActive(pathname: string, area: AreaItem) {
   return area.match.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -115,17 +138,33 @@ export default function MainMenu() {
       </div>
 
       <nav className="relative flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {!sidebarCollapsed && (
-          <p
-            className="mb-2 px-3 text-xs font-semibold uppercase tracking-[0.16em]"
-            style={{ color: 'rgba(226,219,246,0.38)' }}
-          >
-            Áreas
-          </p>
-        )}
-        <div className={sidebarCollapsed ? 'space-y-1.5' : 'space-y-0.5'}>
-          {AREAS.map((area) => <AreaButton key={area.path} area={area} collapsed={sidebarCollapsed} />)}
-        </div>
+        {GROUPS.map((group, index) => (
+          <div key={group.label} className={index > 0 ? 'mt-5' : ''}>
+            {/* Recolhida, o rotulo vira um fio: o grupo continua separando sem
+                depender de uma palavra que nao caberia. */}
+            {sidebarCollapsed ? (
+              index > 0 && (
+                <div
+                  aria-hidden
+                  className="mx-auto mb-3 h-px w-6"
+                  style={{ background: 'rgba(255,255,255,0.12)' }}
+                />
+              )
+            ) : (
+              <p
+                className="mb-1.5 px-3 text-xs font-semibold uppercase tracking-[0.16em]"
+                style={{ color: 'rgba(226,219,246,0.36)' }}
+              >
+                {group.label}
+              </p>
+            )}
+            <div className={sidebarCollapsed ? 'space-y-1.5' : 'space-y-0.5'}>
+              {group.items.map((area) => (
+                <AreaButton key={area.path} area={area} collapsed={sidebarCollapsed} />
+              ))}
+            </div>
+          </div>
+        ))}
       </nav>
     </motion.aside>
   );

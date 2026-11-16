@@ -124,12 +124,16 @@ function pathActive(pathname: string, match: string[]) {
   return match.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
+/** Uma barra fina no topo, como a do Lastro, em vez de um spinner no meio de
+ *  uma area vazia. A diferenca importa: o spinner centralizado empurra a tela
+ *  para o nada por um instante, enquanto a barra diz "estou buscando" sem tirar
+ *  nada do lugar. */
 function RouteFallback() {
   return (
-    <div className="flex min-h-[40vh] items-center justify-center gap-2">
-      <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: 'var(--erp-border)', borderTopColor: 'var(--erp-violet)' }} />
-      <span className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Carregando...</span>
-    </div>
+    <>
+      <div className="erp-loading-bar" role="progressbar" aria-label="Carregando a tela" />
+      <div className="min-h-[40vh]" aria-hidden />
+    </>
   );
 }
 
@@ -449,6 +453,12 @@ export default function AppLayout() {
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      // Ctrl+B recolhe e expande o menu, o mesmo atalho do Lastro.
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+        event.preventDefault();
+        useUIStore.getState().toggleSidebar();
+        return;
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         commandOpen ? closeCommand() : openCommand();

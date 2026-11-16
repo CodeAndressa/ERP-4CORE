@@ -397,3 +397,61 @@ table,
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* ─── Movimento ──────────────────────────────────────────────────────────────
+   Os três vêm do Núcleo e do Prisma, onde cada um tem função: o pulso diz que
+   algo está acontecendo agora, a varredura diz que dados estão a caminho, e a
+   deriva dá vida a uma superfície parada sem pedir atenção.
+
+   Nenhum é decoração solta: um movimento que não informa nada é a diferença
+   entre interface viva e interface inquieta. Todos param sob
+   `prefers-reduced-motion`, pela regra global mais acima. */
+
+@keyframes erp-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--erp-accent) / 0.45); }
+  70% { box-shadow: 0 0 0 12px rgb(var(--erp-accent) / 0); }
+}
+
+@keyframes erp-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+/* Indica trabalho em andamento: a esteira rodando, uma peça sendo gerada. */
+.erp-pulse {
+  animation: erp-pulse 2s ease-out infinite;
+}
+
+/* Barra fina no topo enquanto algo carrega, como a do Lastro. Em vez de uma
+   tela inteira de esqueleto, uma linha diz "estou buscando" sem tirar o que já
+   está na tela do lugar. */
+.erp-loading-bar {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 70;
+  height: 2px;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+}
+
+.erp-loading-bar::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 25%;
+  background: linear-gradient(90deg, transparent, var(--erp-violet), transparent);
+  animation: erp-sweep 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* A barra fica, parada e cheia: ela comunica estado, e some-la esconderia a
+     informação de que algo ainda está carregando. */
+  .erp-loading-bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
+  }
+}

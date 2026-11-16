@@ -272,6 +272,55 @@ async def get_conversation_messages(conversation_id: str):
     return {"messages": await instagram_dm_service.conversation_messages(conversation_id)}
 
 
+@router.get("/meta/instagram/unread")
+def instagram_unread(db: Session = Depends(get_db)):
+    """O que chegou pelo webhook e ainda nao foi aberto.
+
+    Le a tabela que o webhook alimenta, em vez de comparar datas em memoria na
+    tela: assim a marca de "mensagem nova" sobrevive a recarregar a pagina, e o
+    aviso aparece no instante em que a Meta entrega, sem esperar a volta do
+    intervalo de quinze segundos.
+    """
+    linhas = (
+        db.query(InstagramMessage)
+        .filter(
+            InstagramMessage.direction == "inbound",
+            InstagramMessage.seen_at.is_(None),
+        )
+        .order_by(InstagramMessage.created_at.desc())
+        .limit(200)
+        .all()
+    )
+    por_conversa: dict[str, int] = {}
+    for linha in linhas:
+        por_conversa[linha.conversation_id] = por_conversa.get(linha.conversation_id, 0) + 1
+    return {
+        "total": len(linhas),
+        "conversations": por_conversa,
+        "latest_at": linhas[0].created_at.isoformat() if linhas else None,
+    }
+
+
+@router.post("/meta/instagram/conversations/{conversation_id}/seen")
+def mark_conversation_seen(conversation_id: str, db: Session = Depends(get_db)):
+    """Marca como visto o que chegou nessa conversa.
+
+    A conversa do Instagram e identificada pelo participante nos eventos do
+    webhook, e pelo id da thread na Graph API. Os dois chegam aqui, entao a
+    busca aceita qualquer um dos dois."""
+    marcadas = (
+        db.query(InstagramMessage)
+        .filter(
+            InstagramMessage.direction == "inbound",
+            InstagramMessage.seen_at.is_(None),
+            InstagramMessage.conversation_id == conversation_id,
+        )
+        .update({InstagramMessage.seen_at: datetime.now(timezone.utc)}, synchronize_session=False)
+    )
+    db.commit()
+    return {"marked": marcadas}
+
+
 class ReplyRequest(BaseModel):
     recipient_id: str = Field(min_length=1, max_length=64)
     text: str = Field(min_length=1, max_length=1000)

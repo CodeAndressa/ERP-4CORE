@@ -134,13 +134,17 @@ export default function MensagensPage() {
   const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState('');
   const [sendError, setSendError] = useState('');
-  const [novas, setNovas] = useState<Set<string>>(new Set());
+  // O que o webhook recebeu e ninguem abriu, por conversa. Vem do backend, e
+  // nao de comparacao em memoria: assim a marca sobrevive a recarregar a pagina
+  // e nao discorda entre duas abas abertas.
+  const [novas, setNovas] = useState<Record<string, number>>({});
 
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const painelRef = useRef<HTMLDivElement>(null);
+  // Quantas mensagens o painel ja mostrava, para distinguir "chegou algo" de
+  // "a lista foi recriada igual pela atualizacao de quinze segundos".
+  const contagemRef = useRef(0);
   const campoRef = useRef<HTMLTextAreaElement>(null);
   const selectedRef = useRef<Conversation | null>(null);
-  // O que já foi visto de cada conversa, para saber o que chegou depois disso.
-  const vistoRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     selectedRef.current = selected;
@@ -165,6 +169,18 @@ export default function MensagensPage() {
       });
   }, []);
 
+  const loadUnread = useCallback(() => {
+    return api
+      .get<{ total: number; conversations: Record<string, number> }>(
+        '/marketing/meta/instagram/unread',
+      )
+      .then(({ data }) => setNovas(data.conversations ?? {}))
+      .catch(() => {
+        // Sem o não lido a caixa continua funcionando, só sem a marca. Não vale
+        // derrubar a tela por causa do aviso.
+      });
+  }, []);
+
   const loadConversations = useCallback((silent = false) => {
     if (!silent) {
       setLoadingConversations(true);
@@ -179,30 +195,7 @@ export default function MensagensPage() {
         if (!data.configured || !data.healthy) return;
         return api
           .get<{ conversations: Conversation[] }>('/marketing/meta/instagram/conversations')
-          .then(({ data: lista }) => {
-            const chegaram = lista.conversations ?? [];
-            // Quem é novidade: mensagem do cliente mais recente do que a última
-            // que esta tela já tinha visto, e que não está aberta na frente dela.
-            setNovas((anteriores) => {
-              const marcadas = new Set(anteriores);
-              chegaram.forEach((conversa) => {
-                const visto = vistoRef.current.get(conversa.id);
-                const atual = conversa.last_message_at ?? '';
-                if (visto === undefined) {
-                  vistoRef.current.set(conversa.id, atual);
-                  return;
-                }
-                if (atual > visto) {
-                  vistoRef.current.set(conversa.id, atual);
-                  if (!conversa.last_from_me && selectedRef.current?.id !== conversa.id) {
-                    marcadas.add(conversa.id);
-                  }
-                }
-              });
-              return marcadas;
-            });
-            setConversations(chegaram);
-          });
+          .then(({ data: lista }) => setConversations(lista.conversations ?? []));
       })
       .catch((err) => {
         if (!silent) setError(erroDe(err, 'Não foi possível carregar as conversas.'));
@@ -214,7 +207,8 @@ export default function MensagensPage() {
 
   useEffect(() => {
     loadConversations();
-  }, [loadConversations]);
+    loadUnread();
+  }, [loadConversations, loadUnread]);
 
   // Recarrega a lista e a conversa aberta, para não depender só do webhook, que
   // pode não estar assinado. Para quando a aba sai da frente: quinze segundos
@@ -225,6 +219,7 @@ export default function MensagensPage() {
     const tick = () => {
       if (document.visibilityState !== 'visible') return;
       loadConversations(true);
+      loadUnread();
       if (selectedRef.current) loadMessages(selectedRef.current.id, true);
     };
     const relogio = window.setInterval(tick, INTERVALO_MS);
@@ -233,24 +228,48 @@ export default function MensagensPage() {
       window.clearInterval(relogio);
       document.removeEventListener('visibilitychange', tick);
     };
-  }, [conexao?.healthy, loadConversations, loadMessages]);
+  }, [conexao?.healthy, loadConversations, loadMessages, loadUnread]);
 
   function openConversation(conversation: Conversation) {
     setSelected(conversation);
+    contagemRef.current = 0;
     setSendError('');
     setReply('');
-    vistoRef.current.set(conversation.id, conversation.last_message_at ?? '');
-    setNovas((anteriores) => {
-      if (!anteriores.has(conversation.id)) return anteriores;
-      const proximas = new Set(anteriores);
-      proximas.delete(conversation.id);
-      return proximas;
-    });
     loadMessages(conversation.id);
+
+    // Visto de verdade, no banco. O webhook identifica a conversa pelo
+    // participante e a Graph API pelo id da thread, então os dois são enviados:
+    // a rota aceita qualquer um dos dois e marca o que encontrar.
+    setNovas(({ [conversation.id]: _aberta, ...resto }) => resto);
+    const alvos = [conversation.id, conversation.participant_id].filter(Boolean) as string[];
+    Promise.all(
+      alvos.map((alvo) =>
+        api.post(`/marketing/meta/instagram/conversations/${alvo}/seen`).catch(() => null),
+      ),
+    ).then(() => loadUnread());
   }
 
+  // Rola o painel da conversa, e só ele. `scrollIntoView` rola todos os
+  // containers acima do elemento, inclusive a página: era isso que arrastava a
+  // tela para baixo a cada atualização, mesmo quando nada havia mudado.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const painel = painelRef.current;
+    if (!painel) return;
+
+    const chegaram = messages.length > contagemRef.current;
+    const primeiraCarga = contagemRef.current === 0 && messages.length > 0;
+    contagemRef.current = messages.length;
+    if (!chegaram) return;
+
+    // Quem subiu para ler uma mensagem antiga não quer ser trazido de volta
+    // porque chegou algo novo. A folga de 120px é o "ainda estou no fim".
+    const noFim = painel.scrollHeight - painel.scrollTop - painel.clientHeight < 120;
+    if (!primeiraCarga && !noFim) return;
+
+    painel.scrollTo({
+      top: painel.scrollHeight,
+      behavior: primeiraCarga ? 'auto' : 'smooth',
+    });
   }, [messages]);
 
   async function sendReply() {
@@ -310,6 +329,18 @@ export default function MensagensPage() {
   }, [messages]);
 
   const semResposta = conversations.filter((c) => !c.last_from_me).length;
+  const totalNovas = Object.values(novas).reduce((soma, valor) => soma + valor, 0);
+
+  async function marcarTudoVisto() {
+    const alvos = Object.keys(novas);
+    setNovas({});
+    await Promise.all(
+      alvos.map((alvo) =>
+        api.post(`/marketing/meta/instagram/conversations/${alvo}/seen`).catch(() => null),
+      ),
+    );
+    loadUnread();
+  }
 
   // Token ausente e token vencido mandam para o mesmo lugar, mas nao dizem a
   // mesma coisa. Antes a tela so olhava `configured`, entao com o token vencido
@@ -362,15 +393,15 @@ export default function MensagensPage() {
         </div>
       )}
 
-      {novas.size > 0 && (
+      {totalNovas > 0 && (
         <button
           type="button"
-          onClick={() => setNovas(new Set())}
+          onClick={() => void marcarTudoVisto()}
           className="flex w-full items-center gap-2 rounded-2xl border px-4 py-3 text-left text-sm font-semibold"
           style={{ borderColor: 'var(--erp-violet-soft)', background: 'var(--erp-violet-dim)', color: 'var(--erp-violet)' }}
         >
           <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--erp-violet)' }} />
-          {novas.size === 1 ? 'Chegou uma mensagem nova' : `Chegaram ${novas.size} mensagens novas`}
+          {totalNovas === 1 ? 'Chegou uma mensagem nova' : `Chegaram ${totalNovas} mensagens novas`}
         </button>
       )}
 
@@ -384,17 +415,28 @@ export default function MensagensPage() {
               <ConversationSkeleton />
             ) : conversations.length === 0 ? (
               <div className="p-6">
+                {/* A API devolve lista vazia, sem erro nenhum, quando a conta esta
+                    com "Permitir acesso a mensagens" desligado nas ferramentas
+                    conectadas do Instagram. Token valido, conta comercial, caixa
+                    vazia: sem esta frase nao ha como distinguir isso de "ninguem
+                    escreveu ainda", e e de longe a causa mais comum. */}
                 <EmptyState
                   icon={<MessageCircle size={24} />}
-                  title="Nenhuma conversa ainda"
-                  description="Novas mensagens do Instagram aparecem aqui."
+                  title="Nenhuma conversa chegou aqui"
+                  description={
+                    'Se você tem mensagens no Instagram e elas não aparecem, a conta provavelmente está com o acesso às mensagens desligado. ' +
+                    'No aplicativo do Instagram: Configurações, Mensagens e respostas a stories, Ferramentas conectadas, e ligue "Permitir acesso a mensagens".'
+                  }
                 />
               </div>
             ) : (
               <div className="space-y-0.5 p-2">
                 {conversations.map((conversation) => {
                   const active = selected?.id === conversation.id;
-                  const nova = novas.has(conversation.id);
+                  const quantas =
+                    (novas[conversation.id] ?? 0) +
+                    (conversation.participant_id ? novas[conversation.participant_id] ?? 0 : 0);
+                  const nova = quantas > 0;
                   return (
                     <button
                       key={conversation.id}
@@ -426,10 +468,12 @@ export default function MensagensPage() {
                           </p>
                           {nova && (
                             <span
-                              className="h-2 w-2 shrink-0 rounded-full"
+                              className="grid h-4 min-w-4 shrink-0 place-items-center rounded-full px-1 text-2xs font-bold tabular-nums text-white"
                               style={{ background: 'var(--erp-violet)' }}
-                              aria-label="mensagem nova"
-                            />
+                              aria-label={`${quantas} mensagem${quantas > 1 ? 's' : ''} nova${quantas > 1 ? 's' : ''}`}
+                            >
+                              {quantas > 9 ? '9+' : quantas}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -489,7 +533,7 @@ export default function MensagensPage() {
                   )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
+                <div ref={painelRef} className="flex-1 overflow-y-auto">
                   {loadingMessages ? (
                     <MessagesSkeleton />
                   ) : messages.length === 0 ? (
@@ -531,7 +575,6 @@ export default function MensagensPage() {
                           ))}
                         </div>
                       ))}
-                      <div ref={bottomRef} />
                     </div>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowRight, Building2, CheckCircle2, CircleDollarSign, Clock3, ExternalLink,
+  AlertTriangle, ArrowRight, Building2, CheckCircle2, CircleDollarSign, Clock3, ExternalLink,
   Eye, FileSpreadsheet, Inbox, Mail, MapPin, Phone, RefreshCw, Search, Settings2,
   ShieldCheck, Sparkles, Target, UserRoundCheck, Users, XCircle,
 } from 'lucide-react';
@@ -524,18 +524,39 @@ export default function ProspectingPage() {
   }, [config?.campaign.seller_ids, currentUser, prospects, search, view]);
 
   const selected = visibleProspects.find((item) => item.id === selectedId) ?? visibleProspects[0] ?? null;
+  const [falha, setFalha] = useState('');
   const inbound = activities.filter((item) => item.direction === 'inbound');
   const currentUserIsSeller = Boolean(currentUser && config?.campaign.seller_ids.includes(currentUser.id));
   const queueCount = prospects.filter((item) => ['new', 'approved', 'contacted', 'interested', 'emailing', 'replied'].includes(item.status) && (!currentUserIsSeller || item.assigned_to_id === currentUser?.id)).length;
 
   async function runAction(label: string, request: () => Promise<any>, success: (data: any) => string) {
     setWorking(label);
+    setFalha('');
     try {
       const { data } = await request();
-      toast.success(success(data));
+
+      // Falha parcial não é sucesso. Com três de quatro segmentos quebrados, o
+      // retorno traz added: 0, e um toast verde dizendo "0 novas empresas" se lê
+      // como "o mercado acabou" em vez de "a busca quebrou".
+      const quebrados: number = data?.segments_failed ?? 0;
+      if (quebrados > 0) {
+        const total: number = data?.segments_total ?? 0;
+        const motivo: string = (data?.failures ?? [])[0] ?? '';
+        setFalha(
+          `${quebrados} de ${total} segmentos da busca falharam, então esta rodada veio incompleta. ${motivo}`,
+        );
+        toast.error(`${quebrados} de ${total} segmentos falharam.`);
+      } else {
+        toast.success(success(data));
+      }
       await load();
     } catch (error) {
-      toast.error(errorMessage(error, 'Não foi possível concluir a ação.'));
+      // O erro fica na tela além do toast: as mensagens da Casa dos Dados dizem
+      // o que fazer em duas frases, e um toast de quatro segundos não dá tempo
+      // de ler nem de copiar.
+      const mensagem = errorMessage(error, 'Não foi possível concluir a ação.');
+      setFalha(mensagem);
+      toast.error(mensagem);
     } finally {
       setWorking('');
     }
@@ -567,10 +588,51 @@ export default function ProspectingPage() {
           <div className="flex flex-wrap gap-2">
             <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={(event) => void importFile(event.target.files?.[0])} />
             <Button aria-label="Importar base de prospectos" size="sm" variant="secondary" loading={working === 'import'} onClick={() => fileRef.current?.click()} icon={<FileSpreadsheet size={14} />}><span className="hidden sm:inline">Importar base</span></Button>
-            <Button size="sm" loading={working === 'discover'} disabled={!config?.source.configured} onClick={() => runAction('discover', () => api.post('/prospecting/discover?limit=45', undefined, { timeout: 60000 }), (data) => `${data.added} novas empresas qualificadas.`)} icon={<Search size={14} />}>Buscar empresas</Button>
+            <Button
+              size="sm"
+              loading={working === 'discover'}
+              disabled={!config?.source.configured}
+              title={
+                config?.source.configured
+                  ? 'Buscar empresas novas na Casa dos Dados'
+                  : 'A chave da Casa dos Dados não está configurada neste ambiente, então a busca automática está desligada.'
+              }
+              onClick={() => runAction('discover', () => api.post('/prospecting/discover?limit=45', undefined, { timeout: 60000 }), (data) => `${data.added} novas empresas qualificadas.`)}
+              icon={<Search size={14} />}
+            >
+              Buscar empresas
+            </Button>
           </div>
         )}
       />
+
+      {/* Botão cinza que não clica é a pior versão de um erro: não dá nem para
+          descobrir que existe um. Esta faixa diz por que ele está desligado. */}
+      {config && !config.source.configured && (
+        <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>
+            <strong>A busca automática está desligada neste ambiente.</strong> A chave da Casa dos
+            Dados não está configurada aqui, então o botão "Buscar empresas" fica inativo. Importar
+            uma planilha continua funcionando.
+          </span>
+        </div>
+      )}
+
+      {falha && (
+        <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1">{falha}</span>
+          <button
+            type="button"
+            onClick={() => setFalha('')}
+            aria-label="Fechar o aviso"
+            className="shrink-0 font-semibold underline"
+          >
+            fechar
+          </button>
+        </div>
+      )}
 
       {summary ? <SummaryStrip summary={summary} /> : null}
 

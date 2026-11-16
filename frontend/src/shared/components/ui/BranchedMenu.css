@@ -1,0 +1,165 @@
+/* BranchedMenu: porte do React Bits (MIT), vindo do Lastro e adaptado ao 4Core.
+   Trocaram-se as cores da PGMais (azul-noite, azul #0120eb, verde #40eb4f) pelas
+   da 4Core: o trilho ameixa, a pílula do ativo no violeta elétrico da marca e o
+   marcador na mesma cor.
+
+   As cores são sólidas de propósito, não transparências: numa junção de galhos,
+   duas transparências somadas escurecem o cruzamento e a linha deixa de ser
+   contínua. */
+.branched-menu {
+  --bm-ink: #ffffff;
+  --bm-muted: rgba(226, 219, 246, 0.70);
+  --bm-accent: var(--erp-sidebar-glow);
+  --bm-active: #ffffff;
+  /* Um passo acima do fundo da sidebar, para o galho aparecer sem brilhar. */
+  --bm-line: #3a2566;
+  --bm-active-bg: var(--erp-sidebar-active);
+  --bm-font: 13px;
+  --bm-row: 34px;
+  --bm-indent: 34px;
+  --bm-line-w: 1.5;
+  --bm-draw: 400ms;
+  --bm-fold: 300ms;
+  --bm-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding-left: 12px;
+  color: var(--bm-ink);
+  font-family: inherit;
+  font-size: var(--bm-font);
+  line-height: 1.2;
+}
+
+.branched-menu::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: linear-gradient(to bottom, var(--bm-line) 0%, var(--bm-line) 70%, transparent 100%);
+}
+
+.branched-menu__marker {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  z-index: 1;
+  width: 2px;
+  height: 16px;
+  border-radius: 1px;
+  background: var(--bm-accent);
+  opacity: 0;
+  transition: top 220ms var(--bm-ease-out), opacity 150ms ease;
+}
+.branched-menu__marker[data-on] { opacity: 1; }
+
+.branched-menu__section { display: flex; flex-direction: column; }
+
+.branched-menu__head {
+  display: block;
+  margin: 0;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--bm-muted);
+  font: inherit;
+  font-size: calc(var(--bm-font) + 1px);
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 200ms ease;
+}
+.branched-menu__section[data-open] .branched-menu__head,
+.branched-menu__head[data-active] { color: var(--bm-ink); }
+
+@media (hover: hover) and (pointer: fine) {
+  .branched-menu__head:hover { color: var(--bm-ink); }
+}
+
+.branched-menu__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--bm-fold) var(--bm-ease-out);
+}
+.branched-menu__section[data-open] .branched-menu__body { grid-template-rows: 1fr; }
+
+/* o recorte deixa 3px de folga para o anel de foco não ser cortado */
+.branched-menu__fold { min-height: 0; overflow: hidden; margin: 0 -3px; padding: 0 3px; }
+
+.branched-menu__tree { position: relative; padding: 6px 0; box-sizing: border-box; }
+
+.branched-menu__lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+.branched-menu__section[data-open] .branched-menu__lines { opacity: 1; transition: opacity 250ms ease 100ms; }
+
+.branched-menu__base,
+.branched-menu__reach {
+  fill: none;
+  stroke-width: var(--bm-line-w);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.branched-menu__base { stroke: var(--bm-line); }
+.branched-menu__reach { stroke: var(--bm-accent); transition: stroke-dashoffset var(--bm-draw) var(--bm-ease-out); }
+
+.branched-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--bm-row);
+  margin: 0;
+  padding: 0 6px 0 var(--bm-indent);
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--bm-muted);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 200ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .branched-menu__item:hover { color: var(--bm-ink); }
+}
+.branched-menu__item[data-active] { color: var(--bm-active); font-weight: 700; }
+/* pílula do ativo: começa logo depois do galho para não cobrir a linha */
+.branched-menu__item { position: relative; isolation: isolate; }
+.branched-menu__item[data-active]::before {
+  content: ''; position: absolute; z-index: -1; inset: 3px 0 3px calc(var(--bm-indent) - 8px); border-radius: 4px;
+  background: var(--bm-active-bg); box-shadow: 0 6px 16px -8px rgb(123 0 255 / 0.55);
+}
+
+.branched-menu__icon { display: inline-flex; flex: none; }
+.branched-menu__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.branched-menu__extra { display: inline-flex; flex: none; align-items: center; gap: 8px; }
+
+@media (forced-colors: active) {
+  .branched-menu__item[data-active] { text-decoration: underline; }
+  .branched-menu__item[data-active]::before { background: Highlight; }
+  .branched-menu__marker, .branched-menu::before { background: CanvasText; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .branched-menu__marker { transition: opacity 150ms ease; }
+  .branched-menu__body { transition: none; }
+  .branched-menu__reach { transition: none; }
+}

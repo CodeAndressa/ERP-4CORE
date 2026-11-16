@@ -945,12 +945,10 @@ def cost_dashboard(db: Session, days: int = 90) -> dict[str, Any]:
             bucket["measured"] = False
 
     runs = db.query(MarketingAgentRun).filter(MarketingAgentRun.status == "done").count()
-    content_made = (
-        db.query(func.count(func.distinct(MarketingAgentStep.content_id)))
-        .filter(MarketingAgentStep.content_id.isnot(None))
-        .scalar()
-        or 0
-    )
+    # Dentro da janela, como o custo. Contar toda peça que já existiu enquanto o
+    # custo é só dos últimos 90 dias espalha o gasto recente por peças antigas
+    # que não custaram nada, e o custo por peça sai oito vezes menor.
+    content_made = len({row.content_id for row in rows if row.content_id is not None})
     total = round(sum(row.cost_usd for row in rows), 6)
     billed = round(sum(row.cost_usd for row in rows if _billed(row)), 6)
 

@@ -282,6 +282,15 @@ async def send_conversation_reply(conversation_id: str, payload: ReplyRequest):
     return await instagram_dm_service.send_message(payload.recipient_id, payload.text)
 
 
+@router.post("/meta/instagram/conversations/{conversation_id}/suggest-reply")
+async def suggest_conversation_reply(conversation_id: str):
+    """Rascunho de resposta, que cai no campo de texto em vez de ser enviado.
+
+    A rota nao envia nada ao cliente de proposito: em mensagem direta, texto
+    gerado e disparado sem leitura humana e risco comercial."""
+    return await instagram_dm_service.suggest_reply(conversation_id)
+
+
 # ─── Webhook (chamado direto pela Meta, fora do SPA — ver server.py) ─────────
 
 @router.get("/meta/webhook")

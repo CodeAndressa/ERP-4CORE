@@ -2,9 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root,
-html.light,
-html.dark {
+:root {
   color-scheme: light;
 
   --erp-bg: #f8f7fb;
@@ -33,6 +31,79 @@ html.dark {
   --erp-emerald: #047857;
   --erp-amber: #b45309;
   --erp-rose: #be123c;
+
+  /* ─── Os três níveis de cada cor semântica ────────────────────────────────
+     O DESIGN.md pede, para chip e alerta, "fundo suave da cor semântica, texto
+     na variante mais escura, borda na intermediária". Até aqui só o violeta
+     tinha esses níveis (--erp-violet-soft, --erp-violet-dim), e as outras
+     quatro cores eram misturadas à mão em cada tela: o levantamento achou
+     ~130 rgba() inline e 56 hex nus reinventando exatamente estes valores,
+     com cinco alfas diferentes para o mesmo papel.
+
+     Nomes: -soft é o fundo, -border é a borda, a cor base continua sendo o
+     texto. Os alfas saem do uso mais frequente encontrado no código. */
+  --erp-emerald-soft: rgba(4, 120, 87, 0.10);
+  --erp-emerald-border: rgba(4, 120, 87, 0.22);
+  --erp-amber-soft: rgba(180, 83, 9, 0.10);
+  --erp-amber-border: rgba(180, 83, 9, 0.22);
+  --erp-rose-soft: rgba(190, 18, 60, 0.08);
+  --erp-rose-border: rgba(190, 18, 60, 0.22);
+  --erp-cyan-soft: rgba(8, 145, 178, 0.10);
+  --erp-cyan-border: rgba(8, 145, 178, 0.22);
+
+  /* ─── Raio ────────────────────────────────────────────────────────────────
+     DESIGN.md: sm 8 / md 12 / lg 16 / full. Nunca virou token, e o código
+     produziu nove raios distintos, cinco deles arbitrários (18, 20, 22, 24,
+     26px): o Card é 16px e o Modal que o envolve é 22px. */
+  --erp-radius-sm: 8px;
+  --erp-radius-md: 12px;
+  --erp-radius-lg: 16px;
+  --erp-radius-full: 9999px;
+
+  /* ─── Espaçamento ─────────────────────────────────────────────────────────
+     DESIGN.md: xs 8 / sm 12 / md 16 / lg 24. */
+  --erp-space-xs: 8px;
+  --erp-space-sm: 12px;
+  --erp-space-md: 16px;
+  --erp-space-lg: 24px;
+
+  /* ─── Sombra ──────────────────────────────────────────────────────────────
+     O vocabulário tem uma só, para o que literalmente flutua sobre o conteúdo.
+     Estava hardcoded dentro do Modal. */
+  --erp-shadow-float: 0 18px 45px rgba(43, 22, 92, 0.18);
+
+  /* ─── Alvo de toque ───────────────────────────────────────────────────────
+     O mínimo de 44px do PRODUCT.md, hoje repetido à mão como min-h-11,
+     min-h-10, h-11, min-h-12 e cinco valores arbitrários. */
+  --erp-tap: 44px;
+
+  /* ─── Camadas ─────────────────────────────────────────────────────────────
+     Não havia escala, e isso já produziu empate: o Modal e a barra inferior
+     disputam z-50, e um filtro do financeiro usa z-[1000] para escapar. */
+  --erp-z-header: 30;
+  --erp-z-overlay: 40;
+  --erp-z-floating: 50;
+  --erp-z-popover: 60;
+
+  /* ─── Sidebar ─────────────────────────────────────────────────────────────
+     A Exceção Committed do DESIGN.md: a única superfície escura do sistema.
+     Os quatro valores estavam hardcoded no MainMenu, e o --erp-sidebar-bg
+     acima dizia o contrário deles (branco). */
+  --erp-sidebar-deep: #12081f;
+  --erp-sidebar-mid: #1c0f42;
+  --erp-sidebar-active: #4a2a94;
+  --erp-sidebar-glow: #7b00ff;
+
+  /* ─── Canais RGB ──────────────────────────────────────────────────────────
+     A mesma cor servindo qualquer opacidade, como `rgb(var(--erp-line) / .08)`.
+     Sem isso, cada nivel de transparencia virava um rgba() escrito a mao na
+     tela, e o levantamento achou cinco alfas diferentes para o mesmo papel. */
+  --erp-ink: 21 17 39;
+  --erp-line: 43 22 92;
+  --erp-accent: 43 22 92;
+  --erp-ok: 4 120 87;
+  --erp-warn: 180 83 9;
+  --erp-bad: 190 18 60;
 }
 
 *, *::before, *::after {
@@ -51,7 +122,7 @@ body {
   margin: 0;
   background: var(--erp-bg);
   color: var(--erp-text);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Geist Variable", Geist, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-weight: 400;
   line-height: 1.55;
   letter-spacing: 0;
@@ -190,222 +261,197 @@ textarea::placeholder {
     -webkit-overflow-scrolling: touch;
   }
 
-  table {
-    min-width: 720px;
+  /* A regra `table { min-width: 720px }` vivia aqui e forcava rolagem horizontal
+     em 15 telas. Num produto cujo PRODUCT.md diz que o uso e principalmente no
+     celular, e que lista "tabelas impossiveis de tocar" e "navegacao que obrigue
+     muita rolagem horizontal" como anti-referencias, ela era o conflito mais
+     direto entre documento e codigo. A saida certa e cada tabela virar lista de
+     cards no celular, como CobrancasPage ja faz; isso vem com o DataTable. */
+}
+
+
+/* ─── Classes de componente ──────────────────────────────────────────────────
+   Uma superficie, uma borda, um campo: escritos uma vez aqui em vez de repetidos
+   em cada tela. O projeto tinha 21 `rounded-2xl border` crus e as telas somavam
+   um style inline so para a cor da borda.
+
+   A sombra e em duas camadas com um `inset` claro no topo. E o detalhe que faz o
+   card parecer apoiado na pagina em vez de desenhado sobre ela, e e barato: sem
+   ele, superficie branca sobre fundo quase branco vira um retangulo de borda
+   cinza, que e a cara de interface montada sem referencia. */
+@layer components {
+  .surface {
+    background: var(--erp-surface);
+    border: 1px solid rgb(var(--erp-line) / 0.10);
+    border-radius: var(--erp-radius-lg);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.6),
+      0 1px 2px rgb(var(--erp-ink) / 0.04),
+      0 8px 24px -16px rgb(var(--erp-ink) / 0.18);
+  }
+
+  /* A versao clicavel responde ao ponteiro: sem isso o cartao parece link e nao
+     se comporta como um. */
+  .surface-interactive {
+    transition: border-color 150ms, box-shadow 150ms, transform 150ms;
+  }
+
+  .surface-interactive:hover {
+    border-color: rgb(var(--erp-line) / 0.20);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.6),
+      0 2px 4px rgb(var(--erp-ink) / 0.05),
+      0 12px 28px -14px rgb(var(--erp-ink) / 0.22);
+    transform: translateY(-1px);
+  }
+
+  .hairline {
+    border-color: rgb(var(--erp-line) / 0.10);
+  }
+
+  /* Pilula de rotulo. O projeto tinha 61 variacoes inline desta mesma forma. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: var(--erp-radius-full);
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+  }
+
+  /* Campo no formato que o DESIGN.md pede: superficie recuada, sem borda em
+     repouso, e o mesmo anel de foco dos botoes e links. O Input.tsx do projeto
+     fazia o oposto (pilula branca com borda) e por isso nenhuma tela o usava. */
+  .field {
+    width: 100%;
+    border-radius: var(--erp-radius-md);
+    border: 1px solid transparent;
+    background: var(--erp-surface-2);
+    padding: 10px 12px;
+    font-size: 0.875rem;
+    color: var(--erp-text);
+    transition: background-color 150ms, border-color 150ms;
+  }
+
+  .field::placeholder {
+    color: var(--erp-text-dim);
+  }
+
+  .field:focus {
+    outline: 2px solid rgb(var(--erp-accent) / 0.52);
+    outline-offset: 2px;
+    background: var(--erp-surface);
+    border-color: rgb(var(--erp-line) / 0.14);
+  }
+
+  /* Menu e popover sao opacos de proposito: conteudo atravessando um menu e
+     ilegivel, e e o erro mais comum de vidro aplicado sem criterio. */
+  .popover {
+    background: var(--erp-surface);
+    border: 1px solid rgb(var(--erp-line) / 0.14);
+    border-radius: var(--erp-radius-lg);
+    box-shadow: var(--erp-shadow-float);
   }
 }
 
-/* ─── Cor por seção: Marketing ───────────────────────────────────────────────
-   Cada tela de Marketing tem uma cor de identidade, para saber onde se está sem
-   ler o título. A cor vive em --mkt-*, declarada no wrapper da área, e some fora
-   dele: o resto do ERP continua no índigo executivo.
-
-   A regra que mantém isso honesto: **cor de seção é identidade, cor de status é
-   significado**. Verde continua sendo aprovado, âmbar atenção e vermelho erro em
-   qualquer tela, inclusive na seção cujo acento é verde. Status nunca empresta a
-   cor da seção, senão a cor passa a mentir.
-
-   Os tons são escolhidos escuros o bastante para carregar texto branco: todos
-   batem pelo menos 4.5:1 com #fff, que é o piso de contraste do sistema. */
-
-[data-mkt-section] {
-  /* Padrão: o violeta da marca, para seção sem cor própria declarada. */
-  --mkt-accent: #5b21b6;
-  --mkt-accent-deep: #3b0f6e;
-  --mkt-accent-soft: #f3efff;
-  --mkt-accent-border: rgba(91, 33, 182, 0.22);
+/* ─── Superficies do navegador ───────────────────────────────────────────────
+   Selecao, cursor e barra de rolagem saem com o padrao do navegador, que nao
+   pertence a sistema de design nenhum. E o sinal mais barato de que uma tela foi
+   construida, e o mais esquecido. */
+::selection {
+  background: rgb(var(--erp-accent) / 0.16);
+  color: var(--erp-text);
 }
 
-[data-mkt-section="mensagens"] {
-  --mkt-accent: #b45309;
-  --mkt-accent-deep: #7c3a06;
-  --mkt-accent-soft: #fff5e8;
-  --mkt-accent-border: rgba(180, 83, 9, 0.22);
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--erp-ink) / 0.18) transparent;
 }
 
-[data-mkt-section="metricas"] {
-  --mkt-accent: #0e7490;
-  --mkt-accent-deep: #0a5468;
-  --mkt-accent-soft: #e8f8fc;
-  --mkt-accent-border: rgba(14, 116, 144, 0.22);
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-[data-mkt-section="calendario"] {
-  --mkt-accent: #1d4ed8;
-  --mkt-accent-deep: #14329a;
-  --mkt-accent-soft: #eaf0ff;
-  --mkt-accent-border: rgba(29, 78, 216, 0.22);
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--erp-ink) / 0.16);
+  border-radius: var(--erp-radius-full);
+  border: 3px solid transparent;
+  background-clip: content-box;
 }
 
-[data-mkt-section="posts"] {
-  --mkt-accent: #a21caf;
-  --mkt-accent-deep: #701a75;
-  --mkt-accent-soft: #fdeafd;
-  --mkt-accent-border: rgba(162, 28, 175, 0.22);
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--erp-ink) / 0.28);
+  background-clip: content-box;
 }
 
-[data-mkt-section="estudio"] {
-  /* O violeta da marca fica com o Estúdio, que é onde a arte é aprovada. */
-  --mkt-accent: #6d28d9;
-  --mkt-accent-deep: #4c1d95;
-  --mkt-accent-soft: #f4effe;
-  --mkt-accent-border: rgba(109, 40, 217, 0.22);
+*::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-[data-mkt-section="agente"] {
-  --mkt-accent: #0f766e;
-  --mkt-accent-deep: #0a4f4a;
-  --mkt-accent-soft: #e7f8f5;
-  --mkt-accent-border: rgba(15, 118, 110, 0.22);
+/* Numerais de largura fixa em todo dado: sem isso uma coluna de valores dança a
+   cada atualizacao, porque o 1 e mais estreito que o 8. */
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
-[data-mkt-section="ideias"] {
-  --mkt-accent: #a16207;
-  --mkt-accent-deep: #713f08;
-  --mkt-accent-soft: #fdf6e3;
-  --mkt-accent-border: rgba(161, 98, 7, 0.22);
+/* ─── Movimento ──────────────────────────────────────────────────────────────
+   Os três vêm do Núcleo e do Prisma, onde cada um tem função: o pulso diz que
+   algo está acontecendo agora, a varredura diz que dados estão a caminho, e a
+   deriva dá vida a uma superfície parada sem pedir atenção.
+
+   Nenhum é decoração solta: um movimento que não informa nada é a diferença
+   entre interface viva e interface inquieta. Todos param sob
+   `prefers-reduced-motion`, pela regra global mais acima. */
+
+@keyframes erp-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--erp-accent) / 0.45); }
+  70% { box-shadow: 0 0 0 12px rgb(var(--erp-accent) / 0); }
 }
 
-[data-mkt-section="campanhas"] {
-  --mkt-accent: #be123c;
-  --mkt-accent-deep: #8a0d2c;
-  --mkt-accent-soft: #ffeaef;
-  --mkt-accent-border: rgba(190, 18, 60, 0.22);
+@keyframes erp-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
 }
 
-[data-mkt-section="planejamento"] {
-  --mkt-accent: #4338ca;
-  --mkt-accent-deep: #302a9c;
-  --mkt-accent-soft: #eeedfd;
-  --mkt-accent-border: rgba(67, 56, 202, 0.22);
+/* Indica trabalho em andamento: a esteira rodando, uma peça sendo gerada. */
+.erp-pulse {
+  animation: erp-pulse 2s ease-out infinite;
 }
 
-[data-mkt-section="conexoes"] {
-  --mkt-accent: #475569;
-  --mkt-accent-deep: #334155;
-  --mkt-accent-soft: #f1f5f9;
-  --mkt-accent-border: rgba(71, 85, 105, 0.22);
-}
-
-/* Faixa de identidade da seção, no topo de cada tela. */
-.mkt-hero {
-  position: relative;
+/* Barra fina no topo enquanto algo carrega, como a do Lastro. Em vez de uma
+   tela inteira de esqueleto, uma linha diz "estou buscando" sem tirar o que já
+   está na tela do lugar. */
+.erp-loading-bar {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 70;
+  height: 2px;
   overflow: hidden;
-  border-radius: 20px;
-  padding: 20px 22px;
-  color: #fff;
-  background:
-    radial-gradient(130% 150% at 100% 0%, rgba(255, 255, 255, 0.22) 0%, transparent 55%),
-    linear-gradient(118deg, var(--mkt-accent) 0%, var(--mkt-accent-deep) 100%);
-}
-
-/* O brilho é um detalhe, não um elemento: fica atrás do conteúdo e não recebe
-   clique. */
-.mkt-hero::after {
-  content: "";
-  position: absolute;
-  right: -70px;
-  top: -90px;
-  width: 260px;
-  height: 260px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.10);
+  background: transparent;
   pointer-events: none;
 }
 
-.mkt-hero > * {
-  position: relative;
-}
-
-/* Cartão de número com a cor da seção na borda superior. */
-.mkt-stat {
-  border-top: 3px solid var(--mkt-accent);
-}
-
-/* Pílula que usa a cor da seção, para rótulo de identidade (nunca para status). */
-.mkt-chip {
-  background: var(--mkt-accent-soft);
-  color: var(--mkt-accent-deep);
-  border: 1px solid var(--mkt-accent-border);
-}
-
-@media (max-width: 640px) {
-  .mkt-hero {
-    border-radius: 16px;
-    padding: 16px;
-  }
-}
-
-/* O cabeçalho de página vira a faixa de identidade dentro de Marketing. Feito
-   aqui, e não em cada tela, para as onze páginas herdarem sem precisar saber da
-   existência das cores de seção. */
-[data-mkt-section] .page-header {
-  border-bottom: 0;
-  padding-bottom: 0;
-  position: relative;
-  overflow: hidden;
-  border-radius: 20px;
-  padding: 18px 22px;
-  background:
-    radial-gradient(130% 150% at 100% 0%, rgba(255, 255, 255, 0.20) 0%, transparent 55%),
-    linear-gradient(118deg, var(--mkt-accent) 0%, var(--mkt-accent-deep) 100%);
-}
-
-[data-mkt-section] .page-header::after {
+.erp-loading-bar::after {
   content: "";
   position: absolute;
-  right: -70px;
-  top: -90px;
-  width: 240px;
-  height: 240px;
-  border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.09);
-  pointer-events: none;
+  inset-block: 0;
+  left: 0;
+  width: 25%;
+  background: linear-gradient(90deg, transparent, var(--erp-violet), transparent);
+  animation: erp-sweep 1.1s ease-in-out infinite;
 }
 
-[data-mkt-section] .page-header > * {
-  position: relative;
-}
-
-[data-mkt-section] .page-header__title {
-  color: #fff;
-}
-
-[data-mkt-section] .page-header__eyebrow {
-  /* Branco a 78% sobre o acento continua acima de 4.5:1, porque todo acento de
-     seção foi escolhido com pelo menos 4.9:1 contra branco puro. */
-  color: rgba(255, 255, 255, 0.78);
-}
-
-[data-mkt-section] .page-header__description {
-  color: rgba(255, 255, 255, 0.86);
-}
-
-/* O botão de ação precisa ler sobre o degradê, não sobre o fundo claro. */
-[data-mkt-section] .page-header button {
-  border-color: rgba(255, 255, 255, 0.38);
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-}
-
-[data-mkt-section] .page-header button:hover {
-  background: rgba(255, 255, 255, 0.24);
-}
-
-@media (max-width: 640px) {
-  [data-mkt-section] .page-header {
-    border-radius: 16px;
-    padding: 16px;
+@media (prefers-reduced-motion: reduce) {
+  /* A barra fica, parada e cheia: ela comunica estado, e some-la esconderia a
+     informação de que algo ainda está carregando. */
+  .erp-loading-bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
   }
-}
-
-/* O cartão de número neutro herda a cor da seção. Tom semântico não entra aqui:
-   verde continua querendo dizer "bom" e vermelho "ruim" em qualquer tela. */
-[data-mkt-section] .metric-card[data-tone="violet"] {
-  border-top: 3px solid var(--mkt-accent);
-}
-
-[data-mkt-section] .metric-card[data-tone="violet"] .metric-card__icon {
-  background: var(--mkt-accent-soft);
-  color: var(--mkt-accent-deep);
 }

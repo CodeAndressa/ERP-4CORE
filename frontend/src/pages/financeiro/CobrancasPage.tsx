@@ -480,7 +480,7 @@ export default function CobrancasPage() {
     <div className="space-y-5">
       <header className="flex flex-col gap-4 border-b pb-4 lg:flex-row lg:items-end lg:justify-between" style={{ borderColor: 'var(--erp-border)' }}>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--erp-text)' }}>Cobranças</h1>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Cobranças</h1>
           <p className="mt-1 max-w-2xl text-sm" style={{ color: 'var(--erp-text-muted)' }}>Acompanhe recebimentos e cobre pendências sem sair do 4Core.</p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">

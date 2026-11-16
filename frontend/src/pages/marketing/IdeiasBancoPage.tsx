@@ -94,7 +94,6 @@ export default function IdeiasBancoPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Marketing</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Banco de Ideias</h1>
         </div>
         <div className="flex items-center gap-2">

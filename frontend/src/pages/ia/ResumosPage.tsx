@@ -38,7 +38,6 @@ export default function ResumosPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Inteligência IA</p>
         <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Resumos Automáticos</h1>
         <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Resumos executivos gerados pela IA com base nos dados da plataforma</p>
       </div>

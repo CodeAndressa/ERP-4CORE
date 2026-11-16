@@ -378,8 +378,19 @@ export default function ConexoesMarketingPage() {
           style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text-muted)' }}>
           <Info size={13} className="mt-0.5 shrink-0" />
           <span>
-            Gere o token em <strong style={{ color: 'var(--erp-text)' }}>developers.facebook.com → seu app → API do Instagram → Gerar tokens de acesso</strong> e
-            cole abaixo. É um produto diferente da conexão de posts/insights acima.
+            Gere o token em{' '}
+            <a
+              href="https://developers.facebook.com/apps/1649220676379325/instagram-business/API-Setup-with-Instagram-login/"
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold underline"
+              style={{ color: 'var(--erp-violet)' }}
+            >
+              API do Instagram do app 4Core ERP
+            </a>
+            , no botão <strong style={{ color: 'var(--erp-text)' }}>Gerar token</strong> ao lado de
+            @4coreconsultoria, e cole abaixo. É um produto diferente da conexão de posts e insights acima,
+            e o token só pode ser gerado por quem entra com a conta do Instagram.
           </span>
         </div>
 

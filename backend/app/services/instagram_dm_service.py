@@ -59,7 +59,26 @@ async def is_configured() -> bool:
     return bool(token and user_id)
 
 
-async def status() -> dict[str, Any]:
+async def _token_alive(token: str) -> tuple[bool, str]:
+    """Pergunta a Meta se o token ainda vale.
+
+    Existe porque a data de validade pode nao ter sido guardada: o `connect` so
+    grava `expires_at` quando a troca pelo token de 60 dias devolve `expires_in`,
+    e quando ela falha o token curto entra sem data nenhuma. Sem data, a conta de
+    dias nao diz nada, e era por isso que a tela mostrava saudavel com o token
+    morto."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"{BASE_URL}/me", params={"fields": "user_id", "access_token": token})
+    except httpx.HTTPError:
+        # Rede caida nao e token invalido: nao vale acusar o token por isso.
+        return True, ""
+    if r.status_code < 400:
+        return True, ""
+    return False, dm_error_detail(r, "abrir as mensagens")
+
+
+async def status(verify: bool = True) -> dict[str, Any]:
     """Estado da conexao de mensagens.
 
     `configured` diz que existe token guardado; `healthy` diz que ele ainda vale.
@@ -70,6 +89,14 @@ async def status() -> dict[str, Any]:
     expires_at = await _stored("expires_at")
     days = _days_left(expires_at)
     expired = days is not None and days < 0
+
+    # Sem data guardada, a unica fonte de verdade e a propria Meta.
+    token_error = ""
+    if verify and token and user_id and not expired and days is None:
+        alive, token_error = await _token_alive(token)
+        if not alive:
+            expired = True
+
     return {
         "configured": bool(token and user_id),
         "user_id": user_id,
@@ -80,6 +107,7 @@ async def status() -> dict[str, Any]:
         "expired": expired,
         "expiring_soon": bool(days is not None and 0 <= days <= REFRESH_WHEN_DAYS_LEFT),
         "healthy": bool(token and user_id and not expired),
+        "token_error": token_error or None,
     }
 
 
@@ -181,7 +209,7 @@ async def connect(raw_token: str) -> dict[str, Any]:
         "instagram_login_username": username,
         "instagram_login_expires_at": expires_at,
     })
-    result = await status()
+    result = await status(verify=False)
     if exchange_warning:
         result["exchange_warning"] = (
             "Conectado com o token original (curta duração) — a troca por um token de "
@@ -209,7 +237,7 @@ async def refresh() -> dict[str, Any]:
         if expires_in else ""
     )
     await token_store.asave({"instagram_login_access_token": new_token, "instagram_login_expires_at": expires_at})
-    return await status()
+    return await status(verify=False)
 
 
 async def list_conversations() -> list[dict[str, Any]]:
@@ -268,6 +296,71 @@ async def conversation_messages(conversation_id: str) -> list[dict[str, Any]]:
         }
         for m in sorted(messages, key=lambda m: m.get("created_time") or "")
     ]
+
+
+DM_DRAFT_PROMPT = """
+Você responde mensagens diretas do Instagram da 4Core.
+
+{marca}
+
+COMO RESPONDER
+- Escreva como uma pessoa da equipe comercial escreve no direct: curto, claro e
+  cordial, no máximo 4 linhas. Sem saudação formal de e-mail, sem "prezado".
+- Responda a pergunta que foi feita. Se a pessoa pediu preço, diga que o valor
+  depende do número de funcionários e do modelo do equipamento, e ofereça fazer
+  uma proposta.
+- Nunca invente preço, prazo, desconto, estoque, nome de cliente nem número de
+  contrato. Se não houver essa informação na conversa, diga que vai confirmar.
+- Nunca prometa o que depende de aprovação.
+- Se a mensagem for elogio ou emoji solto, agradeça em uma linha e pare.
+- Termine com uma pergunta ou um próximo passo concreto quando houver intenção
+  de compra; não termine com pergunta quando a conversa já se encerrou.
+
+Devolva JSON:
+{{"resposta": "o texto pronto para enviar", "intencao": "duvida|preco|suporte|elogio|outro"}}
+""".strip()
+
+
+async def suggest_reply(conversation_id: str) -> dict[str, Any]:
+    """Um rascunho de resposta para a última mensagem da conversa.
+
+    Devolve o texto, nunca envia. Quem decide o que vai para o cliente continua
+    sendo a pessoa, que recebe isso dentro do campo de resposta."""
+    from .marketing_agent_llm import ask_json, has_text_model
+    from .marketing_brand_system import FOURCORE_BRAND_SYSTEM
+
+    if not has_text_model():
+        raise HTTPException(409, "Configure a chave da IA de texto para gerar rascunhos.")
+
+    mensagens = await conversation_messages(conversation_id)
+    if not mensagens:
+        raise HTTPException(409, "Esta conversa não tem mensagem para responder.")
+    if mensagens[-1].get("from_me"):
+        raise HTTPException(409, "A última mensagem é sua. Não há o que responder ainda.")
+
+    # Só as últimas doze: a janela de contexto que importa num direct é curta, e
+    # mandar cinquenta mensagens encarece a chamada sem melhorar a resposta.
+    recorte = [
+        {"quem": "4core" if m["from_me"] else "cliente", "texto": m["text"]}
+        for m in mensagens[-12:]
+        if (m.get("text") or "").strip()
+    ]
+
+    conteudo, usage = await ask_json(
+        DM_DRAFT_PROMPT.format(marca=FOURCORE_BRAND_SYSTEM),
+        {"conversa": recorte},
+        "escrever a resposta",
+        temperature=0.4,
+        timeout=40.0,
+    )
+    texto = str(conteudo.get("resposta") or "").strip()
+    if not texto:
+        raise HTTPException(502, "A IA não devolveu um rascunho de resposta.")
+    return {
+        "text": texto,
+        "intent": str(conteudo.get("intencao") or "outro"),
+        "cost_usd": usage.cost_usd,
+    }
 
 
 async def send_message(recipient_id: str, text: str) -> dict[str, Any]:

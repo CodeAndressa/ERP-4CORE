@@ -1,26 +1,33 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
+  ArrowDownRight,
   ArrowRight,
+  ArrowUpRight,
   Bot,
+  Check,
   CheckCircle2,
-  Circle,
+  ChevronRight,
   Clock,
   DollarSign,
   ExternalLink,
   Eye,
   Lightbulb,
   Loader2,
+  Minus,
   Plus,
   RefreshCw,
   Trash2,
   TrendingUp,
   Users,
+  Wallet,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { Button, Card, CardHeader, EmptyState, Input } from '../../shared/components/ui';
-import { MetricCard, PageHeader } from '../../shared/components/layout';
+import { PageHeader } from '../../shared/components/layout';
+import { AGENT_SPRITES, SPRITE_H, SPRITE_PALETTE, SPRITE_W } from './agentSprites';
 
 interface Competitor {
   id: number;
@@ -175,6 +182,22 @@ interface AgentInfo {
   role: string;
 }
 
+/** O saldo da conta que paga a arte.
+ *
+ *  `posts_left` e a conta que a tela nao fazia: saldo sozinho nao responde
+ *  "da para rodar quantas vezes", porque ninguem sabe de cabeca quanto custa
+ *  uma peca. */
+interface Credits {
+  configured: boolean;
+  error?: string | null;
+  balance_usd?: number;
+  total_usd?: number;
+  used_usd?: number;
+  cost_per_content_usd?: number;
+  cost_measured?: boolean;
+  posts_left?: number;
+}
+
 interface CostDashboard {
   window_days: number;
   total_usd: number;
@@ -224,10 +247,10 @@ function errorMessage(err: unknown, fallback: string) {
  *  Cada estado carrega icone, palavra e cor. A cor nunca anda sozinha: quem nao
  *  distingue verde de vermelho continua lendo "parou" ao lado do triangulo. */
 const STEP_STATE = {
-  done: { Icon: CheckCircle2, label: 'concluído', mark: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-  running: { Icon: Loader2, label: 'rodando', mark: 'border-violet-200 bg-violet-50 text-violet-700' },
-  failed: { Icon: AlertTriangle, label: 'parou aqui', mark: 'border-rose-200 bg-rose-50 text-rose-700' },
-  idle: { Icon: Circle, label: 'em espera', mark: 'border-[color:var(--erp-border)] bg-[color:var(--erp-surface-2)] text-[color:var(--erp-text-dim)]' },
+  done: { Icon: Check, label: 'concluído', node: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+  running: { Icon: Loader2, label: 'rodando', node: 'border-violet-200 bg-violet-50 text-violet-700' },
+  failed: { Icon: AlertTriangle, label: 'parou aqui', node: 'border-rose-200 bg-rose-50 text-rose-700' },
+  idle: { Icon: Minus, label: 'em espera', node: 'border-[color:var(--erp-border)] bg-[color:var(--erp-surface-2)] text-[color:var(--erp-text-dim)]' },
 } as const;
 
 type StepState = keyof typeof STEP_STATE;
@@ -238,64 +261,174 @@ function stepState(mine: Step[]): StepState {
   return mine.length > 0 ? 'done' : 'idle';
 }
 
-/** Uma etapa da esteira: numero, nome, o que o agente fez, quanto demorou e
- *  quanto custou. Em coluna unica, que e como o ERP e usado no celular. */
-function StepRow({ agent, steps, index, isLast }: { agent: AgentInfo; steps: Step[]; index: number; isLast: boolean }) {
+/** O desenho do agente, em pixel art.
+ *
+ *  Vai num canvas de 20x16 ampliado por CSS com `image-rendering: pixelated`,
+ *  e nao num SVG com 320 retangulos por agente: oito agentes em tela dariam
+ *  2.560 nos para desenhar o que o canvas resolve em oito bitmaps. */
+function AgentSprite({ agentKey, frame, scale = 2 }: { agentKey: string; frame: 0 | 1; scale?: number }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const alvo = canvas.current;
+    const ctx = alvo?.getContext('2d');
+    if (!alvo || !ctx) return;
+    ctx.clearRect(0, 0, SPRITE_W, SPRITE_H);
+    const quadros = AGENT_SPRITES[agentKey];
+    const linhas = quadros?.[frame] ?? quadros?.[0];
+    if (!linhas) return;
+    linhas.forEach((linha, y) => {
+      for (let x = 0; x < linha.length; x += 1) {
+        const cor = SPRITE_PALETTE[linha[x]];
+        if (!cor) continue;
+        ctx.fillStyle = cor;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    });
+  }, [agentKey, frame]);
+
+  return (
+    <canvas
+      ref={canvas}
+      width={SPRITE_W}
+      height={SPRITE_H}
+      aria-hidden="true"
+      style={{ imageRendering: 'pixelated', width: SPRITE_W * scale, height: SPRITE_H * scale }}
+    />
+  );
+}
+
+/** Um no do fluxograma: o desenho do agente, a marca do estado e o nome curto.
+ *
+ *  O nome completo, o resumo, o tempo e o custo ficam no `title`, porque oito
+ *  nos com quatro linhas de texto cada deixam de ser um fluxo e voltam a ser a
+ *  lista que isto substituiu. */
+function FlowNode({ agent, steps, index }: { agent: AgentInfo; steps: Step[]; index: number }) {
   const mine = steps.filter((step) => step.agent === agent.key);
   const state = stepState(mine);
-  const { Icon, label, mark } = STEP_STATE[state];
+  const { label, node, Icon } = STEP_STATE[state];
 
   const cost = mine.reduce((sum, step) => sum + step.cost_usd, 0);
   const duration = mine.reduce((sum, step) => sum + step.duration_ms, 0);
-  const estimated = mine.some((step) => step.cost_usd > 0 && !step.cost_measured);
-  const failure = mine.find((step) => step.error_message)?.error_message;
+
+  // O quadro alterna enquanto o agente trabalha; parado, fica no primeiro.
+  const [frame, setFrame] = useState<0 | 1>(0);
+  useEffect(() => {
+    if (state !== 'running') {
+      setFrame(0);
+      return;
+    }
+    const relogio = window.setInterval(() => setFrame((atual) => (atual === 0 ? 1 : 0)), 420);
+    return () => window.clearInterval(relogio);
+  }, [state]);
+
+  const curto = agent.name.split(' ')[0];
+  const detalhe = [
+    agent.name,
+    mine[0]?.summary || agent.role,
+    mine.length > 0 ? `${formatDuration(duration)}${cost > 0 ? ` - ${formatUsd(cost)}` : ''}` : label,
+  ].join('\n');
 
   return (
-    <li className="relative flex gap-3 pb-5 last:pb-0">
-      {/* O fio que liga as etapas. Decorativo: a ordem ja esta no numero. */}
-      {!isLast && (
+    <li className="flex min-w-0 shrink-0 flex-col items-center gap-1.5" title={detalhe}>
+      <div className={`relative grid h-[52px] w-[52px] place-items-center rounded-xl border transition-colors ${node}`}>
+        <AgentSprite agentKey={agent.key} frame={frame} />
         <span
-          aria-hidden="true"
-          className="absolute bottom-0 left-[15px] top-9 w-px"
-          style={{ background: 'var(--erp-border)' }}
-        />
-      )}
-
-      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${mark}`}>
-        <Icon size={15} className={state === 'running' ? 'animate-spin' : ''} aria-hidden="true" />
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>
-            <span className="tabular-nums" style={{ color: 'var(--erp-text-dim)' }}>{index + 1}.</span> {agent.name}
-          </p>
-          <p className="text-xs tabular-nums" style={{ color: 'var(--erp-text-muted)' }}>
-            {mine.length > 0 ? (
-              <>
-                {formatDuration(duration)}
-                {cost > 0 && (
-                  <span title={estimated ? 'Custo estimado pela tabela de preços' : 'Custo informado pelo provedor'}>
-                    {' · '}{formatUsd(cost)}{estimated && '*'}
-                  </span>
-                )}
-                {mine.length > 1 && <> · {mine.length}x</>}
-              </>
-            ) : (
-              label
-            )}
-          </p>
-        </div>
-
-        <p className="mt-0.5 text-sm" style={{ color: 'var(--erp-text-muted)' }}>
-          {mine[0]?.summary || agent.role}
-        </p>
-
-        {/* O motivo da parada fica inteiro e legivel. Antes vivia espremido em 9px
-            dentro do quadradinho do agente, que e onde ninguem ia ler. */}
-        {failure && <p className="mt-1.5 text-sm text-rose-700">{failure}</p>}
+          className={`absolute -right-1.5 -top-1.5 grid h-[18px] w-[18px] place-items-center rounded-full border-2 ${node}`}
+          style={{ borderColor: 'var(--erp-surface)' }}
+        >
+          <Icon size={10} className={state === 'running' ? 'animate-spin' : ''} aria-hidden="true" />
+        </span>
       </div>
+      <p className="max-w-[64px] truncate text-center text-2xs font-semibold" style={{ color: 'var(--erp-text)' }}>
+        <span className="tabular-nums" style={{ color: 'var(--erp-text-dim)' }}>{index + 1}</span> {curto}
+      </p>
+      <span className="sr-only">{label}</span>
     </li>
+  );
+}
+
+/** O fluxo inteiro numa faixa, com a seta entre um agente e o proximo.
+ *
+ *  A seta acende quando o passo anterior concluiu: e ela que mostra onde a
+ *  rodada chegou, sem precisar de uma barra de progresso separada. */
+function AgentFlow({ roster, steps }: { roster: AgentInfo[]; steps: Step[] }) {
+  return (
+    <div className="-mx-1 overflow-x-auto px-1 pb-1">
+      <ol className="m-0 flex list-none items-start gap-1 p-0 lg:gap-0">
+        {roster.map((agent, index) => {
+          const anterior = index > 0 ? stepState(steps.filter((step) => step.agent === roster[index - 1].key)) : null;
+          return (
+            <Fragment key={agent.key}>
+              {index > 0 && (
+                <li aria-hidden="true" className="mt-[26px] flex min-w-[20px] flex-1 items-center lg:min-w-0">
+                  <span
+                    className="h-px w-full"
+                    style={{ background: anterior === 'done' ? 'var(--erp-violet)' : 'var(--erp-border)' }}
+                  />
+                  <ChevronRight
+                    size={12}
+                    className="-ml-1 shrink-0"
+                    style={{ color: anterior === 'done' ? 'var(--erp-violet)' : 'var(--erp-border-strong)' }}
+                  />
+                </li>
+              )}
+              <FlowNode agent={agent} steps={steps} index={index} />
+            </Fragment>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+/** Um numero da esteira em pilula, no lugar do cartao de metrica.
+ *
+ *  O detalhe que o cartao mostrava embaixo vira `title`, e a comparacao com o
+ *  mercado continua visivel na propria pilula quando existe. */
+function StatPill({
+  label,
+  value,
+  detail,
+  icon,
+  trend,
+  tone = 'neutral',
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  icon?: ReactNode;
+  trend?: number;
+  tone?: 'neutral' | 'emerald' | 'rose' | 'cyan';
+}) {
+  const cor =
+    tone === 'emerald'
+      ? 'var(--erp-emerald)'
+      : tone === 'rose'
+        ? 'var(--erp-rose)'
+        : tone === 'cyan'
+          ? 'var(--erp-cyan)'
+          : 'var(--erp-violet)';
+
+  return (
+    <div
+      className="pill border !py-1.5 !pl-2.5 !pr-3"
+      style={{ borderColor: 'var(--erp-border)', background: 'var(--erp-surface)' }}
+      title={detail}
+    >
+      {icon && <span style={{ color: cor }}>{icon}</span>}
+      <span className="font-medium" style={{ color: 'var(--erp-text-muted)' }}>{label}</span>
+      <span className="font-bold tabular-nums" style={{ color: 'var(--erp-text)' }}>{value}</span>
+      {typeof trend === 'number' && trend !== 0 && (
+        <span
+          className="inline-flex items-center gap-0.5 tabular-nums"
+          style={{ color: trend > 0 ? 'var(--erp-emerald)' : 'var(--erp-rose)' }}
+        >
+          {trend > 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+          {Math.abs(trend)}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -338,6 +471,7 @@ export default function AgenteIaPage() {
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [roster, setRoster] = useState<AgentInfo[]>([]);
   const [dashboard, setDashboard] = useState<CostDashboard | null>(null);
+  const [credits, setCredits] = useState<Credits | null>(null);
   const [result, setResult] = useState<RunResult | null>(null);
   // Pecas que esperam aprovacao, de qualquer rodada. A esteira produz e para
   // aqui; sem este numero a tela nao dizia onde o trabalho dela foi parar.
@@ -377,6 +511,12 @@ export default function AgenteIaPage() {
       setRoster(rosterRes.data);
       setDashboard(costsRes.data);
       setAwaiting(contentRes.filter((item) => item.status === 'awaiting_approval').length);
+      // O saldo vem depois e por fora: o OpenRouter estar fora do ar nao pode
+      // impedir a esteira de abrir, so de mostrar quanto sobrou.
+      api
+        .get<Credits>('/marketing/agent/credits')
+        .then((res) => setCredits(res.data))
+        .catch(() => setCredits(null));
     } catch (err) {
       setError(errorMessage(err, 'Não foi possível carregar o painel da esteira.'));
     } finally {
@@ -481,6 +621,10 @@ export default function AgenteIaPage() {
   );
 
   const outcome = useMemo(() => runOutcome(result, agentNames), [result, agentNames]);
+  const quebras = useMemo(
+    () => steps.filter((step) => step.status === 'failed' && step.error_message),
+    [steps],
+  );
 
   if (loading) {
     return <p className="p-6 text-sm text-[color:var(--erp-text-muted)]">Carregando a área de marketing...</p>;
@@ -564,17 +708,22 @@ export default function AgenteIaPage() {
           </p>
         )}
 
-        <ol className="m-0 list-none p-0">
-          {roster.map((agent, index) => (
-            <StepRow
-              key={agent.key}
-              agent={agent}
-              steps={steps}
-              index={index}
-              isLast={index === roster.length - 1}
-            />
-          ))}
-        </ol>
+        <AgentFlow roster={roster} steps={steps} />
+
+        {/* O motivo da parada fica inteiro, fora do no. Dentro do quadradinho de
+            52px ele viraria texto de 9px, que e onde ninguem ia ler. */}
+        {quebras.length > 0 && (
+          <ul className="mt-4 m-0 list-none space-y-1.5 p-0">
+            {quebras.map((quebra) => (
+              <li key={quebra.agent} className="flex gap-2 text-sm text-rose-700">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>
+                  <strong>{agentNames[quebra.agent] ?? quebra.agent}:</strong> {quebra.error_message}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/* Onde o trabalho da esteira foi parar. Fica no fim da trilha de proposito:
             o ultimo agente agenda, e a peca passa a esperar uma pessoa. Sem esta
@@ -622,46 +771,70 @@ export default function AgenteIaPage() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
+      {/* Cinco numeros curtos numa linha, nao numa grade de cinco caixas. O que
+          o cartao mostrava embaixo (a janela, a base, a media do mercado) virou
+          o title de cada pilula, e a comparacao ficou na propria pilula. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {credits?.configured && !credits.error && (
+          <StatPill
+            label="Saldo"
+            value={formatUsd(credits.balance_usd)}
+            detail={`De US$ ${(credits.total_usd ?? 0).toFixed(2)} comprados, US$ ${(credits.used_usd ?? 0).toFixed(2)} já usados.`}
+            icon={<Wallet size={13} />}
+            tone={(credits.posts_left ?? 0) <= 5 ? 'rose' : 'emerald'}
+          />
+        )}
+        {credits?.configured && !credits.error && (credits.posts_left ?? 0) >= 0 && (
+          <StatPill
+            label="Dá para"
+            value={`${credits.posts_left ?? 0} peça${(credits.posts_left ?? 0) === 1 ? '' : 's'}`}
+            detail={
+              credits.cost_measured
+                ? `A ${formatUsd(credits.cost_per_content_usd)} por arte, que é o que o OpenRouter cobrou nas artes já geradas. Os agentes de texto rodam no Groq e não consomem este saldo.`
+                : `A ${formatUsd(credits.cost_per_content_usd)} por arte, pela tabela de preços: nenhuma arte foi gerada no OpenRouter ainda para medir.`
+            }
+            icon={<Bot size={13} />}
+            tone={(credits.posts_left ?? 0) <= 5 ? 'rose' : 'neutral'}
+          />
+        )}
+        <StatPill
           label="Custo no período"
           value={formatUsd(dashboard?.total_usd)}
           detail={`${dashboard?.runs_done ?? 0} rodadas em ${dashboard?.window_days ?? 90} dias`}
-          icon={<DollarSign size={16} />}
+          icon={<DollarSign size={13} />}
           tone="emerald"
         />
-        <MetricCard
-          label="Custo por peça"
+        <StatPill
+          label="Por peça"
           value={formatUsd(dashboard?.cost_per_content_usd)}
-          detail={`${dashboard?.content_produced ?? 0} peças produzidas`}
+          detail={`${dashboard?.content_produced ?? 0} peças produzidas. A arte costuma pesar mais que todos os agentes de texto somados.`}
           tone="cyan"
-          tooltip="Custo total dividido pelas peças que a esteira produziu. A arte costuma pesar mais que todos os agentes de texto somados."
         />
-        <MetricCard
-          label="Engajamento 4Core"
+        <StatPill
+          label="Engajamento"
           value={`${own?.engagement_rate ?? 0}%`}
           detail={
             own?.engagement_from_history
-              ? `Histórico, sem posts na janela. Mercado: ${market?.avg_engagement_rate ?? 0}%`
+              ? `Histórico, sem posts na janela. Média do mercado: ${market?.avg_engagement_rate ?? 0}%`
               : `Média do mercado: ${market?.avg_engagement_rate ?? 0}%`
           }
           trend={market?.engagement_gap}
+          icon={<TrendingUp size={13} />}
           tone={(market?.engagement_gap ?? 0) >= 0 ? 'emerald' : 'rose'}
-          icon={<TrendingUp size={16} />}
         />
-        <MetricCard
+        <StatPill
           label="Posts por semana"
           value={String(own?.posts_per_week ?? 0)}
           detail={
             own?.is_silent
-              ? `Parado há ${own.days_since_last_post} dias. Mercado: ${market?.avg_posts_per_week ?? 0}`
+              ? `Parado há ${own.days_since_last_post} dias. Média do mercado: ${market?.avg_posts_per_week ?? 0}`
               : `Média do mercado: ${market?.avg_posts_per_week ?? 0}`
           }
           trend={market?.cadence_gap}
           tone={(market?.cadence_gap ?? 0) >= 0 ? 'emerald' : 'rose'}
         />
-        <MetricCard
-          label="Posição no ranking"
+        <StatPill
+          label="Ranking"
           value={market?.own_position ? `${market.own_position}º` : '-'}
           detail={`Entre ${market?.ranking_size ?? 0} perfis observados`}
         />

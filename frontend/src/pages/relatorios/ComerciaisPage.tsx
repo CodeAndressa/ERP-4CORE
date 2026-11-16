@@ -84,7 +84,6 @@ export default function ComerciaisPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--erp-violet-light)' }}>Relatórios</p>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--erp-text)' }}>Relatório Comercial</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--erp-text-muted)' }}>Pipeline, leads e propostas · dados reais</p>
         </div>

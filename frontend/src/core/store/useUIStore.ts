@@ -1,24 +1,23 @@
 import { create } from 'zustand';
 
-export type Theme = 'dark' | 'light';
-
+// O modo escuro existia como andaime em cinco pontos e nunca funcionou: o
+// seletor html.dark recebia os mesmos valores do claro, o toggleTheme gravava
+// 'light' em qualquer caso e nao era chamado por arquivo nenhum, e o boot
+// forcava a classe antes do primeiro paint. Removido por inteiro; quando houver
+// tema escuro de verdade, ele volta com uma segunda paleta de tokens.
 interface UIState {
   sidebarCollapsed: boolean;
   aiDrawerOpen: boolean;
   aiDrawerContext: string;
   aiDrawerModule: string;
   commandOpen: boolean;
-  theme: Theme;
   toggleSidebar: () => void;
   setSidebarCollapsed: (v: boolean) => void;
   openAIDrawer: (module?: string, context?: string) => void;
   closeAIDrawer: () => void;
   openCommand: () => void;
   closeCommand: () => void;
-  toggleTheme: () => void;
 }
-
-const savedTheme: Theme = 'light';
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarCollapsed: false,
@@ -26,7 +25,6 @@ export const useUIStore = create<UIState>((set) => ({
   aiDrawerContext: '',
   aiDrawerModule: '',
   commandOpen: false,
-  theme: savedTheme,
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
   openAIDrawer: (module = '', context = '') =>
@@ -34,10 +32,4 @@ export const useUIStore = create<UIState>((set) => ({
   closeAIDrawer: () => set({ aiDrawerOpen: false }),
   openCommand: () => set({ commandOpen: true }),
   closeCommand: () => set({ commandOpen: false }),
-  toggleTheme: () => {
-    localStorage.setItem('erp-theme', 'light');
-    document.documentElement.classList.remove('dark');
-    document.documentElement.classList.add('light');
-    set({ theme: 'light' });
-  },
 }));

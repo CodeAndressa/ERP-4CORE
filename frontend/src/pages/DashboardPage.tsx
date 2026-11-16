@@ -15,6 +15,7 @@ import { api } from '../services/api';
 import { Card, CardHeader } from '../shared/components/ui/Card';
 import { Badge } from '../shared/components/ui/Badge';
 import ScheduleCoverageAlert, { type Coverage } from '../shared/components/ScheduleCoverageAlert';
+import { useAuthStore } from '../core/store/useAuthStore';
 
 type Payment = { id: string; customer: string; description: string; value: number; status: string; due_date: string };
 type AsaasData = {
@@ -111,7 +112,7 @@ function KpiCell({ label, primaryLabel, primaryValue, lines, to, loading }: { la
   return (
     <Link
       to={to}
-      className="group flex min-w-0 flex-1 flex-col gap-3 px-4 py-4 transition-colors hover:bg-[var(--erp-surface-2)] sm:px-5 sm:py-5"
+      className="group flex min-w-0 flex-1 flex-col gap-3 py-4 transition-colors sm:py-5 sm:first:pl-0 sm:px-5"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>{label}</span>
@@ -125,7 +126,9 @@ function KpiCell({ label, primaryLabel, primaryValue, lines, to, loading }: { la
       ) : (
         <>
           <div>
-            <p className="text-2xl font-bold tabular-nums leading-tight" style={{ color: 'var(--erp-text)' }}>{primaryValue}</p>
+            {/* 2.25rem em vez de 1.5: o numero e o conteudo da celula, nao um
+              detalhe do rotulo acima dele. */}
+          <p className="text-[2.25rem] font-bold tabular-nums leading-none tracking-tight" style={{ color: 'var(--erp-text)' }}>{primaryValue}</p>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--erp-text-dim)' }}>{primaryLabel}</p>
           </div>
           <div className="mt-auto space-y-1 border-t pt-2.5" style={{ borderColor: 'var(--erp-border)' }}>
@@ -302,12 +305,48 @@ export default function DashboardPage() {
     },
   ];
 
+  const usuario = useAuthStore((estado) => estado.user);
+  const primeiroNome = (usuario?.full_name || '').trim().split(' ')[0] || 'por aqui';
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+  const hoje = new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+
+  // A frase diz o que exige acao, com o numero em destaque. Quando nao ha nada
+  // pendente, ela diz isso em vez de sumir: "nada em aberto" e informacao.
+  const emAberto = priorities.filter((item) => item.tone !== 'emerald').length;
+  const resumo =
+    emAberto > 0 ? (
+      <>
+        <strong style={{ color: 'var(--erp-text)' }}>
+          {emAberto} {emAberto === 1 ? 'ponto pede' : 'pontos pedem'}
+        </strong>{' '}
+        a sua atenção hoje.
+      </>
+    ) : (
+      'Nada em aberto hoje. O financeiro está em dia e o comercial sem pendência.'
+    );
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 border-b pb-4 lg:flex-row lg:items-center lg:justify-between" style={{ borderColor: 'var(--erp-border)' }}>
+    <div className="space-y-8">
+      {/* Saudacao no lugar do nome da tela, como no Nucleo. "Painel Executivo"
+          com "Financeiro, comercial, site e marketing em uma leitura unica"
+          embaixo gastava duas linhas para dizer onde voce ja esta; a trilha do
+          cabecalho ja informa isso. O que a abertura deve dizer e o que mudou
+          desde ontem e o que espera por voce. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold" style={{ color: 'var(--erp-text)' }}>Painel Executivo</h1>
-          <p className="mt-0.5 text-sm" style={{ color: 'var(--erp-text-muted)' }}>Financeiro, comercial, site e marketing em uma leitura única.</p>
+          <h1 className="text-3xl font-light tracking-tight sm:text-4xl" style={{ color: 'var(--erp-text-muted)' }}>
+            {saudacao},{' '}
+            <span className="font-bold" style={{ color: 'var(--erp-text)' }}>{primeiroNome}.</span>
+          </h1>
+          <p className="mt-1.5 text-sm capitalize" style={{ color: 'var(--erp-text-dim)' }}>{hoje}</p>
+          <p className="mt-4 max-w-xl text-base leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>
+            {resumo}
+          </p>
         </div>
         <button onClick={() => loadAll(true)} className="flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-2 text-xs transition-colors" style={{ borderColor: 'var(--erp-border)', color: 'var(--erp-text-muted)' }}>
           <RefreshCw size={12} className={asaasLoading || siteLoading || secondaryLoading ? 'animate-spin' : ''} />
@@ -315,7 +354,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <ScheduleCoverageAlert compact coverage={coverage} />
+      <ScheduleCoverageAlert coverage={coverage} />
 
       {asaasError && (
         <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: 'rgba(190,18,60,0.3)', background: 'rgba(190,18,60,0.06)', color: 'var(--erp-rose)' }}>
@@ -337,7 +376,11 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      <Card padding="sm" className="overflow-hidden !p-0">
+      {/* Sem cartao: no Nucleo o numero e o conteudo, apoiado so por uma linha
+          fina entre as colunas. Dentro de uma caixa branca sobre fundo quase
+          branco, ele vira mais um bloco de dashboard generico. */}
+      <div>
+        <p className="mb-4 text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>O mês em números</p>
         <div className="grid divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4" style={{ borderColor: 'var(--erp-border)' }}>
           <KpiCell
             label="Financeiro"
@@ -384,7 +427,7 @@ export default function DashboardPage() {
             loading={secondaryLoading}
           />
         </div>
-      </Card>
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2" padding="lg">

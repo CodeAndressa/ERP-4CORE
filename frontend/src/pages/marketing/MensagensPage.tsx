@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, RefreshCw, Send } from 'lucide-react';
+import { ArrowLeft, AtSign, ExternalLink, MessageCircle, RefreshCw, Send, Sparkles } from 'lucide-react';
 import { api } from '../../services/api';
 import { Button } from '../../shared/components/ui/Button';
 import { Card } from '../../shared/components/ui/Card';
@@ -22,6 +22,52 @@ interface Message {
   text: string;
   created_at: string | null;
   from_me: boolean;
+}
+
+const INTERVALO_MS = 15000;
+
+/** A hora da mensagem. Uma caixa de entrada sem hora não diz se a pessoa está
+ *  esperando há dois minutos ou há dois dias, que é a única coisa que define o
+ *  que responder primeiro. */
+function hora(iso: string | null) {
+  if (!iso) return '';
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return '';
+  return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** O rótulo do dia, usado no separador entre blocos de mensagem. */
+function dia(iso: string | null) {
+  if (!iso) return '';
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return '';
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(hoje.getDate() - 1);
+  const mesmoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (mesmoDia(data, hoje)) return 'Hoje';
+  if (mesmoDia(data, ontem)) return 'Ontem';
+  return data.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+/** O tempo desde a última mensagem, do jeito curto que cabe na lista. */
+function desde(iso: string | null) {
+  if (!iso) return '';
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return '';
+  const minutos = Math.floor((Date.now() - data.getTime()) / 60000);
+  if (minutos < 1) return 'agora';
+  if (minutos < 60) return `${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `${horas} h`;
+  const dias = Math.floor(horas / 24);
+  if (dias < 7) return `${dias} d`;
+  return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+function erroDe(err: unknown, fallback: string) {
+  const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+  return typeof detail === 'string' && detail ? detail : fallback;
 }
 
 function ConversationSkeleton() {
@@ -52,9 +98,32 @@ function MessagesSkeleton() {
   );
 }
 
+/** A inicial de quem escreveu, no tom da marca.
+ *
+ *  O gradiente do Instagram ficava no avatar de cada conversa e era a única cor
+ *  da tela fora da identidade. O canal já está dito no título e no cabeçalho da
+ *  conversa; repeti-lo em cada linha só tirava a lista do lugar. */
+function Avatar({ username, size = 36 }: { username: string | null; size?: number }) {
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center rounded-full font-bold uppercase"
+      style={{
+        width: size,
+        height: size,
+        fontSize: size * 0.34,
+        background: 'var(--erp-violet-dim)',
+        color: 'var(--erp-violet)',
+      }}
+      aria-hidden="true"
+    >
+      {(username || '?').slice(0, 2)}
+    </div>
+  );
+}
+
 export default function MensagensPage() {
   const navigate = useNavigate();
-  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [conexao, setConexao] = useState<{ healthy: boolean; configured: boolean; token_error?: string | null } | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [selected, setSelected] = useState<Conversation | null>(null);
@@ -62,48 +131,121 @@ export default function MensagensPage() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [error, setError] = useState('');
+  const [sendError, setSendError] = useState('');
+  const [novas, setNovas] = useState<Set<string>>(new Set());
+
   const bottomRef = useRef<HTMLDivElement>(null);
+  const campoRef = useRef<HTMLTextAreaElement>(null);
   const selectedRef = useRef<Conversation | null>(null);
-  useEffect(() => { selectedRef.current = selected; }, [selected]);
+  // O que já foi visto de cada conversa, para saber o que chegou depois disso.
+  const vistoRef = useRef<Map<string, string>>(new Map());
 
-  function loadConversations(silent = false) {
-    if (!silent) setLoadingConversations(true);
-    if (!silent) setError('');
-    return api.get<{ user_id?: string; configured: boolean }>('/marketing/meta/instagram-login/status')
-      .then(({ data }) => {
-        setConfigured(data.configured);
-        if (!data.configured) return;
-        return api.get<{ conversations: Conversation[] }>('/marketing/meta/instagram/conversations')
-          .then(({ data }) => setConversations(data.conversations ?? []));
-      })
-      .catch((err) => { if (!silent) setError(err?.response?.data?.detail || 'Não foi possível carregar as conversas.'); })
-      .finally(() => { if (!silent) setLoadingConversations(false); });
-  }
-
-  function loadMessages(conversationId: string, silent = false) {
-    if (!silent) { setLoadingMessages(true); setMessages([]); }
-    return api.get<{ messages: Message[] }>(`/marketing/meta/instagram/conversations/${conversationId}/messages`)
-      .then(({ data }) => setMessages(data.messages ?? []))
-      .catch(() => { if (!silent) setMessages([]); })
-      .finally(() => { if (!silent) setLoadingMessages(false); });
-  }
-
-  useEffect(() => { loadConversations(); }, []);
-
-  // Auto-atualiza a lista de conversas e, se houver uma aberta, a thread —
-  // evita depender só do webhook (que pode nao estar assinado/configurado ainda).
   useEffect(() => {
-    const interval = setInterval(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  const loadMessages = useCallback((conversationId: string, silent = false) => {
+    if (!silent) {
+      setLoadingMessages(true);
+      setMessages([]);
+    }
+    return api
+      .get<{ messages: Message[] }>(`/marketing/meta/instagram/conversations/${conversationId}/messages`)
+      .then(({ data }) => setMessages(data.messages ?? []))
+      .catch((err) => {
+        if (!silent) {
+          setMessages([]);
+          setError(erroDe(err, 'Não foi possível abrir esta conversa.'));
+        }
+      })
+      .finally(() => {
+        if (!silent) setLoadingMessages(false);
+      });
+  }, []);
+
+  const loadConversations = useCallback((silent = false) => {
+    if (!silent) {
+      setLoadingConversations(true);
+      setError('');
+    }
+    return api
+      .get<{ configured: boolean; healthy: boolean; token_error?: string | null }>(
+        '/marketing/meta/instagram-login/status',
+      )
+      .then(({ data }) => {
+        setConexao({ configured: data.configured, healthy: data.healthy, token_error: data.token_error });
+        if (!data.configured || !data.healthy) return;
+        return api
+          .get<{ conversations: Conversation[] }>('/marketing/meta/instagram/conversations')
+          .then(({ data: lista }) => {
+            const chegaram = lista.conversations ?? [];
+            // Quem é novidade: mensagem do cliente mais recente do que a última
+            // que esta tela já tinha visto, e que não está aberta na frente dela.
+            setNovas((anteriores) => {
+              const marcadas = new Set(anteriores);
+              chegaram.forEach((conversa) => {
+                const visto = vistoRef.current.get(conversa.id);
+                const atual = conversa.last_message_at ?? '';
+                if (visto === undefined) {
+                  vistoRef.current.set(conversa.id, atual);
+                  return;
+                }
+                if (atual > visto) {
+                  vistoRef.current.set(conversa.id, atual);
+                  if (!conversa.last_from_me && selectedRef.current?.id !== conversa.id) {
+                    marcadas.add(conversa.id);
+                  }
+                }
+              });
+              return marcadas;
+            });
+            setConversations(chegaram);
+          });
+      })
+      .catch((err) => {
+        if (!silent) setError(erroDe(err, 'Não foi possível carregar as conversas.'));
+      })
+      .finally(() => {
+        if (!silent) setLoadingConversations(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  // Recarrega a lista e a conversa aberta, para não depender só do webhook, que
+  // pode não estar assinado. Para quando a aba sai da frente: quinze segundos
+  // de chamada para uma tela que ninguém está olhando é cota da Graph API jogada
+  // fora, e a Meta conta por hora.
+  useEffect(() => {
+    if (!conexao?.healthy) return;
+    const tick = () => {
+      if (document.visibilityState !== 'visible') return;
       loadConversations(true);
       if (selectedRef.current) loadMessages(selectedRef.current.id, true);
-    }, 15000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    };
+    const relogio = window.setInterval(tick, INTERVALO_MS);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      window.clearInterval(relogio);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [conexao?.healthy, loadConversations, loadMessages]);
 
   function openConversation(conversation: Conversation) {
     setSelected(conversation);
+    setSendError('');
+    setReply('');
+    vistoRef.current.set(conversation.id, conversation.last_message_at ?? '');
+    setNovas((anteriores) => {
+      if (!anteriores.has(conversation.id)) return anteriores;
+      const proximas = new Set(anteriores);
+      proximas.delete(conversation.id);
+      return proximas;
+    });
     loadMessages(conversation.id);
   }
 
@@ -112,36 +254,79 @@ export default function MensagensPage() {
   }, [messages]);
 
   async function sendReply() {
-    if (!selected?.participant_id || !reply.trim()) return;
     const text = reply.trim();
+    if (!text || sending) return;
+    if (!selected?.participant_id) {
+      setSendError('O Instagram não devolveu o identificador desta pessoa, então não é possível responder por aqui.');
+      return;
+    }
     setSending(true);
+    setSendError('');
     try {
       await api.post(`/marketing/meta/instagram/conversations/${selected.id}/reply`, {
         recipient_id: selected.participant_id,
         text,
       });
-      setMessages((prev) => [...prev, { id: `local-${Date.now()}`, text, created_at: new Date().toISOString(), from_me: true }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: `local-${Date.now()}`, text, created_at: new Date().toISOString(), from_me: true },
+      ]);
       setReply('');
-    } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Não foi possível enviar a resposta.');
+    } catch (err) {
+      setSendError(erroDe(err, 'Não foi possível enviar a resposta.'));
     } finally {
       setSending(false);
     }
   }
 
-  if (configured === false) {
+  /** Pede um rascunho e põe no campo. Nunca envia: quem lê e decide é a pessoa. */
+  async function draftReply() {
+    if (!selected || drafting) return;
+    setDrafting(true);
+    setSendError('');
+    try {
+      const { data } = await api.post<{ text: string }>(
+        `/marketing/meta/instagram/conversations/${selected.id}/suggest-reply`,
+      );
+      setReply(data.text);
+      campoRef.current?.focus();
+    } catch (err) {
+      setSendError(erroDe(err, 'Não foi possível escrever um rascunho agora.'));
+    } finally {
+      setDrafting(false);
+    }
+  }
+
+  // As mensagens agrupadas por dia, para o separador sair uma vez por bloco.
+  const blocos = useMemo(() => {
+    const saida: { dia: string; itens: Message[] }[] = [];
+    messages.forEach((mensagem) => {
+      const rotulo = dia(mensagem.created_at);
+      const ultimo = saida[saida.length - 1];
+      if (ultimo && ultimo.dia === rotulo) ultimo.itens.push(mensagem);
+      else saida.push({ dia: rotulo, itens: [mensagem] });
+    });
+    return saida;
+  }, [messages]);
+
+  const semResposta = conversations.filter((c) => !c.last_from_me).length;
+
+  // Token ausente e token vencido mandam para o mesmo lugar, mas nao dizem a
+  // mesma coisa. Antes a tela so olhava `configured`, entao com o token vencido
+  // ela mostrava a caixa de entrada vazia, sem explicar por que estava vazia.
+  if (conexao && !conexao.healthy) {
     return (
       <div className="space-y-4">
-        <PageHeader
-          eyebrow="Marketing"
-          title="Mensagens"
-          description="Conversas diretas do Instagram"
-          showAI={false}
-        />
+        <PageHeader title="Mensagens" description="Conversas diretas do Instagram" />
         <EmptyState
           icon={<MessageCircle size={28} />}
-          title="Conecte o Instagram para ver as mensagens"
-          description="Cole o token de mensagens diretas na tela de Conexões antes de acessar sua caixa de entrada."
+          title={conexao.configured ? 'O token das mensagens não vale mais' : 'Conecte o Instagram para ver as mensagens'}
+          description={
+            conexao.token_error ||
+            (conexao.configured
+              ? 'A Meta recusou o token guardado. Gere outro no painel de desenvolvedor e cole em Conexões.'
+              : 'Cole o token de mensagens diretas na tela de Conexões antes de acessar sua caixa de entrada.')
+          }
           action={{ label: 'Ir para Conexões', onClick: () => navigate('/marketing/conexoes') }}
         />
       </div>
@@ -151,9 +336,12 @@ export default function MensagensPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Marketing"
         title="Mensagens"
-        description="Conversas diretas do Instagram"
+        description={
+          semResposta > 0
+            ? `${semResposta} conversa${semResposta > 1 ? 's' : ''} com a última palavra do cliente`
+            : 'Conversas diretas do Instagram'
+        }
         aiModule="Mensagens do Instagram"
         action={
           <Button
@@ -168,44 +356,82 @@ export default function MensagensPage() {
       />
 
       {error && (
-        <div className="rounded-xl px-4 py-3 text-sm font-medium" style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.3)', color: 'var(--erp-rose)' }}>
-          {error}
+        <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <MessageCircle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
         </div>
       )}
 
-      <Card padding="sm">
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] md:divide-x" style={{ borderColor: 'var(--erp-border)' }}>
-          {/* Lista de conversas */}
-          <div className="max-h-[65vh] overflow-y-auto md:max-h-[70vh]">
-            {loadingConversations ? (
+      {novas.size > 0 && (
+        <button
+          type="button"
+          onClick={() => setNovas(new Set())}
+          className="flex w-full items-center gap-2 rounded-2xl border px-4 py-3 text-left text-sm font-semibold"
+          style={{ borderColor: 'var(--erp-violet-soft)', background: 'var(--erp-violet-dim)', color: 'var(--erp-violet)' }}
+        >
+          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--erp-violet)' }} />
+          {novas.size === 1 ? 'Chegou uma mensagem nova' : `Chegaram ${novas.size} mensagens novas`}
+        </button>
+      )}
+
+      <Card padding="sm" className="overflow-hidden !p-0">
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] md:divide-x" style={{ borderColor: 'var(--erp-border)' }}>
+          {/* A lista. No celular ela sai de cena quando uma conversa abre: duas
+              áreas de rolagem empilhadas davam uma tela de 130vh em que nem a
+              lista nem a conversa cabiam. */}
+          <div className={`max-h-[70vh] overflow-y-auto ${selected ? 'hidden md:block' : ''}`}>
+            {loadingConversations && conversations.length === 0 ? (
               <ConversationSkeleton />
             ) : conversations.length === 0 ? (
               <div className="p-6">
-                <EmptyState icon={<MessageCircle size={24} />} title="Nenhuma conversa ainda" description="Novas mensagens do Instagram aparecem aqui." />
+                <EmptyState
+                  icon={<MessageCircle size={24} />}
+                  title="Nenhuma conversa ainda"
+                  description="Novas mensagens do Instagram aparecem aqui."
+                />
               </div>
             ) : (
               <div className="space-y-0.5 p-2">
                 {conversations.map((conversation) => {
                   const active = selected?.id === conversation.id;
+                  const nova = novas.has(conversation.id);
                   return (
                     <button
                       key={conversation.id}
                       type="button"
                       onClick={() => openConversation(conversation)}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[color:var(--erp-surface-2)]"
                       style={{ background: active ? 'var(--erp-violet-dim)' : 'transparent' }}
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                        style={{ background: 'linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7)' }}>
-                        {(conversation.participant_username || '?').slice(0, 2).toUpperCase()}
-                      </div>
+                      <Avatar username={conversation.participant_username} />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold" style={{ color: active ? 'var(--erp-violet)' : 'var(--erp-text)' }}>
-                          @{conversation.participant_username || conversation.participant_id || 'desconhecido'}
-                        </p>
-                        <p className="truncate text-xs" style={{ color: 'var(--erp-text-muted)' }}>
-                          {conversation.last_from_me ? 'Você: ' : ''}{conversation.last_message || 'Sem mensagens'}
-                        </p>
+                        <div className="flex items-baseline gap-2">
+                          <p
+                            className="min-w-0 flex-1 truncate text-sm font-semibold"
+                            style={{ color: active ? 'var(--erp-violet)' : 'var(--erp-text)' }}
+                          >
+                            @{conversation.participant_username || conversation.participant_id || 'desconhecido'}
+                          </p>
+                          <span className="shrink-0 text-2xs tabular-nums" style={{ color: 'var(--erp-text-dim)' }}>
+                            {desde(conversation.last_message_at)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p
+                            className="min-w-0 flex-1 truncate text-xs"
+                            style={{ color: nova ? 'var(--erp-text)' : 'var(--erp-text-muted)', fontWeight: nova ? 600 : 400 }}
+                          >
+                            {conversation.last_from_me ? 'Você: ' : ''}
+                            {conversation.last_message || 'Sem mensagens'}
+                          </p>
+                          {nova && (
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ background: 'var(--erp-violet)' }}
+                              aria-label="mensagem nova"
+                            />
+                          )}
+                        </div>
                       </div>
                     </button>
                   );
@@ -214,55 +440,143 @@ export default function MensagensPage() {
             )}
           </div>
 
-          {/* Thread */}
-          <div className="flex max-h-[65vh] flex-col md:max-h-[70vh]">
+          {/* A conversa. */}
+          <div className={`flex max-h-[70vh] min-h-[320px] flex-col ${selected ? '' : 'hidden md:flex'}`}>
             {!selected ? (
               <div className="flex flex-1 items-center justify-center p-10">
-                <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>Selecione uma conversa para ver as mensagens.</p>
+                <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>
+                  Selecione uma conversa para ver as mensagens.
+                </p>
               </div>
             ) : (
               <>
+                {/* Quem é esta conversa. Sem este cabeçalho, no celular a tela
+                    virava um balão de texto sem dono depois que a lista saía. */}
+                <div
+                  className="flex items-center gap-2 border-b px-3 py-2.5"
+                  style={{ borderColor: 'var(--erp-border)' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    aria-label="Voltar para a lista"
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-xl transition-colors hover:bg-[color:var(--erp-surface-2)] md:hidden"
+                    style={{ color: 'var(--erp-text-muted)' }}
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
+                  <Avatar username={selected.participant_username} size={32} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>
+                      @{selected.participant_username || selected.participant_id || 'desconhecido'}
+                    </p>
+                    <p className="flex items-center gap-1 text-2xs" style={{ color: 'var(--erp-text-dim)' }}>
+                      <AtSign size={10} aria-hidden="true" />
+                      mensagem direta
+                    </p>
+                  </div>
+                  {selected.participant_username && (
+                    <a
+                      href={`https://instagram.com/${selected.participant_username}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-xl transition-colors hover:bg-[color:var(--erp-surface-2)]"
+                      style={{ color: 'var(--erp-text-muted)' }}
+                      title="Abrir o perfil no Instagram"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
+                </div>
+
                 <div className="flex-1 overflow-y-auto">
                   {loadingMessages ? (
                     <MessagesSkeleton />
+                  ) : messages.length === 0 ? (
+                    <div className="flex h-full items-center justify-center p-8">
+                      <p className="text-sm" style={{ color: 'var(--erp-text-muted)' }}>
+                        Esta conversa está sem mensagens.
+                      </p>
+                    </div>
                   ) : (
-                    <div className="space-y-2 p-4">
-                      {messages.map((message) => (
-                        <div key={message.id} className={`flex ${message.from_me ? 'justify-end' : 'justify-start'}`}>
-                          <div
-                            className="max-w-[70%] rounded-2xl px-3.5 py-2 text-sm"
-                            style={{
-                              background: message.from_me ? 'var(--erp-violet)' : 'var(--erp-surface-2)',
-                              color: message.from_me ? '#fff' : 'var(--erp-text)',
-                            }}
-                          >
-                            {message.text}
-                          </div>
+                    <div className="space-y-4 p-4">
+                      {blocos.map((bloco) => (
+                        <div key={bloco.dia} className="space-y-1.5">
+                          {bloco.dia && (
+                            <p
+                              className="text-center text-2xs font-semibold uppercase tracking-widest"
+                              style={{ color: 'var(--erp-text-dim)' }}
+                            >
+                              {bloco.dia}
+                            </p>
+                          )}
+                          {bloco.itens.map((message) => (
+                            <div key={message.id} className={`flex ${message.from_me ? 'justify-end' : 'justify-start'}`}>
+                              <div
+                                className="max-w-[78%] rounded-2xl px-3.5 py-2"
+                                style={{
+                                  background: message.from_me ? 'var(--erp-violet)' : 'var(--erp-surface-2)',
+                                  color: message.from_me ? '#fff' : 'var(--erp-text)',
+                                }}
+                              >
+                                <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
+                                <p
+                                  className="mt-0.5 text-right text-2xs tabular-nums"
+                                  style={{ color: message.from_me ? 'rgba(255,255,255,0.65)' : 'var(--erp-text-dim)' }}
+                                >
+                                  {hora(message.created_at)}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       ))}
                       <div ref={bottomRef} />
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2 border-t p-3" style={{ borderColor: 'var(--erp-border)' }}>
-                  <input
-                    type="text"
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !sending) sendReply(); }}
-                    placeholder="Escreva uma resposta..."
-                    className="flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ background: 'var(--erp-surface-2)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={sendReply}
-                    disabled={sending || !reply.trim()}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: 'var(--erp-violet)', color: '#fff', opacity: sending || !reply.trim() ? 0.6 : 1 }}
-                  >
-                    {sending ? <Spinner size={16} /> : <Send size={15} />}
-                  </button>
+
+                <div className="border-t p-3" style={{ borderColor: 'var(--erp-border)' }}>
+                  {/* O erro do envio fica junto do campo. No topo da página, atrás
+                      de uma conversa rolada, ninguém via por que não enviou. */}
+                  {sendError && <p className="mb-2 text-sm text-rose-700">{sendError}</p>}
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      ref={campoRef}
+                      value={reply}
+                      rows={1}
+                      onChange={(e) => setReply(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendReply();
+                        }
+                      }}
+                      placeholder="Escreva uma resposta. Enter envia, Shift+Enter quebra linha."
+                      className="field max-h-32 flex-1 resize-none"
+                      style={{ minHeight: '2.5rem' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={draftReply}
+                      disabled={drafting}
+                      title="Escrever um rascunho com a IA, para você revisar antes de enviar"
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border transition-colors hover:bg-[color:var(--erp-surface-2)] disabled:opacity-60"
+                      style={{ borderColor: 'var(--erp-border)', color: 'var(--erp-violet)' }}
+                    >
+                      {drafting ? <Spinner size={16} /> : <Sparkles size={15} />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={sendReply}
+                      disabled={sending || !reply.trim()}
+                      aria-label="Enviar resposta"
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl disabled:opacity-60"
+                      style={{ background: 'var(--erp-violet)', color: '#fff' }}
+                    >
+                      {sending ? <Spinner size={16} /> : <Send size={15} />}
+                    </button>
+                  </div>
                 </div>
               </>
             )}

@@ -7,6 +7,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
+from sqlalchemy import func
+
+from app.models.marketing import MarketingAgentStep
+from app.services.marketing_agent_cost import image_price_usd, openrouter_credits
 from app.services.marketing_agent_service import (
     AGENT_ROSTER,
     MAX_IDEAS_PER_RUN,
@@ -150,6 +154,46 @@ def agent_roster():
 @router.get("/costs")
 def costs(days: int = Query(default=90, ge=1, le=365), db: Session = Depends(get_db)):
     return cost_dashboard(db, days)
+
+
+@router.get("/credits")
+async def credits(db: Session = Depends(get_db)):
+    """Saldo do OpenRouter e quantas peças ele ainda paga.
+
+    A conta usa o custo medido por peça quando já existe histórico, e cai para o
+    preço da arte no modelo em uso quando a esteira nunca rodou: a arte é o que
+    pesa de verdade, os agentes de texto rodam no Groq."""
+    saldo = await openrouter_credits()
+    if not saldo.get("configured") or saldo.get("error"):
+        return saldo
+
+    # O saldo e do OpenRouter, e no OpenRouter so a arte custa: os agentes de
+    # texto rodam no Groq. Entao quem divide o saldo e o preco de uma arte gerada
+    # la, e nao o custo total da peca (que inclui passos gratuitos) nem a media de
+    # todas as artes (que inclui as que sairam de graca na Cloudflare).
+    artes = (
+        db.query(
+            func.coalesce(func.sum(MarketingAgentStep.cost_usd), 0.0),
+            func.coalesce(func.sum(MarketingAgentStep.images), 0),
+        )
+        .filter(
+            MarketingAgentStep.provider == "openrouter",
+            MarketingAgentStep.images > 0,
+            MarketingAgentStep.cost_usd > 0,
+        )
+        .one()
+    )
+    gasto_arte, imagens = float(artes[0] or 0.0), int(artes[1] or 0)
+    medido = gasto_arte / imagens if imagens else 0.0
+    por_peca = medido if medido > 0 else image_price_usd()
+    disponivel = float(saldo.get("balance_usd") or 0.0)
+
+    return {
+        **saldo,
+        "cost_per_content_usd": round(por_peca, 6),
+        "cost_measured": medido > 0,
+        "posts_left": int(disponivel / por_peca + 1e-9) if por_peca > 0 else 0,
+    }
 
 
 @router.post("/run")

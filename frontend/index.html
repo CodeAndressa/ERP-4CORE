@@ -7,11 +7,9 @@
     <title>ERP 4Core</title>
     <link rel="icon" type="image/png" href="/Logo%20com%20Tipografia%204Core%20-%20Principal%20Transparente.png" />
     <link rel="apple-touch-icon" href="/Logo%20com%20Tipografia%204Core%20-%20Principal%20Transparente.png" />
-    <!-- Silkscreen: fonte pixel usada so na esteira de marketing. Carregada aqui
-         em vez de @import no CSS para nao bloquear a renderizacao do resto do ERP. -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap" rel="stylesheet" />
+    <!-- A Inter e carregada como pacote em src/main.tsx, nao por CDN: a tipografia
+         do sistema nao deve depender de rede de terceiro no primeiro paint.
+         A Silkscreen saiu junto com o tema pixel art da esteira. -->
   </head>
   <body>
     <div id="root"></div>

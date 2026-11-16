@@ -261,6 +261,24 @@ function stepState(mine: Step[]): StepState {
   return mine.length > 0 ? 'done' : 'idle';
 }
 
+/** O que cada agente diz enquanto trabalha.
+ *
+ *  Existe escrito a mao porque o resumo do passo so chega quando o passo acaba:
+ *  durante a execucao o backend tem a linha gravada e o resumo vazio. Derivar a
+ *  frase do `role` do agente obrigaria a conjugar verbo em tempo de execucao, e
+ *  "Le os concorrentes" viraria "Lendo os concorrentes" por substituicao de
+ *  sufixo, que erra na primeira excecao. */
+const FALAS: Record<string, string> = {
+  analista: 'Lendo o que os concorrentes publicaram e medindo a cadência deles.',
+  estrategista: 'Escolhendo os temas que valem a semana.',
+  diretor_criacao: 'Decidindo o formato e o ângulo de cada peça.',
+  redator: 'Escrevendo a legenda.',
+  revisor_texto: 'Revisando grafia, tom e o que a peça promete.',
+  diretor_arte: 'Montando o enquadramento da arte.',
+  ilustrador: 'Gerando a imagem.',
+  agendador: 'Escolhendo o horário e agendando.',
+};
+
 /** O desenho do agente, em pixel art.
  *
  *  Vai num canvas de 20x16 ampliado por CSS com `image-rendering: pixelated`,
@@ -303,7 +321,21 @@ function AgentSprite({ agentKey, frame, scale = 2 }: { agentKey: string; frame: 
  *  O nome completo, o resumo, o tempo e o custo ficam no `title`, porque oito
  *  nos com quatro linhas de texto cada deixam de ser um fluxo e voltam a ser a
  *  lista que isto substituiu. */
-function FlowNode({ agent, steps, index }: { agent: AgentInfo; steps: Step[]; index: number }) {
+function FlowNode({
+  agent,
+  steps,
+  index,
+  total,
+  showBalloon,
+  onToggle,
+}: {
+  agent: AgentInfo;
+  steps: Step[];
+  index: number;
+  total: number;
+  showBalloon: boolean;
+  onToggle: () => void;
+}) {
   const mine = steps.filter((step) => step.agent === agent.key);
   const state = stepState(mine);
   const { label, node, Icon } = STEP_STATE[state];
@@ -329,8 +361,72 @@ function FlowNode({ agent, steps, index }: { agent: AgentInfo; steps: Step[]; in
     mine.length > 0 ? `${formatDuration(duration)}${cost > 0 ? ` - ${formatUsd(cost)}` : ''}` : label,
   ].join('\n');
 
+  // O que o balao mostra, por estado: quem parou mostra o motivo, quem terminou
+  // repete o que reportou, quem esta rodando diz o que esta fazendo agora.
+  const falha = mine.find((step) => step.error_message)?.error_message;
+  const fala =
+    state === 'failed'
+      ? falha || 'O passo não foi concluído.'
+      : state === 'running'
+        ? mine[0]?.summary || FALAS[agent.key] || agent.role
+        : state === 'done'
+          ? mine[0]?.summary || FALAS[agent.key] || agent.role
+          : agent.role;
+
+  // Nas pontas o balao ancora pela borda. Centralizado, o primeiro no jogaria
+  // metade dele fora da faixa, e a faixa rola na horizontal: o texto sairia de
+  // vista justamente quando ha algo a ler.
+  const ancora = index <= 1 ? 'left-0' : index >= total - 2 ? 'right-0' : 'left-1/2 -translate-x-1/2';
+
   return (
-    <li className="flex min-w-0 shrink-0 flex-col items-center gap-1.5" title={detalhe}>
+    <li className="relative flex min-w-0 shrink-0 flex-col items-center gap-1.5">
+      {showBalloon && (
+        <div
+          className={`absolute bottom-[calc(100%-4px)] z-10 w-[186px] rounded-xl border px-2.5 py-2 text-left ${ancora}`}
+          style={{
+            borderColor: state === 'failed' ? 'var(--erp-rose-border)' : 'var(--erp-border-strong)',
+            background: state === 'failed' ? 'var(--erp-rose-soft)' : 'var(--erp-surface)',
+            boxShadow: 'var(--erp-shadow-float)',
+          }}
+          role="status"
+        >
+          <p
+            className="text-2xs font-bold uppercase tracking-widest"
+            style={{ color: state === 'failed' ? 'var(--erp-rose)' : 'var(--erp-violet)' }}
+          >
+            {agent.name}
+          </p>
+          <p
+            className="mt-0.5 text-xs leading-snug"
+            style={{ color: state === 'failed' ? 'var(--erp-rose)' : 'var(--erp-text)' }}
+          >
+            {fala}
+          </p>
+          {mine.length > 0 && state !== 'failed' && (
+            <p className="mt-1 text-2xs tabular-nums" style={{ color: 'var(--erp-text-dim)' }}>
+              {formatDuration(duration)}
+              {cost > 0 && ` · ${formatUsd(cost)}`}
+            </p>
+          )}
+          {/* A ponta do balao, apontando o no. Fica atras da propria caixa para
+              o lado de cima dela nao cortar a borda. */}
+          <span
+            aria-hidden="true"
+            className="absolute -bottom-[5px] left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-b border-r"
+            style={{
+              borderColor: state === 'failed' ? 'var(--erp-rose-border)' : 'var(--erp-border-strong)',
+              background: state === 'failed' ? 'var(--erp-rose-soft)' : 'var(--erp-surface)',
+            }}
+          />
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onToggle}
+        title={detalhe}
+        aria-expanded={showBalloon}
+        className="flex flex-col items-center gap-1.5 rounded-xl"
+      >
       <div className={`relative grid h-[52px] w-[52px] place-items-center rounded-xl border transition-colors ${node}`}>
         {AGENT_SPRITES[agent.key] ? (
           <AgentSprite agentKey={agent.key} frame={frame} />
@@ -344,10 +440,11 @@ function FlowNode({ agent, steps, index }: { agent: AgentInfo; steps: Step[]; in
           <Icon size={10} className={state === 'running' ? 'animate-spin' : ''} aria-hidden="true" />
         </span>
       </div>
-      <p className="max-w-[64px] truncate text-center text-2xs font-semibold" style={{ color: 'var(--erp-text)' }}>
-        <span className="tabular-nums" style={{ color: 'var(--erp-text-dim)' }}>{index + 1}</span> {curto}
-      </p>
-      <span className="sr-only">{label}</span>
+        <p className="max-w-[64px] truncate text-center text-2xs font-semibold" style={{ color: 'var(--erp-text)' }}>
+          <span className="tabular-nums" style={{ color: 'var(--erp-text-dim)' }}>{index + 1}</span> {curto}
+        </p>
+        <span className="sr-only">{label}</span>
+      </button>
     </li>
   );
 }
@@ -357,8 +454,19 @@ function FlowNode({ agent, steps, index }: { agent: AgentInfo; steps: Step[]; in
  *  A seta acende quando o passo anterior concluiu: e ela que mostra onde a
  *  rodada chegou, sem precisar de uma barra de progresso separada. */
 function AgentFlow({ roster, steps }: { roster: AgentInfo[]; steps: Step[] }) {
+  const [fixado, setFixado] = useState<string | null>(null);
+
+  // Quem esta rodando fala sozinho; clicar em outro no fixa a fala dele, e
+  // clicar de novo solta. Oito baloes abertos ao mesmo tempo seriam oito caixas
+  // de texto sobrepostas, nao um fluxo.
+  const rodando = roster.find((agent) => stepState(steps.filter((step) => step.agent === agent.key)) === 'running');
+  const falando = fixado ?? rodando?.key ?? null;
+
+  // O espaco do balao fica reservado so quando ha balao: a faixa rola na
+  // horizontal, e `overflow-x: auto` tambem corta o que passa por cima, entao o
+  // balao precisa caber dentro da area de rolagem.
   return (
-    <div className="-mx-1 overflow-x-auto px-1 pb-1">
+    <div className={`-mx-1 overflow-x-auto px-1 pb-1 transition-[padding] ${falando ? 'pt-[104px]' : 'pt-1'}`}>
       <ol className="m-0 flex list-none items-start gap-1 p-0 lg:gap-0">
         {roster.map((agent, index) => {
           const anterior = index > 0 ? stepState(steps.filter((step) => step.agent === roster[index - 1].key)) : null;
@@ -377,7 +485,14 @@ function AgentFlow({ roster, steps }: { roster: AgentInfo[]; steps: Step[] }) {
                   />
                 </li>
               )}
-              <FlowNode agent={agent} steps={steps} index={index} />
+              <FlowNode
+                agent={agent}
+                steps={steps}
+                index={index}
+                total={roster.length}
+                showBalloon={falando === agent.key}
+                onToggle={() => setFixado((atual) => (atual === agent.key ? null : agent.key))}
+              />
             </Fragment>
           );
         })}
@@ -607,6 +722,35 @@ export default function AgenteIaPage() {
   const market = benchmark?.market;
   const steps = result?.steps ?? [];
 
+  // A rodada e um unico POST que demora minutos e devolve tudo no fim. Enquanto
+  // ele esta em voo, a tela busca a rodada em andamento: o backend ja grava cada
+  // passo conforme acontece, e sem isso os oito nos ficavam cinzentos do inicio
+  // ao fim, com a esteira trabalhando sem dar sinal.
+  useEffect(() => {
+    if (!running) return;
+    let cancelado = false;
+
+    const espiar = async () => {
+      try {
+        const { data: recentes } = await api.get<RunSummary[]>('/marketing/agent/runs', { params: { limit: 1 } });
+        const atual = recentes[0];
+        if (!atual || atual.status !== 'running' || cancelado) return;
+        const { data: detalhe } = await api.get<RunResult>(`/marketing/agent/runs/${atual.id}`);
+        if (!cancelado) setResult(detalhe);
+      } catch {
+        // Falha ao espiar nao e falha da rodada: a rodada esta no POST, que tem
+        // tratamento proprio. Aqui, silencio e o comportamento certo.
+      }
+    };
+
+    espiar();
+    const relogio = window.setInterval(espiar, 3000);
+    return () => {
+      cancelado = true;
+      window.clearInterval(relogio);
+    };
+  }, [running]);
+
   const ranked = useMemo(() => {
     if (!benchmark) return [];
     const rows: (ProfileMetrics & { id: string; isOwn: boolean; error?: string })[] = benchmark.competitors.map((item) => ({
@@ -625,6 +769,12 @@ export default function AgenteIaPage() {
   );
 
   const outcome = useMemo(() => runOutcome(result, agentNames), [result, agentNames]);
+  // Quem esta no ar agora, para o cabecalho dizer o nome em vez de "Produzindo".
+  const emAndamento = useMemo(() => {
+    const vivo = steps.find((step) => step.status === 'running');
+    return vivo ? agentNames[vivo.agent] ?? vivo.agent : '';
+  }, [steps, agentNames]);
+
   const quebras = useMemo(
     () => steps.filter((step) => step.status === 'failed' && step.error_message),
     [steps],
@@ -708,7 +858,9 @@ export default function AgenteIaPage() {
         {running && (
           <p className="mb-4 flex items-center gap-2 text-sm" style={{ color: 'var(--erp-text-muted)' }}>
             <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-            Produzindo. Cada peça passa por redação, revisão, direção de arte e ilustração.
+            {emAndamento
+              ? `${emAndamento} trabalhando agora.`
+              : 'Começando. Cada peça passa por redação, revisão, direção de arte e ilustração.'}
           </p>
         )}
 

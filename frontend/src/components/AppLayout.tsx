@@ -484,12 +484,22 @@ export default function AppLayout() {
             <button onClick={logout} className="flex h-9 w-9 items-center justify-center rounded-full bg-white transition-colors hover:text-violet-600 sm:h-8 sm:w-8" style={{ color: 'var(--erp-text-muted)', border: '1px solid var(--erp-border)' }} title="Sair" aria-label="Sair"><LogOut size={15} /></button>
           </div>
         </header>
-        <main className="flex-1 overflow-auto"><div className="px-3 pb-24 pt-3 sm:p-6 lg:p-8"><Suspense fallback={<RouteFallback />}><Outlet /></Suspense></div></main>
+        <main className="flex-1 overflow-auto">
+            {/* `pb-24` so abaixo de lg: e a folga da barra inferior, que nao
+                existe no desktop e deixava 96px de vazio no pe de toda tela.
+                `max-w-[1600px]` da um limite de leitura: sem ele o conteudo
+                estica de borda a borda em monitor largo. */}
+            <div className="mx-auto w-full max-w-[1600px] px-3 pb-24 pt-3 sm:p-6 lg:p-8 lg:pb-8"><Suspense fallback={<RouteFallback />}><Outlet /></Suspense></div></main>
       </div>
       <MobileBottomNav pathname={pathname} />
       <AIDrawer />
       <AnimatePresence>{commandOpen && <CommandPalette onClose={closeCommand} />}</AnimatePresence>
-      <Toaster position="bottom-right" toastOptions={{ style: { background: '#fff', color: 'var(--erp-text)', border: '1px solid var(--erp-border)', borderRadius: '16px', fontSize: '13px' } }} />
+      <Toaster
+        position="bottom-right"
+        /* A barra inferior do celular e z-50 e fica no rodape: sem essa folga
+           o toast nascia atras dela e o feedback da acao sumia. */
+        containerStyle={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+        containerClassName="sm:!bottom-4" toastOptions={{ style: { background: '#fff', color: 'var(--erp-text)', border: '1px solid var(--erp-border)', borderRadius: '16px', fontSize: '13px' } }} />
     </div>
   );
 }

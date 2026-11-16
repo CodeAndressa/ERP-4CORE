@@ -2,9 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-:root,
-html.light,
-html.dark {
+:root {
   color-scheme: light;
 
   --erp-bg: #f8f7fb;
@@ -33,6 +31,68 @@ html.dark {
   --erp-emerald: #047857;
   --erp-amber: #b45309;
   --erp-rose: #be123c;
+
+  /* ─── Os três níveis de cada cor semântica ────────────────────────────────
+     O DESIGN.md pede, para chip e alerta, "fundo suave da cor semântica, texto
+     na variante mais escura, borda na intermediária". Até aqui só o violeta
+     tinha esses níveis (--erp-violet-soft, --erp-violet-dim), e as outras
+     quatro cores eram misturadas à mão em cada tela: o levantamento achou
+     ~130 rgba() inline e 56 hex nus reinventando exatamente estes valores,
+     com cinco alfas diferentes para o mesmo papel.
+
+     Nomes: -soft é o fundo, -border é a borda, a cor base continua sendo o
+     texto. Os alfas saem do uso mais frequente encontrado no código. */
+  --erp-emerald-soft: rgba(4, 120, 87, 0.10);
+  --erp-emerald-border: rgba(4, 120, 87, 0.22);
+  --erp-amber-soft: rgba(180, 83, 9, 0.10);
+  --erp-amber-border: rgba(180, 83, 9, 0.22);
+  --erp-rose-soft: rgba(190, 18, 60, 0.08);
+  --erp-rose-border: rgba(190, 18, 60, 0.22);
+  --erp-cyan-soft: rgba(8, 145, 178, 0.10);
+  --erp-cyan-border: rgba(8, 145, 178, 0.22);
+
+  /* ─── Raio ────────────────────────────────────────────────────────────────
+     DESIGN.md: sm 8 / md 12 / lg 16 / full. Nunca virou token, e o código
+     produziu nove raios distintos, cinco deles arbitrários (18, 20, 22, 24,
+     26px): o Card é 16px e o Modal que o envolve é 22px. */
+  --erp-radius-sm: 8px;
+  --erp-radius-md: 12px;
+  --erp-radius-lg: 16px;
+  --erp-radius-full: 9999px;
+
+  /* ─── Espaçamento ─────────────────────────────────────────────────────────
+     DESIGN.md: xs 8 / sm 12 / md 16 / lg 24. */
+  --erp-space-xs: 8px;
+  --erp-space-sm: 12px;
+  --erp-space-md: 16px;
+  --erp-space-lg: 24px;
+
+  /* ─── Sombra ──────────────────────────────────────────────────────────────
+     O vocabulário tem uma só, para o que literalmente flutua sobre o conteúdo.
+     Estava hardcoded dentro do Modal. */
+  --erp-shadow-float: 0 18px 45px rgba(43, 22, 92, 0.18);
+
+  /* ─── Alvo de toque ───────────────────────────────────────────────────────
+     O mínimo de 44px do PRODUCT.md, hoje repetido à mão como min-h-11,
+     min-h-10, h-11, min-h-12 e cinco valores arbitrários. */
+  --erp-tap: 44px;
+
+  /* ─── Camadas ─────────────────────────────────────────────────────────────
+     Não havia escala, e isso já produziu empate: o Modal e a barra inferior
+     disputam z-50, e um filtro do financeiro usa z-[1000] para escapar. */
+  --erp-z-header: 30;
+  --erp-z-overlay: 40;
+  --erp-z-floating: 50;
+  --erp-z-popover: 60;
+
+  /* ─── Sidebar ─────────────────────────────────────────────────────────────
+     A Exceção Committed do DESIGN.md: a única superfície escura do sistema.
+     Os quatro valores estavam hardcoded no MainMenu, e o --erp-sidebar-bg
+     acima dizia o contrário deles (branco). */
+  --erp-sidebar-deep: #12081f;
+  --erp-sidebar-mid: #1c0f42;
+  --erp-sidebar-active: #4a2a94;
+  --erp-sidebar-glow: #7b00ff;
 }
 
 *, *::before, *::after {
@@ -51,7 +111,7 @@ body {
   margin: 0;
   background: var(--erp-bg);
   color: var(--erp-text);
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Inter Variable", Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-weight: 400;
   line-height: 1.55;
   letter-spacing: 0;
@@ -190,9 +250,12 @@ textarea::placeholder {
     -webkit-overflow-scrolling: touch;
   }
 
-  table {
-    min-width: 720px;
-  }
+  /* A regra `table { min-width: 720px }` vivia aqui e forcava rolagem horizontal
+     em 15 telas. Num produto cujo PRODUCT.md diz que o uso e principalmente no
+     celular, e que lista "tabelas impossiveis de tocar" e "navegacao que obrigue
+     muita rolagem horizontal" como anti-referencias, ela era o conflito mais
+     direto entre documento e codigo. A saida certa e cada tabela virar lista de
+     cards no celular, como CobrancasPage ja faz; isso vem com o DataTable. */
 }
 
 /* ─── Cor por seção: Marketing ───────────────────────────────────────────────

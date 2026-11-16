@@ -530,6 +530,28 @@ PRODUCT_CATALOG: list[dict[str, object]] = [
 ]
 
 
+# Como cada aparelho e, em palavras, para a cena poder dizer ao modelo o que
+# olhar na foto de referencia. Fica aqui e nao no prompt porque quem sabe a
+# aparencia do produto e o catalogo: produto novo entra com a descricao dele.
+PRODUCT_APPEARANCE: dict[str, str] = {
+    "REP-P facial": (
+        "a wall-mounted black terminal with soft rounded corners, a wide white "
+        "illuminated bar across the very top, four small circular lenses in a row "
+        "just below that bar, a vertical touchscreen filling the middle third, a "
+        "card-reader panel below the screen, and a small manufacturer wordmark at "
+        "the bottom edge. It is roughly as tall as a forearm and clearly thicker "
+        "than a tablet"
+    ),
+}
+
+
+def product_appearance(product: dict[str, object] | None) -> str:
+    """A descricao escrita do aparelho, quando houver uma cadastrada."""
+    if not product:
+        return ""
+    return PRODUCT_APPEARANCE.get(str(product.get("name") or ""), "")
+
+
 def match_product(*textos: str) -> dict[str, object] | None:
     """O produto que a pauta está pedindo, ou None quando ela não fala de produto.
 

@@ -1318,6 +1318,23 @@ async def _fetch_brand_logo(client: httpx.AsyncClient) -> bytes:
 # desenhe de cabeca um aparelho que ele nao conhece.
 OPENROUTER_SCENE_MODEL = "google/gemini-2.5-flash-image"
 
+# Vem ANTES do briefing da cena, nao depois. Numa primeira versao a exigencia de
+# fidelidade estava concatenada no fim, depois de oitocentas palavras descrevendo
+# o ambiente, e o modelo desenhou outro aparelho: tela alongada, sem a barra
+# branca do topo, sem as quatro lentes, sem a marca. O que vem primeiro enquadra
+# o resto; o que vem por ultimo compete com tudo que veio antes.
+SCENE_DEVICE_FIRST = (
+    "FIRST AND ABOVE EVERY OTHER INSTRUCTION: the attached reference photograph "
+    "shows a REAL product that this company sells. Reproduce that exact device, "
+    "pixel-faithful in shape and detail: same silhouette, same proportions, same "
+    "housing, same bezel, same screen size relative to the body, same arrangement "
+    "of lenses and sensors, same manufacturer wordmark in the same place. You are "
+    "placing THIS object into a scene, not designing a device inspired by it. If "
+    "the scene would look better with a different device, the scene is wrong, not "
+    "the device. Showing a different product than the one in the reference makes "
+    "the whole image unusable.\n\n"
+)
+
 SCENE_GUARDRAILS = (
     " Use the device in the reference image EXACTLY as it is: same proportions, same "
     "screen, same housing, same brand mark. Do not redesign it, do not invent another "
@@ -1354,7 +1371,7 @@ def _scene_consistency(headline: str) -> str:
 
 
 async def _generate_openrouter_scene(
-    prompt: str, reference: bytes, headline: str = ""
+    prompt: str, reference: bytes, headline: str = "", appearance: str = ""
 ) -> tuple[bytes, Any]:
     """Cena fotografica construida a partir da foto real do produto.
 
@@ -1372,7 +1389,21 @@ async def _generate_openrouter_scene(
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt + SCENE_GUARDRAILS + _scene_consistency(headline)},
+                    {
+                        "type": "text",
+                        "text": (
+                            SCENE_DEVICE_FIRST
+                            + (
+                                f"The device in the reference is {appearance}. "
+                                "Check your result against this description before finishing.\n\n"
+                                if appearance
+                                else ""
+                            )
+                            + prompt
+                            + SCENE_GUARDRAILS
+                            + _scene_consistency(headline)
+                        ),
+                    },
                     {
                         "type": "image_url",
                         "image_url": {
@@ -1565,7 +1596,11 @@ async def generate_art_with_usage(
         async with httpx.AsyncClient(timeout=40.0) as client:
             referencia = await _fetch_product_image(client, str(product.get("image_url") or ""))
             logo = await _fetch_brand_logo(client)
-        raw, usage = await _generate_openrouter_scene(prompt, referencia, headline)
+        from app.services.marketing_brand_system import product_appearance
+
+        raw, usage = await _generate_openrouter_scene(
+            prompt, referencia, headline, product_appearance(product)
+        )
         try:
             content = _compose_feed_art(_crop_to_feed(raw), logo, headline)
         except (TypeError, ValueError, OSError) as exc:

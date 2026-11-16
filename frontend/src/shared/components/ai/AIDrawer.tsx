@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Sparkles, TrendingUp, AlertTriangle, Lightbulb, ArrowRight, RefreshCw, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -50,65 +50,47 @@ function parseInsights(text: string): Insight[] {
   return insights.slice(0, 6);
 }
 
-function fallbackInsights(module: string): Insight[] {
-  const map: Record<string, Insight[]> = {
-    Dashboard: [
-      { type: 'trend', title: 'MRR em crescimento', body: 'Receita recorrente cresceu nos últimos 3 meses consecutivos.' },
-      { type: 'opportunity', title: 'Pipeline com alto potencial', body: 'Identifiquei 3 oportunidades com alta probabilidade de fechamento esta semana.' },
-      { type: 'warning', title: 'Atenção ao fluxo de caixa', body: '2 boletos com vencimento nos próximos 3 dias. Verifique a conciliação.' },
-      { type: 'recommendation', title: 'Recomendação estratégica', body: 'Foque em retenção: o custo de aquisição de novos clientes está maior que a manutenção.' },
-    ],
-    Financeiro: [
-      { type: 'trend', title: 'Receitas acima da média', body: 'Receitas do mês atual acima da média dos últimos 6 meses.' },
-      { type: 'warning', title: 'Despesas operacionais elevadas', body: 'Custos operacionais cresceram em relação ao mês anterior. Analise as categorias.' },
-      { type: 'opportunity', title: 'Oportunidade de economia', body: 'Assinaturas recorrentes sem uso podem representar economia mensal relevante.' },
-      { type: 'recommendation', title: 'Leitura positiva', body: 'Com o pipeline atual, acompanhe entradas diretas e recorrências antes de assumir novas metas.' },
-    ],
-    Comercial: [
-      { type: 'opportunity', title: 'Leads quentes identificados', body: 'Leads com alta pontuação de engajamento precisam de contato prioritário.' },
-      { type: 'warning', title: 'Leads esfriando', body: 'Há leads sem follow-up recente. Risco de perda se a cadência não for retomada.' },
-      { type: 'trend', title: 'Taxa de conversão em alta', body: 'Conversão de proposta para contrato evoluiu no período analisado.' },
-      { type: 'recommendation', title: 'Ação prioritária', body: 'Revise propostas abertas e defina o próximo passo com data.' },
-    ],
-    Marketing: [
-      { type: 'trend', title: 'Melhor engajamento em dias úteis', body: 'Posts publicados em dias úteis tendem a performar melhor na média histórica.' },
-      { type: 'opportunity', title: 'Temas com alta performance', body: 'Conteúdo sobre resultados e cases tem maior chance de gerar conversas comerciais.' },
-      { type: 'warning', title: 'Frequência abaixo do ideal', body: 'A consistência segue como fator-chave para alcance e conversão.' },
-      { type: 'recommendation', title: 'Campanha sugerida', body: 'Estruture uma campanha de case de sucesso com CTA comercial claro.' },
-    ],
-  };
-
-  return map[module] ?? map.Dashboard;
-}
-
 export function AIDrawer() {
   const { aiDrawerOpen, aiDrawerModule, closeAIDrawer } = useUIStore();
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(false);
+  // A falha precisa chegar na tela. Antes ela virava insight de exemplo, e a
+  // pessoa nao tinha como saber que estava lendo texto escrito a mao em vez da
+  // analise dos dados dela.
+  const [erro, setErro] = useState('');
 
-  useEffect(() => {
-    if (!aiDrawerOpen) return;
+  const buscar = useCallback(() => {
     setLoading(true);
     setInsights([]);
+    setErro('');
 
-    api.get<{ recommendations: string[] }>('/ai/recommendations')
+    return api
+      .get<{ recommendations: string[] }>('/ai/recommendations')
       .then(({ data }) => {
         const text = (data.recommendations ?? []).join('\n');
         const parsed = parseInsights(text);
-        setInsights(parsed.length ? parsed : fallbackInsights(aiDrawerModule));
+        setInsights(parsed);
+        if (!parsed.length) {
+          setErro('A análise voltou vazia. Pode ser que ainda não haja dado conectado suficiente nesta área.');
+        }
       })
-      .catch(() => setInsights(fallbackInsights(aiDrawerModule)))
+      .catch((err) => {
+        const detalhe = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+        setErro(detalhe || 'Não foi possível gerar a análise agora.');
+      })
       .finally(() => setLoading(false));
-  }, [aiDrawerOpen, aiDrawerModule]);
+  }, []);
 
+  useEffect(() => {
+    if (!aiDrawerOpen) return;
+    void buscar();
+  }, [aiDrawerOpen, aiDrawerModule, buscar]);
+
+  // Atualizar busca de novo. Antes ele devolvia os insights de exemplo depois de
+  // 1,2 segundo de espera encenada, sem chamar nada.
   const refresh = () => {
     if (loading) return;
-    setLoading(true);
-    setInsights([]);
-    setTimeout(() => {
-      setInsights(fallbackInsights(aiDrawerModule));
-      setLoading(false);
-    }, 1200);
+    void buscar();
   };
 
   return (
@@ -168,6 +150,17 @@ export function AIDrawer() {
                   ))}
                   <p className="pt-2 text-center text-xs text-slate-500">Analisando contexto...</p>
                 </>
+              ) : erro ? (
+                <div className="rounded-[24px] border border-rose-200 bg-rose-50 p-4">
+                  <p className="text-sm font-semibold text-rose-700">Sem análise para mostrar</p>
+                  <p className="mt-1 text-xs leading-relaxed text-rose-700">{erro}</p>
+                  <button
+                    onClick={refresh}
+                    className="mt-3 text-xs font-semibold text-rose-700 underline"
+                  >
+                    Tentar de novo
+                  </button>
+                </div>
               ) : (
                 insights.map((ins, i) => {
                   const cfg = iconMap[ins.type];

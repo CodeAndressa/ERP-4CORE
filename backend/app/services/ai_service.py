@@ -84,10 +84,26 @@ class AIService:
             for proposal in proposals
             if proposal.status not in {"aprovada", "perdida"}
         ][:10]
+        em_aberto = [p for p in proposals if p.status not in {"aprovada", "perdida"}]
+        aprovadas = [p for p in proposals if p.status == "aprovada"]
+        perdidas = [p for p in proposals if p.status == "perdida"]
+
+        def soma(itens: list[Proposal]) -> float:
+            return round(sum(item.value_total or 0 for item in itens), 2)
+
+        # Tres totais, cada um com o recorte no proprio nome. Antes havia um so,
+        # `proposals_value_total`, que somava aprovada e perdida junto e vinha
+        # colado em `open_proposals_sample`: a analise saiu dizendo "valor
+        # pendente de 933,3 mil" somando o que ja tinha fechado e o que ja tinha
+        # sido perdido. Numero real com recorte errado e pior que numero
+        # inventado, porque parece conferivel.
         return {
             "proposals_total": len(proposals),
             "proposals_by_status": by_status,
-            "proposals_value_total": round(sum(proposal.value_total or 0 for proposal in proposals), 2),
+            "proposals_open_count": len(em_aberto),
+            "proposals_open_value": soma(em_aberto),
+            "proposals_won_value": soma(aprovadas),
+            "proposals_lost_value": soma(perdidas),
             "open_proposals_sample": open_proposals,
         }
 
@@ -179,9 +195,9 @@ class AIService:
             raise AIUnavailable("Configure GROQ_API_KEY no backend.")
         context = await self._context(scope, db)
         if include_actions:
-            system = """Você é a consultora estratégica interna da 4Core. Gere recomendações objetivas em português do Brasil, baseadas apenas nos dados reais fornecidos em "connected_data" para a área "scope" selecionada. Não invente métricas, clientes ou resultados que não estejam no contexto. Quando o contexto vier com "error" ou vazio, declare isso e proponha o próximo dado necessário, em vez de generalizar. Responda APENAS JSON válido neste formato: {"headline": string, "summary": string, "actions": [{"area": string, "priority": "alta|media|baixa", "title": string, "rationale": string, "recommended_action": string}]}. Retorne no máximo 5 actions."""
+            system = """Você é a consultora estratégica interna da 4Core. Gere recomendações objetivas em português do Brasil, baseadas apenas nos dados reais fornecidos em "connected_data" para a área "scope" selecionada. Não invente métricas, clientes ou resultados que não estejam no contexto. Quando o contexto vier com "error" ou vazio, declare isso e proponha o próximo dado necessário, em vez de generalizar. Responda APENAS JSON válido neste formato: {"headline": string, "summary": string, "actions": [{"area": string, "priority": "alta|media|baixa", "title": string, "rationale": string, "recommended_action": string}]}. REGRA SOBRE NUMEROS, acima de qualquer outra: todo numero que voce escrever precisa aparecer literalmente em connected_data, e voce deve citar de qual campo ele veio. E proibido somar, subtrair, arredondar, projetar ou converter qualquer valor: se o total que voce quer citar nao existe pronto no contexto, escreva a frase sem numero. Nomes de campo dizem o recorte (proposals_open_value e so o que esta em aberto; proposals_won_value e so o fechado), e trocar um pelo outro e erro grave. Nunca chame de pendente, previsto ou esperado um valor cujo campo nao diga isso. Retorne no máximo 5 actions."""
         else:
-            system = """Você é a consultora estratégica interna da 4Core. Responda de forma direta e objetiva, em português do Brasil, baseada apenas nos dados reais fornecidos em "connected_data" para a área "scope" selecionada. Não invente métricas, clientes ou resultados que não estejam no contexto. Quando o contexto vier com "error" ou vazio, declare isso objetivamente. Sem listas de ações recomendadas, sugestões de orçamento ou ideias de conteúdo — só a resposta direta à pergunta. Responda APENAS JSON válido neste formato: {"headline": string, "summary": string}. headline é um título curto (até 8 palavras); summary é a resposta objetiva, em 1 a 3 frases."""
+            system = """Você é a consultora estratégica interna da 4Core. Responda de forma direta e objetiva, em português do Brasil, baseada apenas nos dados reais fornecidos em "connected_data" para a área "scope" selecionada. Não invente métricas, clientes ou resultados que não estejam no contexto. Quando o contexto vier com "error" ou vazio, declare isso objetivamente. Sem listas de ações recomendadas, sugestões de orçamento ou ideias de conteúdo — só a resposta direta à pergunta. Responda APENAS JSON válido neste formato: {"headline": string, "summary": string}. headline é um título curto (até 8 palavras); REGRA SOBRE NUMEROS, acima de qualquer outra: todo numero que voce escrever precisa aparecer literalmente em connected_data, e voce deve citar de qual campo ele veio. E proibido somar, subtrair, arredondar, projetar ou converter qualquer valor: se o total que voce quer citar nao existe pronto no contexto, escreva a frase sem numero. Nomes de campo dizem o recorte (proposals_open_value e so o que esta em aberto; proposals_won_value e so o fechado), e trocar um pelo outro e erro grave. Nunca chame de pendente, previsto ou esperado um valor cujo campo nao diga isso. summary é a resposta objetiva, em 1 a 3 frases."""
         user = json.dumps({"scope": scope, "instructions": instructions or "Faça uma análise acionável do contexto disponível.", "connected_data": context}, ensure_ascii=False)
         payload = {"model": groq_model_id(), "temperature": 0.35, "response_format": {"type": "json_object"}, "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}]}
         headers = {"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"}

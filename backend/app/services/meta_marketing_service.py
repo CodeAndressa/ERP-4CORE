@@ -324,25 +324,77 @@ class MetaMarketingService:
             raise HTTPException(r.status_code, r.text)
         return r.json()
 
-    async def instagram_media(self) -> list[dict[str, Any]]:
+    async def instagram_media(self, limit: int = 30) -> list[dict[str, Any]]:
+        """As publicacoes mais recentes, paginando ate atingir `limit`.
+
+        A versao anterior pedia uma pagina de 30 e parava ali. Isso bastava para
+        a vitrine de posts, mas falseava a esteira: com mais de 30 publicacoes em
+        30 dias, "posts por semana" virava piso em vez de medida, e a comparacao
+        com os concorrentes saia errada para baixo."""
         ig_id = await self.get_instagram_account_id()
         _, token = await self._page_token_async(None, None)
-        async with httpx.AsyncClient(timeout=20) as client:
+        fields = (
+            "id,caption,media_type,media_product_type,"
+            "media_url,thumbnail_url,permalink,timestamp,"
+            "like_count,comments_count"
+        )
+        collected: list[dict[str, Any]] = []
+        url = f"{self.base_url}/{ig_id}/media"
+        params: dict[str, Any] = {"access_token": token, "fields": fields, "limit": min(limit, 100)}
+
+        async with httpx.AsyncClient(timeout=30) as client:
+            # Teto de paginas para um perfil com milhares de posts nao virar uma
+            # sequencia longa de chamadas a cada abertura da tela.
+            for _ in range(6):
+                r = await client.get(url, params=params)
+                if r.status_code >= 400:
+                    raise HTTPException(r.status_code, r.text)
+                payload = r.json()
+                collected.extend(payload.get("data", []))
+                nxt = (payload.get("paging") or {}).get("next")
+                if not nxt or len(collected) >= limit:
+                    break
+                # O link de proxima pagina ja traz token e cursor embutidos.
+                url, params = nxt, {}
+        return collected[:limit]
+
+    async def business_discovery(self, username: str, media_limit: int = 24) -> dict[str, Any]:
+        """Dados públicos de outro perfil Instagram Business/Creator, pela Business
+        Discovery do Graph. É a via oficial e sem custo extra de olhar concorrente:
+        usa o mesmo token da conta já conectada e não depende de raspagem.
+
+        Não funciona para perfil pessoal nem para conta privada, e devolve só o que
+        é público — seguidores, publicações e o engajamento visível de cada post.
+        Nada de alcance ou impressões: insight de terceiro a Meta não entrega."""
+        handle = username.strip().lstrip("@")
+        if not handle:
+            raise HTTPException(422, "Informe o @ do perfil a ser analisado.")
+        ig_id = await self.get_instagram_account_id()
+        _, token = await self._page_token_async(None, None)
+        media_fields = (
+            "id,caption,media_type,media_product_type,permalink,timestamp,"
+            "like_count,comments_count"
+        )
+        fields = (
+            f"business_discovery.username({handle})"
+            "{id,username,name,biography,website,followers_count,follows_count,"
+            f"media_count,profile_picture_url,media.limit({media_limit}){{{media_fields}}}}}"
+        )
+        async with httpx.AsyncClient(timeout=30) as client:
             r = await client.get(
-                f"{self.base_url}/{ig_id}/media",
-                params={
-                    "access_token": token,
-                    "fields": (
-                        "id,caption,media_type,media_product_type,"
-                        "media_url,thumbnail_url,permalink,timestamp,"
-                        "like_count,comments_count"
-                    ),
-                    "limit": 30,
-                },
+                f"{self.base_url}/{ig_id}",
+                params={"access_token": token, "fields": fields},
             )
         if r.status_code >= 400:
-            raise HTTPException(r.status_code, r.text)
-        return r.json().get("data", [])
+            raise HTTPException(r.status_code, _business_discovery_error(r, handle))
+        discovery = r.json().get("business_discovery")
+        if not discovery:
+            raise HTTPException(
+                404,
+                f"O Instagram nao devolveu dados de @{handle}. Confirme se a conta existe "
+                "e se e do tipo Comercial ou Criador de conteudo.",
+            )
+        return discovery
 
     async def publish_instagram_image(self, image_url: str, caption: str) -> dict[str, str]:
         """Publica uma imagem aprovada. O agendamento permanece sob controle do ERP."""
@@ -563,6 +615,48 @@ class MetaMarketingService:
 
         conversations = body.get("data", [])
         return {"available": True, "total": len(conversations), "conversations": conversations}
+
+
+def _business_discovery_error(response: httpx.Response, handle: str) -> str:
+    """A Meta responde com a mesma mensagem genérica para casos bem diferentes.
+    Sem traduzir aqui, a tela mostraria 'Invalid parameter' e ninguém saberia que
+    o problema é a conta do concorrente ser pessoal em vez de comercial."""
+    message = ""
+    user_message = ""
+    subcode = 0
+    try:
+        error = response.json().get("error", {}) or {}
+        message = str(error.get("message", ""))
+        user_message = str(error.get("error_user_msg", ""))
+        subcode = int(error.get("error_subcode") or 0)
+    except (AttributeError, TypeError, ValueError):
+        pass
+    lowered = message.lower()
+    # O @ que nao existe chega como "Invalid user id", subcode 2207013 e
+    # is_transient false. Precisa casar aqui: nenhum dos padroes antigos pega essa
+    # frase, e o fallback mandava "tente novamente em instantes" — o conselho errado,
+    # porque insistir num @ inexistente nunca resolve. Confirmado contra a Meta em
+    # 16/11/2026, conferindo 31 handles do setor de ponto.
+    if (
+        subcode == 2207013
+        or "invalid user id" in lowered
+        or "does not exist" in lowered
+        or "cannot be loaded" in lowered
+        or "invalid parameter" in lowered
+    ):
+        return (
+            f"Nao foi possivel ler @{handle}. A Business Discovery so enxerga perfil "
+            "Comercial ou Criador de conteudo, publico e existente. Confira o @ no "
+            "proprio Instagram, porque tentar de novo nao resolve."
+        )
+    if "permission" in lowered or "oauth" in lowered:
+        return "A conexao com a Meta perdeu a permissao de leitura. Reconecte em Marketing > Conexoes."
+    if response.status_code == 429 or "limit" in lowered:
+        return "O limite de chamadas da Meta foi atingido. Tente de novo mais tarde."
+    # Quando a Meta manda texto pronto para o usuario, ele diz mais que o generico.
+    if user_message:
+        return user_message
+    return f"Nao foi possivel ler @{handle} agora. Tente novamente em instantes."
 
 
 def mask_token(token: str) -> str:

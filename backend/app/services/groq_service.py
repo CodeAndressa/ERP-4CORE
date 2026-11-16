@@ -43,5 +43,14 @@ def groq_error_detail(response: httpx.Response, action: str) -> str:
             f"Atualize GROQ_MODEL para {DEFAULT_GROQ_MODEL}."
         )
     if response.status_code == 429:
-        return "O limite temporário da IA foi atingido. Aguarde um instante e tente novamente."
+        # O plano gratuito do Groq limita tokens por minuto, e nao so requisicoes.
+        # Dizer so "aguarde" mandava a pessoa repetir o que ia falhar de novo.
+        espera = response.headers.get("retry-after") or response.headers.get("x-ratelimit-reset-tokens")
+        quando = f" Libera em {espera}." if espera else ""
+        return (
+            "O limite de uso por minuto da IA foi atingido."
+            + quando
+            + " No plano gratuito do Groq o teto e de tokens por minuto, entao rodadas"
+            + " seguidas ou com muitos concorrentes batem nele."
+        )
     return f"Não foi possível {action} com a IA agora. Tente novamente em instantes."

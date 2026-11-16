@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database.session import get_db
 from app.models.settings import CompanySettings
+from app.services.env_status_service import env_status
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 logger = logging.getLogger(__name__)
@@ -58,3 +59,13 @@ def update_company_settings(payload: CompanySettingsIn, db: Session = Depends(ge
         db.rollback()
         logger.exception("Failed to save company settings")
         raise HTTPException(status_code=503, detail="Nao foi possivel salvar os dados da empresa.") from exc
+
+
+@router.get("/env-status")
+def get_env_status():
+    """O que esta configurado neste backend e o que quebra sem cada coisa.
+
+    Nunca devolve o valor de variavel nenhuma, so se ela tem conteudo: a tela e de
+    diagnostico, e devolver o valor viraria vazamento de credencial para qualquer
+    pessoa com login no ERP."""
+    return env_status()

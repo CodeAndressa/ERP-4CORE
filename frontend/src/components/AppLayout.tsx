@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Search, Bell, Sparkles, LogOut, Command, BarChart3, BookOpen, Brain, Building2, Calendar, CalendarDays, ChevronDown, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageCircle, MessageSquare, MoreHorizontal, Radar, ScrollText, Settings2, Target, Users, WalletCards } from 'lucide-react';
+import { Search, Bell, Sparkles, LogOut, Command, BarChart3, Bot, BookOpen, Brain, Building2, Calendar, CalendarDays, ChevronDown, DollarSign, FileText, FolderOpen, Gauge, Kanban, LayoutDashboard, Lightbulb, Megaphone, MessageCircle, MessageSquare, MoreHorizontal, Radar, ScrollText, Settings2, Target, Users, WalletCards } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import MainMenu from './MainMenu';
 import { NotificationsMenu } from './NotificationsMenu';
@@ -74,6 +74,7 @@ const HEADER_TABS: { match: string[]; tabs: HeaderTab[]; overflow?: HeaderTab[] 
     ],
     overflow: [
       { label: 'Estúdio', path: '/marketing/estudio', icon: <Sparkles size={14} /> },
+      { label: 'Esteira', path: '/marketing/agente', icon: <Bot size={14} /> },
       { label: 'Ideias', path: '/marketing/ideias', icon: <Lightbulb size={14} /> },
       { label: 'Campanhas', path: '/marketing/campanhas', icon: <Target size={14} /> },
       { label: 'Planejamento', path: '/marketing/planejamento', icon: <Megaphone size={14} /> },
@@ -322,6 +323,8 @@ const COMMANDS = [
   { group: 'Financeiro', label: 'Custos', path: '/financeiro/custos', keys: 'custos fixos recorrentes despesas mensalidades contas pagar' },
   { group: 'Marketing', label: t.calendario, path: '/marketing/calendario', keys: 'calendario editorial posts' },
   { group: 'Marketing', label: 'Estúdio de conteúdo', path: '/marketing/estudio', keys: 'criar arte aprovar agendar instagram' },
+  { group: 'Sistema', label: 'Ambiente', path: '/ambiente', keys: 'ambiente env variavel chave integracao configuracao' },
+  { group: 'Marketing', label: 'Esteira de conteúdo', path: '/marketing/agente', keys: 'agente ia esteira concorrentes benchmark pauta copy custo instagram' },
   { group: 'Marketing', label: 'Mensagens', path: '/marketing/mensagens', keys: 'mensagens dm direct instagram responder' },
   { group: 'Marketing', label: 'Campanhas', path: '/marketing/campanhas', keys: 'campanhas marketing' },
   { group: 'Marketing', label: t.metricas, path: '/marketing/metricas', keys: 'performance metricas analytics' },
@@ -409,6 +412,8 @@ function pageTitle(pathname: string): string {
     '/financeiro/custos-recorrentes': 'Custos',
     '/marketing/calendario': t.calendario,
     '/marketing/estudio': 'Estúdio de conteúdo',
+    '/marketing/agente': 'Esteira de conteúdo',
+    '/ambiente': 'Ambiente',
     '/marketing/mensagens': 'Mensagens',
     '/marketing/campanhas': 'Campanhas',
     '/marketing/metricas': t.metricas,

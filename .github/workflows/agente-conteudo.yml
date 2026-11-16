@@ -1,0 +1,26 @@
+name: Agente de conteudo le os concorrentes e sugere pautas
+
+# Segunda de manha, antes da semana comecar a andar: a leitura chega a tempo de
+# virar pauta da semana, e nao depois que o calendario ja fechou.
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: agente-conteudo
+  cancel-in-progress: false
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rodar o agente de conteudo
+        env:
+          MARKETING_CRON_SECRET: ${{ secrets.MARKETING_CRON_SECRET }}
+        run: |
+          test -n "$MARKETING_CRON_SECRET"
+          curl --fail-with-body --silent --show-error --retry 1 --max-time 600 \
+            --request POST \
+            --header "Authorization: Bearer $MARKETING_CRON_SECRET" \
+            https://4core-backend.vercel.app/marketing/agent/run-cron

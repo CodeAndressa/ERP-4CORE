@@ -69,23 +69,26 @@ export function MetricCard({ label, value, detail, trend, tone = 'violet', icon,
   const trendColor = trend == null ? 'text-slate-500' : trend > 0 ? 'text-emerald-700' : 'text-rose-700';
 
   return (
-    <div className={`rounded-2xl border bg-white px-4 py-3.5 transition-colors sm:px-5 sm:py-4 ${t.bg}`} style={{ borderColor: expanded ? 'var(--erp-border-strong)' : 'var(--erp-border)' }}>
+    // `data-tone` deixa o CSS saber quando o cartao esta no tom neutro. So nesse
+    // caso ele herda a cor da secao em Marketing: tom semantico (verde de bom,
+    // vermelho de ruim) continua dizendo o que diz em qualquer tela.
+    <div className={`metric-card rounded-2xl border bg-white px-4 py-3.5 transition-colors sm:px-5 sm:py-4 ${t.bg}`} data-tone={tone} style={{ borderColor: expanded ? 'var(--erp-border-strong)' : 'var(--erp-border)' }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: 'var(--erp-text-muted)' }}>{label}</p>
+            <p className="truncate text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: 'var(--erp-text-muted)' }}>{label}</p>
             {tooltip && <Tooltip text={tooltip} />}
           </div>
           <p className="mt-1 text-xl font-bold tracking-tight sm:mt-1.5 sm:text-2xl" style={{ color: 'var(--erp-text)', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
           {detail && <div className="mt-1 text-xs" style={{ color: 'var(--erp-text-muted)' }}>{detail}</div>}
         </div>
-        {icon && <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 ${t.icon}`}>{icon}</div>}
+        {icon && <div className={`metric-card__icon flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full sm:h-10 sm:w-10 ${t.icon}`}>{icon}</div>}
       </div>
       <div className="mt-2 flex items-end justify-between gap-2">
         <div className="flex items-center gap-2">
           {trend != null && <div className={`flex items-center gap-1 text-xs font-medium ${trendColor}`}><TrendIcon size={12} /><span>{trend > 0 ? '+' : ''}{trend.toFixed(1)}%</span></div>}
           {expandable && (
-            <button type="button" onClick={onExpand} className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors" style={{ background: expanded ? 'var(--erp-violet-soft)' : 'var(--erp-surface)', color: expanded ? 'var(--erp-violet)' : 'var(--erp-text-muted)', borderColor: 'var(--erp-border)' }}>
+            <button type="button" onClick={onExpand} className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors" style={{ background: expanded ? 'var(--erp-violet-soft)' : 'var(--erp-surface)', color: expanded ? 'var(--erp-violet)' : 'var(--erp-text-muted)', borderColor: 'var(--erp-border)' }}>
               {expanded ? 'Ocultar' : 'Ver detalhes'}
               <ChevronDown size={11} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
             </button>

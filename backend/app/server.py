@@ -13,15 +13,20 @@ from app.models.commercial import Lead, Proposal
 from app.models.contracts import Contract, Order
 from app.models.settings import CompanySettings
 from app.models.marketing import (
+    CompetitorPost,
+    CompetitorSnapshot,
     ExternalScheduledPost,
     InstagramMessage,
+    MarketingAgentRun,
+    MarketingAgentStep,
     MarketingArtFeedback,
     MarketingArtLesson,
+    MarketingCompetitor,
     MarketingContent,
 )
 from app.models.financial import DunningLog, TopdataAccessControl
 from app.models.prospecting import Prospect, ProspectingActivity, ProspectingCampaign, ProspectingSuppression
-from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, prospecting, settings as settings_routes
+from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_agent, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, prospecting, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
 from app.services.marketing_content_service import cloudflare_image_models
 
@@ -93,6 +98,14 @@ async def require_authentication(request: Request, call_next):
         and bool(marketing_cron_secret)
         and secrets.compare_digest(cron_authorization, f'Bearer {marketing_cron_secret}')
     ) or (
+        request.url.path == '/marketing/meta/instagram-login/refresh-cron'
+        and bool(marketing_cron_secret)
+        and secrets.compare_digest(cron_authorization, f'Bearer {marketing_cron_secret}')
+    ) or (
+        request.url.path == '/marketing/agent/run-cron'
+        and bool(marketing_cron_secret)
+        and secrets.compare_digest(cron_authorization, f'Bearer {marketing_cron_secret}')
+    ) or (
         request.url.path == '/financial/collections/run'
         and bool(settings.collections_cron_secret)
         and secrets.compare_digest(cron_authorization, f'Bearer {settings.collections_cron_secret}')
@@ -150,7 +163,7 @@ def on_startup():
         db.close()
 
 
-for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, marketing_content.router, marketing_insights.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, prospecting.router, settings_routes.router]:
+for router in [auth.router, dashboard.router, financial.router, leads.router, clients.router, proposals.router, marketing.router, marketing_agent.router, marketing_content.router, marketing_insights.router, knowledge.router, ai.router, site_analytics.router, integrations.router, contracts.router, prospecting.router, settings_routes.router]:
     app.include_router(router)
 
 

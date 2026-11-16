@@ -36,29 +36,99 @@ async def credentials() -> tuple[str, str]:
     return token, user_id
 
 
+# Token do Instagram Login dura cerca de 60 dias e so pode ser renovado depois de
+# 24 horas de vida. Renovar com folga de 15 dias da varias chances de recuperacao
+# antes de morrer: se uma rodada semanal falhar, ainda sobram duas.
+REFRESH_WHEN_DAYS_LEFT = 15
+
+
+def _days_left(expires_at: str) -> int | None:
+    if not expires_at:
+        return None
+    try:
+        moment = datetime.fromisoformat(expires_at)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return (moment - datetime.now(timezone.utc)).days
+
+
 async def is_configured() -> bool:
     token, user_id = await credentials()
     return bool(token and user_id)
 
 
 async def status() -> dict[str, Any]:
+    """Estado da conexao de mensagens.
+
+    `configured` diz que existe token guardado; `healthy` diz que ele ainda vale.
+    Os dois existem separados porque a tela mostrava "Conectado" com o token
+    vencido ha uma semana, so porque o campo nao estava vazio."""
     token, user_id = await credentials()
     username = await _stored("username")
     expires_at = await _stored("expires_at")
+    days = _days_left(expires_at)
+    expired = days is not None and days < 0
     return {
         "configured": bool(token and user_id),
         "user_id": user_id,
         "username": username,
         "token": f"{token[:6]}...{token[-4:]}" if len(token) > 12 else ("***" if token else ""),
         "expires_at": expires_at or None,
+        "days_left": days,
+        "expired": expired,
+        "expiring_soon": bool(days is not None and 0 <= days <= REFRESH_WHEN_DAYS_LEFT),
+        "healthy": bool(token and user_id and not expired),
     }
+
+
+def dm_error_detail(response: httpx.Response, acao: str) -> str:
+    """Transforma a resposta da Graph em uma frase que diz o que fazer.
+
+    A versao anterior mandava `r.text[:220]` para a tela, e a pessoa via o JSON da
+    Meta inteiro, com "OAuthException" e data em PST. O caso mais comum, de longe,
+    e o token de 60 dias que venceu sem ninguem perceber.
+    """
+    codigo = 0
+    mensagem = ""
+    try:
+        erro = response.json().get("error", {}) or {}
+        codigo = int(erro.get("code") or 0)
+        mensagem = str(erro.get("message") or "")
+    except (AttributeError, TypeError, ValueError):
+        pass
+    baixo = mensagem.lower()
+
+    if codigo == 190 or "access token" in baixo or "session has expired" in baixo:
+        quando = ""
+        marcador = "expired on "
+        if marcador in baixo:
+            trecho = mensagem[baixo.index(marcador) + len(marcador):].split(".")[0].strip()
+            # So a data interessa; o fuso PST da Meta nao diz nada para quem le.
+            if trecho:
+                quando = f" Ele venceu em {trecho.split(' PST')[0].strip()}."
+        return (
+            "O token das mensagens do Instagram expirou." + quando +
+            " A Meta nao renova token vencido: reconecte em Marketing > Conexoes."
+        )
+    if codigo in {4, 17, 32, 613} or "rate limit" in baixo or "too many calls" in baixo:
+        return "A Meta limitou as chamadas por enquanto. Tente de novo em alguns minutos."
+    if codigo in {10, 200, 803} or "permission" in baixo:
+        return (
+            "A conexao com a Meta perdeu a permissao de mensagens. "
+            "Reconecte em Marketing > Conexoes."
+        )
+    if mensagem:
+        return f"A Meta recusou {acao}: {mensagem[:160]}"
+    return f"Nao foi possivel {acao} agora."
 
 
 async def _resolve_profile(token: str) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=20) as client:
         r = await client.get(f"{BASE_URL}/me", params={"fields": "user_id,username", "access_token": token})
     if r.status_code >= 400:
-        raise HTTPException(502, f"Não foi possível validar o token com a Meta: {r.text[:220]}")
+        raise HTTPException(502, dm_error_detail(r, "validar o token"))
     return r.json()
 
 
@@ -75,7 +145,7 @@ async def _exchange_long_lived(short_token: str) -> dict[str, Any]:
             },
         )
     if r.status_code >= 400:
-        raise HTTPException(502, f"Falha ao gerar token de longa duração: {r.text[:220]}")
+        raise HTTPException(502, dm_error_detail(r, "gerar o token de longa duração"))
     return r.json()
 
 
@@ -130,7 +200,7 @@ async def refresh() -> dict[str, Any]:
             params={"grant_type": "ig_refresh_token", "access_token": token},
         )
     if r.status_code >= 400:
-        raise HTTPException(502, f"Falha ao renovar o token: {r.text[:220]}")
+        raise HTTPException(502, dm_error_detail(r, "renovar o token"))
     body = r.json()
     new_token = body.get("access_token", token)
     expires_in = body.get("expires_in")
@@ -156,7 +226,7 @@ async def list_conversations() -> list[dict[str, Any]]:
             },
         )
     if r.status_code >= 400:
-        raise HTTPException(502, f"Falha ao listar conversas: {r.text[:220]}")
+        raise HTTPException(502, dm_error_detail(r, "listar as conversas"))
 
     conversations = []
     for item in r.json().get("data", []):
@@ -187,7 +257,7 @@ async def conversation_messages(conversation_id: str) -> list[dict[str, Any]]:
             params={"fields": "messages.limit(50){id,message,from,created_time}", "access_token": token},
         )
     if r.status_code >= 400:
-        raise HTTPException(502, f"Falha ao abrir a conversa: {r.text[:220]}")
+        raise HTTPException(502, dm_error_detail(r, "abrir a conversa"))
     messages = (r.json().get("messages") or {}).get("data", [])
     return [
         {
@@ -214,7 +284,7 @@ async def send_message(recipient_id: str, text: str) -> dict[str, Any]:
             },
         )
     if r.status_code >= 400:
-        raise HTTPException(502, f"Falha ao enviar a resposta: {r.text[:220]}")
+        raise HTTPException(502, dm_error_detail(r, "enviar a resposta"))
     return r.json()
 
 
@@ -223,3 +293,36 @@ def verify_webhook_signature(app_secret: str, body: bytes, signature_header: str
         return False
     expected = hmac.new(app_secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature_header.removeprefix("sha256="))
+async def refresh_if_needed(force: bool = False) -> dict[str, Any]:
+    """Renova o token quando ele esta perto de vencer. E o que a rotina semanal chama.
+
+    Token expirado nao volta: a Meta recusa o refresh de um token morto, e so a
+    reconexao manual resolve. Por isso a rotina avisa em vez de tentar em silencio,
+    e por isso a folga de 15 dias existe."""
+    token, _ = await credentials()
+    if not token:
+        return {"action": "skipped", "reason": "Nenhum token de mensagens conectado.", "healthy": False}
+
+    expires_at = await _stored("expires_at")
+    days = _days_left(expires_at)
+
+    if days is not None and days < 0:
+        return {
+            "action": "expired",
+            "reason": (
+                f"O token venceu ha {abs(days)} dias. A Meta nao renova token expirado: "
+                "e preciso reconectar em Marketing > Conexoes."
+            ),
+            "healthy": False,
+            "days_left": days,
+        }
+
+    if not force and days is not None and days > REFRESH_WHEN_DAYS_LEFT:
+        return {"action": "not_needed", "days_left": days, "healthy": True}
+
+    try:
+        result = await refresh()
+    except HTTPException as exc:
+        return {"action": "failed", "reason": str(exc.detail), "healthy": False, "days_left": days}
+    return {"action": "refreshed", "healthy": True, "days_left": _days_left(result.get("expires_at") or ""), "status": result}
+

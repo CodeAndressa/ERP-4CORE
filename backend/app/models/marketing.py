@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Index, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Text
 from sqlalchemy.sql import func
 
 from app.database.session import Base
@@ -114,3 +114,110 @@ class ExternalScheduledPost(Base):
     scheduled_at = Column(DateTime(timezone=True), nullable=False, index=True)
     notes = Column(Text, nullable=False, default="")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class MarketingCompetitor(Base):
+    """Perfil de Instagram que o agente observa. Só entra aqui conta Business ou
+    Creator: a Business Discovery da Meta não enxerga perfil pessoal, e é ela que
+    alimenta esta tabela sem custo e sem raspagem."""
+
+    __tablename__ = "marketing_competitors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(120), nullable=False, unique=True, index=True)
+    display_name = Column(String(180), nullable=False, default="")
+    notes = Column(Text, nullable=False, default="")
+    active = Column(Boolean, nullable=False, default=True)
+    followers_count = Column(Integer, nullable=False, default=0)
+    follows_count = Column(Integer, nullable=False, default=0)
+    media_count = Column(Integer, nullable=False, default=0)
+    biography = Column(Text, nullable=False, default="")
+    profile_picture_url = Column(String(600), nullable=False, default="")
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class CompetitorPost(Base):
+    """Post público de um concorrente. media_id é único porque a sincronização roda
+    de novo sobre as mesmas publicações — o que muda entre uma rodada e outra são as
+    curtidas e os comentários, então a linha é atualizada, não duplicada."""
+
+    __tablename__ = "marketing_competitor_posts"
+    __table_args__ = (Index("ix_competitor_posts_media_unique", "media_id", unique=True),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    competitor_id = Column(Integer, nullable=False, index=True)
+    media_id = Column(String(120), nullable=False, default="")
+    media_type = Column(String(30), nullable=False, default="")
+    media_product_type = Column(String(30), nullable=False, default="")
+    caption = Column(Text, nullable=False, default="")
+    permalink = Column(String(600), nullable=False, default="")
+    like_count = Column(Integer, nullable=False, default=0)
+    comments_count = Column(Integer, nullable=False, default=0)
+    posted_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    synced_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class CompetitorSnapshot(Base):
+    """Uma foto de seguidores/publicações por sincronização. A Business Discovery só
+    devolve o número de hoje; o crescimento ao longo do tempo só existe se a gente
+    guardar a série aqui."""
+
+    __tablename__ = "marketing_competitor_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    competitor_id = Column(Integer, nullable=False, index=True)
+    followers_count = Column(Integer, nullable=False, default=0)
+    media_count = Column(Integer, nullable=False, default=0)
+    captured_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+
+class MarketingAgentRun(Base):
+    """Uma rodada do agente: o que ele observou, o que concluiu e o que criou.
+    O payload fica em JSON porque o diagnóstico muda de forma conforme o prompt
+    evolui — normalizar isso em colunas obrigaria migração a cada ajuste de texto."""
+
+    __tablename__ = "marketing_agent_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    status = Column(String(20), nullable=False, default="running", index=True)
+    trigger = Column(String(20), nullable=False, default="manual")
+    benchmark_json = Column(Text, nullable=False, default="")
+    diagnosis_json = Column(Text, nullable=False, default="")
+    created_content_ids = Column(String(300), nullable=False, default="")
+    error_message = Column(Text, nullable=False, default="")
+    started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class MarketingAgentStep(Base):
+    """Um passo da esteira: qual agente rodou, quanto demorou e quanto custou.
+
+    É uma linha por agente por rodada, e não um JSON dentro de MarketingAgentRun,
+    porque o painel de custos precisa somar por agente e por período. Guardar isso
+    como texto obrigaria a reprocessar o histórico inteiro a cada consulta."""
+
+    __tablename__ = "marketing_agent_steps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(Integer, nullable=False, index=True)
+    # A peça que este passo produziu, quando ele produz uma. Os passos de analise
+    # valem para a rodada inteira e ficam sem conteudo associado.
+    content_id = Column(Integer, nullable=True, index=True)
+    agent = Column(String(40), nullable=False, index=True)
+    sequence = Column(Integer, nullable=False, default=0)
+    status = Column(String(20), nullable=False, default="running")
+    provider = Column(String(30), nullable=False, default="")
+    model = Column(String(120), nullable=False, default="")
+    input_tokens = Column(Integer, nullable=False, default=0)
+    output_tokens = Column(Integer, nullable=False, default=0)
+    images = Column(Integer, nullable=False, default=0)
+    cost_usd = Column(Float, nullable=False, default=0.0)
+    # Falso quando o custo saiu da tabela de precos em vez de vir do provedor.
+    cost_measured = Column(Boolean, nullable=False, default=False)
+    duration_ms = Column(Integer, nullable=False, default=0)
+    summary = Column(Text, nullable=False, default="")
+    error_message = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)

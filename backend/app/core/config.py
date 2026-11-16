@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     openai_image_model: str = "gpt-image-2"
     cloudflare_account_id: str = ""
     cloudflare_api_token: str = ""
+    # OpenRouter: uma chave para texto e imagem, e cada resposta vem com o custo
+    # real da chamada. É o que permite o painel de custos mostrar gasto medido em
+    # vez de estimado. Quando a chave existe, ela é a rota preferida de imagem.
+    openrouter_api_key: str = ""
+    openrouter_image_model: str = "black-forest-labs/flux.2-klein-4b"
+    openrouter_text_model: str = ""
+    openrouter_vision_model: str = ""
+    openrouter_site_url: str = "https://app.4core.site"
     cloudflare_image_model: str = "@cf/black-forest-labs/flux-2-klein-4b"
     cloudflare_image_fallback_model: str = "@cf/black-forest-labs/flux-1-schnell"
     marketing_cron_secret: str = ""

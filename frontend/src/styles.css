@@ -455,3 +455,87 @@ table,
     opacity: 0.45;
   }
 }
+
+/* ─── A tela de entrada ──────────────────────────────────────────────────────
+   Fica fora do @layer components de proposito: estas tres classes servem uma
+   tela so, que e a unica do sistema com fundo escuro. Promove-las a utilitario
+   do design system convidaria a usa-las sobre o fundo claro, onde o contraste
+   nao fecha. */
+
+/* O feixe de luz. Um retangulo alto e estreito, girado e borrado: o recorte em
+   trapezio (clip-path) e o que faz a luz abrir para baixo em vez de descer como
+   uma coluna. */
+.login-beam {
+  position: absolute;
+  left: 50%;
+  top: -22%;
+  height: 135%;
+  transform-origin: 50% 0;
+  clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%);
+  filter: blur(26px);
+  will-change: transform;
+}
+
+.login-beam--wide {
+  width: 125%;
+  margin-left: -62.5%;
+  transform: rotate(-9deg);
+  animation: beam-sway 19s ease-in-out infinite alternate;
+}
+
+.login-beam--tight {
+  width: 46%;
+  margin-left: -23%;
+  transform: rotate(4deg);
+  filter: blur(14px);
+  animation: beam-sway-tight 13s ease-in-out infinite alternate;
+}
+
+@keyframes beam-sway {
+  from { transform: rotate(-11deg) scaleX(0.96); }
+  to   { transform: rotate(-5deg) scaleX(1.04); }
+}
+
+@keyframes beam-sway-tight {
+  from { transform: rotate(2deg); opacity: 0.85; }
+  to   { transform: rotate(7deg); opacity: 1; }
+}
+
+/* O campo do login. Nao reusa .field porque .field e feito para o fundo claro:
+   a superficie dele e --erp-surface-2, que sobre a ameixa escura vira um bloco
+   claro no meio do cartao. */
+.login-field {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(179, 110, 255, 0.22);
+  background: rgba(10, 0, 22, 0.55);
+  padding: 11px 14px;
+  font-size: 0.9375rem;
+  color: #f2e6ff;
+  transition: border-color 150ms, background-color 150ms, box-shadow 150ms;
+}
+
+.login-field::placeholder {
+  color: rgba(226, 219, 246, 0.34);
+}
+
+.login-field:focus {
+  outline: none;
+  border-color: rgba(179, 110, 255, 0.6);
+  background: rgba(16, 0, 31, 0.78);
+  box-shadow: 0 0 0 3px rgba(143, 22, 255, 0.22);
+}
+
+/* Movimento reduzido: o feixe fica parado, no meio do seu proprio percurso. O
+   desenho continua inteiro, porque a animacao so balancava o que ja estava la. */
+@media (prefers-reduced-motion: reduce) {
+  .login-beam--wide {
+    animation: none;
+    transform: rotate(-8deg);
+  }
+
+  .login-beam--tight {
+    animation: none;
+    transform: rotate(4deg);
+  }
+}

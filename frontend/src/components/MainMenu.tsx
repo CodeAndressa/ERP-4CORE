@@ -73,7 +73,7 @@ export default function MainMenu() {
         <img
           src={sidebarCollapsed ? LOGO_MARK_SRC : LOGO_SRC}
           alt="4Core"
-          className={sidebarCollapsed ? 'h-8 w-8 object-contain' : 'h-8 w-auto max-w-[150px] object-contain'}
+          className={sidebarCollapsed ? 'h-9 w-9 object-contain' : 'h-11 w-auto max-w-[180px] object-contain'}
         />
         <button
           onClick={toggleSidebar}

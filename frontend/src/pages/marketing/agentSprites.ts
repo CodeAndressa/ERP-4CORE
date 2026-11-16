@@ -97,6 +97,44 @@ export const AGENT_SPRITES: Record<string, [string[], string[]]> = {
       "......kkkk.kkkk....."
     ]
   ],
+  "diretor_criacao": [
+    [
+      "....................",
+      "........kkkk....kk..",
+      ".......khhhhk..kyyk.",
+      "......khhhhhhk.kywk.",
+      "......khsssshk.kyyk.",
+      "......kssssssk..kk..",
+      ".......kssssk...aa..",
+      "........kkkk...ks...",
+      "......kkbbbbkkbs....",
+      "......kbbbbbbk......",
+      "......kbbbbbbk......",
+      "......kbbbbbbk......",
+      "......kbdddddk......",
+      ".......kdk.kdk......",
+      ".......kdk.kdk......",
+      "......kkkk.kkkk....."
+    ],
+    [
+      "....................",
+      "........kkkk..akwwka",
+      ".......khhhhk..kwwka",
+      "......khhhhhhkakwwk.",
+      "......khsssshk.kwwka",
+      "......kssssssk..kk..",
+      ".......kssssk...aa..",
+      "........kkkk...ks...",
+      "......kkbbbbkkbs....",
+      "......kbbbbbbk......",
+      "......kbbbbbbk......",
+      "......kbbbbbbk......",
+      "......kbdddddk......",
+      ".......kdk.kdk......",
+      ".......kdk.kdk......",
+      "......kkkk.kkkk....."
+    ]
+  ],
   "redator": [
     [
       "....................",

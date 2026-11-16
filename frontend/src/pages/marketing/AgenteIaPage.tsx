@@ -332,7 +332,11 @@ function FlowNode({ agent, steps, index }: { agent: AgentInfo; steps: Step[]; in
   return (
     <li className="flex min-w-0 shrink-0 flex-col items-center gap-1.5" title={detalhe}>
       <div className={`relative grid h-[52px] w-[52px] place-items-center rounded-xl border transition-colors ${node}`}>
-        <AgentSprite agentKey={agent.key} frame={frame} />
+        {AGENT_SPRITES[agent.key] ? (
+          <AgentSprite agentKey={agent.key} frame={frame} />
+        ) : (
+          <span className="text-base font-bold uppercase">{agent.name.slice(0, 1)}</span>
+        )}
         <span
           className={`absolute -right-1.5 -top-1.5 grid h-[18px] w-[18px] place-items-center rounded-full border-2 ${node}`}
           style={{ borderColor: 'var(--erp-surface)' }}

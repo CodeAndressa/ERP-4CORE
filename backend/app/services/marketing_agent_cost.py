@@ -128,3 +128,55 @@ def total(usages: list[Usage]) -> dict[str, Any]:
         "fully_measured": all(item.measured or item.cost_usd == 0 for item in usages),
         "free_tier_only": not any(item.billed for item in usages),
     }
+
+
+# ─── Saldo da conta de imagem ────────────────────────────────────────────────
+
+OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits"
+
+
+async def openrouter_credits() -> dict[str, Any]:
+    """Quanto ainda há de crédito no OpenRouter.
+
+    Devolve `configured: False` em vez de erro quando a chave não está posta: a
+    tela mostra o saldo ao lado dos outros números da esteira, e uma chave
+    ausente não deve derrubar o painel inteiro."""
+    import httpx
+
+    from app.core.config import settings
+
+    key = (settings.openrouter_api_key or "").strip()
+    if not key:
+        return {"configured": False}
+
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            response = await client.get(
+                OPENROUTER_CREDITS_URL,
+                headers={"Authorization": f"Bearer {key}"},
+            )
+    except httpx.HTTPError:
+        return {"configured": True, "error": "Não foi possível falar com o OpenRouter agora."}
+
+    if response.status_code in {401, 403}:
+        return {"configured": True, "error": "O OpenRouter recusou a chave. Confira OPENROUTER_API_KEY."}
+    if response.status_code >= 400:
+        return {"configured": True, "error": "O OpenRouter não respondeu o saldo agora."}
+
+    data = (response.json() or {}).get("data") or {}
+    total = float(data.get("total_credits") or 0.0)
+    usado = float(data.get("total_usage") or 0.0)
+    return {
+        "configured": True,
+        "total_usd": round(total, 4),
+        "used_usd": round(usado, 4),
+        "balance_usd": round(max(total - usado, 0.0), 4),
+    }
+
+
+def image_price_usd(model: str = "") -> float:
+    """O preço de uma arte no modelo em uso, para estimar quantas ainda cabem."""
+    from app.core.config import settings
+
+    alvo = model or settings.openrouter_image_model
+    return IMAGE_PRICES_USD.get(alvo, DEFAULT_IMAGE_PRICE)

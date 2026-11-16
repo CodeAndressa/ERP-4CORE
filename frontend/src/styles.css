@@ -194,3 +194,218 @@ textarea::placeholder {
     min-width: 720px;
   }
 }
+
+/* ─── Cor por seção: Marketing ───────────────────────────────────────────────
+   Cada tela de Marketing tem uma cor de identidade, para saber onde se está sem
+   ler o título. A cor vive em --mkt-*, declarada no wrapper da área, e some fora
+   dele: o resto do ERP continua no índigo executivo.
+
+   A regra que mantém isso honesto: **cor de seção é identidade, cor de status é
+   significado**. Verde continua sendo aprovado, âmbar atenção e vermelho erro em
+   qualquer tela, inclusive na seção cujo acento é verde. Status nunca empresta a
+   cor da seção, senão a cor passa a mentir.
+
+   Os tons são escolhidos escuros o bastante para carregar texto branco: todos
+   batem pelo menos 4.5:1 com #fff, que é o piso de contraste do sistema. */
+
+[data-mkt-section] {
+  /* Padrão: o violeta da marca, para seção sem cor própria declarada. */
+  --mkt-accent: #5b21b6;
+  --mkt-accent-deep: #3b0f6e;
+  --mkt-accent-soft: #f3efff;
+  --mkt-accent-border: rgba(91, 33, 182, 0.22);
+}
+
+[data-mkt-section="mensagens"] {
+  --mkt-accent: #b45309;
+  --mkt-accent-deep: #7c3a06;
+  --mkt-accent-soft: #fff5e8;
+  --mkt-accent-border: rgba(180, 83, 9, 0.22);
+}
+
+[data-mkt-section="metricas"] {
+  --mkt-accent: #0e7490;
+  --mkt-accent-deep: #0a5468;
+  --mkt-accent-soft: #e8f8fc;
+  --mkt-accent-border: rgba(14, 116, 144, 0.22);
+}
+
+[data-mkt-section="calendario"] {
+  --mkt-accent: #1d4ed8;
+  --mkt-accent-deep: #14329a;
+  --mkt-accent-soft: #eaf0ff;
+  --mkt-accent-border: rgba(29, 78, 216, 0.22);
+}
+
+[data-mkt-section="posts"] {
+  --mkt-accent: #a21caf;
+  --mkt-accent-deep: #701a75;
+  --mkt-accent-soft: #fdeafd;
+  --mkt-accent-border: rgba(162, 28, 175, 0.22);
+}
+
+[data-mkt-section="estudio"] {
+  /* O violeta da marca fica com o Estúdio, que é onde a arte é aprovada. */
+  --mkt-accent: #6d28d9;
+  --mkt-accent-deep: #4c1d95;
+  --mkt-accent-soft: #f4effe;
+  --mkt-accent-border: rgba(109, 40, 217, 0.22);
+}
+
+[data-mkt-section="agente"] {
+  --mkt-accent: #0f766e;
+  --mkt-accent-deep: #0a4f4a;
+  --mkt-accent-soft: #e7f8f5;
+  --mkt-accent-border: rgba(15, 118, 110, 0.22);
+}
+
+[data-mkt-section="ideias"] {
+  --mkt-accent: #a16207;
+  --mkt-accent-deep: #713f08;
+  --mkt-accent-soft: #fdf6e3;
+  --mkt-accent-border: rgba(161, 98, 7, 0.22);
+}
+
+[data-mkt-section="campanhas"] {
+  --mkt-accent: #be123c;
+  --mkt-accent-deep: #8a0d2c;
+  --mkt-accent-soft: #ffeaef;
+  --mkt-accent-border: rgba(190, 18, 60, 0.22);
+}
+
+[data-mkt-section="planejamento"] {
+  --mkt-accent: #4338ca;
+  --mkt-accent-deep: #302a9c;
+  --mkt-accent-soft: #eeedfd;
+  --mkt-accent-border: rgba(67, 56, 202, 0.22);
+}
+
+[data-mkt-section="conexoes"] {
+  --mkt-accent: #475569;
+  --mkt-accent-deep: #334155;
+  --mkt-accent-soft: #f1f5f9;
+  --mkt-accent-border: rgba(71, 85, 105, 0.22);
+}
+
+/* Faixa de identidade da seção, no topo de cada tela. */
+.mkt-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 20px 22px;
+  color: #fff;
+  background:
+    radial-gradient(130% 150% at 100% 0%, rgba(255, 255, 255, 0.22) 0%, transparent 55%),
+    linear-gradient(118deg, var(--mkt-accent) 0%, var(--mkt-accent-deep) 100%);
+}
+
+/* O brilho é um detalhe, não um elemento: fica atrás do conteúdo e não recebe
+   clique. */
+.mkt-hero::after {
+  content: "";
+  position: absolute;
+  right: -70px;
+  top: -90px;
+  width: 260px;
+  height: 260px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.10);
+  pointer-events: none;
+}
+
+.mkt-hero > * {
+  position: relative;
+}
+
+/* Cartão de número com a cor da seção na borda superior. */
+.mkt-stat {
+  border-top: 3px solid var(--mkt-accent);
+}
+
+/* Pílula que usa a cor da seção, para rótulo de identidade (nunca para status). */
+.mkt-chip {
+  background: var(--mkt-accent-soft);
+  color: var(--mkt-accent-deep);
+  border: 1px solid var(--mkt-accent-border);
+}
+
+@media (max-width: 640px) {
+  .mkt-hero {
+    border-radius: 16px;
+    padding: 16px;
+  }
+}
+
+/* O cabeçalho de página vira a faixa de identidade dentro de Marketing. Feito
+   aqui, e não em cada tela, para as onze páginas herdarem sem precisar saber da
+   existência das cores de seção. */
+[data-mkt-section] .page-header {
+  border-bottom: 0;
+  padding-bottom: 0;
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 18px 22px;
+  background:
+    radial-gradient(130% 150% at 100% 0%, rgba(255, 255, 255, 0.20) 0%, transparent 55%),
+    linear-gradient(118deg, var(--mkt-accent) 0%, var(--mkt-accent-deep) 100%);
+}
+
+[data-mkt-section] .page-header::after {
+  content: "";
+  position: absolute;
+  right: -70px;
+  top: -90px;
+  width: 240px;
+  height: 240px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.09);
+  pointer-events: none;
+}
+
+[data-mkt-section] .page-header > * {
+  position: relative;
+}
+
+[data-mkt-section] .page-header__title {
+  color: #fff;
+}
+
+[data-mkt-section] .page-header__eyebrow {
+  /* Branco a 78% sobre o acento continua acima de 4.5:1, porque todo acento de
+     seção foi escolhido com pelo menos 4.9:1 contra branco puro. */
+  color: rgba(255, 255, 255, 0.78);
+}
+
+[data-mkt-section] .page-header__description {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+/* O botão de ação precisa ler sobre o degradê, não sobre o fundo claro. */
+[data-mkt-section] .page-header button {
+  border-color: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+[data-mkt-section] .page-header button:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+@media (max-width: 640px) {
+  [data-mkt-section] .page-header {
+    border-radius: 16px;
+    padding: 16px;
+  }
+}
+
+/* O cartão de número neutro herda a cor da seção. Tom semântico não entra aqui:
+   verde continua querendo dizer "bom" e vermelho "ruim" em qualquer tela. */
+[data-mkt-section] .metric-card[data-tone="violet"] {
+  border-top: 3px solid var(--mkt-accent);
+}
+
+[data-mkt-section] .metric-card[data-tone="violet"] .metric-card__icon {
+  background: var(--mkt-accent-soft);
+  color: var(--mkt-accent-deep);
+}

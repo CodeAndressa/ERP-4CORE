@@ -253,6 +253,15 @@ async def refresh_instagram_login():
     return await instagram_dm_service.refresh()
 
 
+@router.post("/meta/instagram-login/refresh-cron")
+async def refresh_instagram_login_cron():
+    """Renovacao automatica do token das mensagens, chamada pelo agendamento semanal.
+
+    Existe porque o token morre em 60 dias e a renovacao so existia como botao na
+    tela. Ninguem clicou, ele venceu, e as mensagens pararam sem aviso."""
+    return await instagram_dm_service.refresh_if_needed()
+
+
 @router.get("/meta/instagram/conversations")
 async def list_instagram_conversations():
     return {"conversations": await instagram_dm_service.list_conversations()}

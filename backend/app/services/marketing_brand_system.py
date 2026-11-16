@@ -360,3 +360,133 @@ landscape, wellness or cosmetics imagery, generic blue corporate template,
 handshake, analog clock, calendar, fake UI, fake certification, sci-fi scene,
 multicolor neon, clutter or tiny text. Keep every face, hand and device plausible.
 """.strip()
+
+
+# ─── Catálogo de produtos ──────────────────────────────────────────────────────
+#
+# O que a 4Core vende, com a foto que o próprio site usa. A arte de produto nasce
+# daqui em vez de pedir ao modelo de imagem que "desenhe um relógio de ponto": o
+# gerador não conhece o REP-P da Topdata, inventa texto ilegível na tela do
+# aparelho e já colocou a marca de um concorrente numa peça. Foto real resolve os
+# três problemas de uma vez.
+#
+# Os textos vêm de 4core.site/#solucoes. Mudou lá, muda aqui.
+
+PRODUCT_CATALOG: list[dict[str, object]] = [
+    {
+        "key": "rep_p_facial",
+        "name": "REP-P facial",
+        "image_url": "https://4core.site/images/products/facial-reader.png",
+        "para_quem": "Para equipes presenciais",
+        "resolve": "Registro sem contato, sem fraude",
+        "selos": ["Conformidade com a Portaria 671", "Certificado pelo MTE"],
+        "contraste": {
+            "sem": ["Marcação por crachá emprestado", "Registro contestável na Justiça"],
+            "com": ["Biometria facial sem contato", "Prova técnica com data e hora"],
+        },
+        # Termos que fazem a pauta cair neste produto.
+        "termos": [
+            "facial", "biometria", "biométrico", "reconhecimento", "rep", "rep-p",
+            "catraca", "crachá", "fraude", "presencial", "portaria", "acesso",
+        ],
+    },
+    {
+        "key": "topponto_web",
+        "name": "Ponto web TopPonto",
+        "image_url": "https://4core.site/images/products/software-web.png",
+        "para_quem": "Para Departamento Pessoal e RH",
+        "resolve": "Fecha a folha sem retrabalho",
+        "selos": ["Gestão centralizada", "Relatórios de jornada prontos"],
+        "contraste": {
+            "sem": ["Fechamento em planilha solta", "Erro descoberto depois da folha"],
+            "com": ["Jornada apurada o mês inteiro", "Relatório pronto no dia do corte"],
+        },
+        "termos": [
+            "software", "sistema", "web", "nuvem", "cloud", "folha", "relatório",
+            "relatórios", "fechamento", "banco de horas", "espelho", "hora extra",
+            "jornada", "dp", "rh",
+        ],
+    },
+    {
+        "key": "topponto_app",
+        "name": "App TopPonto",
+        "image_url": "https://4core.site/images/products/app-mobile.png",
+        "para_quem": "Para equipes externas e remotas",
+        "resolve": "Jornada registrada de onde o time estiver",
+        "selos": ["Marcação por geolocalização", "Registro com foto"],
+        "contraste": {
+            "sem": ["Ponto anotado de memória", "Sem prova de onde o time estava"],
+            "com": ["Marcação com GPS e foto", "Histórico auditável por equipe"],
+        },
+        "termos": [
+            "app", "aplicativo", "mobile", "celular", "remoto", "externo",
+            "home office", "campo", "geolocalização", "híbrido", "teletrabalho",
+        ],
+    },
+]
+
+
+def match_product(*textos: str) -> dict[str, object] | None:
+    """O produto que a pauta está pedindo, ou None quando ela não fala de produto.
+
+    Pontua por termo encontrado e exige pelo menos dois: um "acesso" solto numa
+    pauta sobre cultura de RH não deveria puxar a foto de um leitor facial para a
+    peça. Empate fica com a ordem do catálogo, que é a ordem de destaque do site.
+    """
+    alvo = " ".join(texto.lower() for texto in textos if texto)
+    if not alvo:
+        return None
+    melhor: dict[str, object] | None = None
+    melhor_pontos = 0
+    for produto in PRODUCT_CATALOG:
+        pontos = sum(1 for termo in produto["termos"] if termo in alvo)  # type: ignore[union-attr]
+        if pontos > melhor_pontos:
+            melhor, melhor_pontos = produto, pontos
+    return melhor if melhor_pontos >= 2 else None
+
+
+# ─── Fatos de risco ────────────────────────────────────────────────────────────
+#
+# Os números que a 4Core usa para abrir conversa, retirados de 4core.site. Viram
+# a peça de dado, que é o layout que para o dedo de quem rola o feed.
+#
+# **Número aqui precisa de fonte.** O revisor de texto reprova promessa que
+# ninguém forneceu, e a peça de dado é justamente onde inventar um percentual
+# seria mais fácil e mais caro.
+
+RISK_FACTS: list[dict[str, str]] = [
+    {
+        "key": "multa_por_funcionario",
+        "numero": "R$ 6 mil",
+        "contexto": "de multa por funcionário quando o ponto está irregular",
+        "fonte": "4core.site",
+        "termos": "multa fiscalização autuação irregular risco custo passivo",
+    },
+    {
+        "key": "portaria_671",
+        "numero": "671",
+        "contexto": "a portaria que define como o ponto eletrônico precisa registrar",
+        "fonte": "Portaria MTP 671/2021",
+        "termos": "portaria 671 conformidade norma legislação rep afd",
+    },
+    {
+        "key": "conformidade_total",
+        "numero": "100%",
+        "contexto": "de conformidade é o que blinda a empresa em uma reclamatória",
+        "fonte": "4core.site",
+        "termos": "conformidade blindagem jurídica processo trabalhista reclamatória segurança",
+    },
+]
+
+
+def match_risk_fact(*textos: str) -> dict[str, str] | None:
+    """O dado que a pauta está pedindo, ou None quando ela não pede número."""
+    alvo = " ".join(texto.lower() for texto in textos if texto)
+    if not alvo:
+        return None
+    melhor, melhor_pontos = None, 0
+    for fato in RISK_FACTS:
+        pontos = sum(1 for termo in fato["termos"].split() if termo in alvo)
+        if pontos > melhor_pontos:
+            melhor, melhor_pontos = fato, pontos
+    return melhor if melhor_pontos >= 2 else None

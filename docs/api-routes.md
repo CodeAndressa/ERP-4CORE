@@ -44,6 +44,22 @@
 - POST /marketing/posts
 - PUT /marketing/posts/{id}
 
+## Agente de conteudo
+Detalhe em [agente-conteudo.md](agente-conteudo.md).
+
+- GET /marketing/agent/competitors
+- POST /marketing/agent/competitors
+- PATCH /marketing/agent/competitors/{id}
+- DELETE /marketing/agent/competitors/{id}
+- POST /marketing/agent/competitors/sync
+- POST /marketing/agent/competitors/{id}/sync
+- GET /marketing/agent/competitors/{id}/profile
+- GET /marketing/agent/benchmark
+- POST /marketing/agent/run
+- POST /marketing/agent/run-cron (segredo de cron, sem JWT)
+- GET /marketing/agent/runs
+- GET /marketing/agent/runs/{id}
+
 ## Conhecimento
 - GET /knowledge
 - POST /knowledge

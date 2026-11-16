@@ -690,3 +690,887 @@ async def generate_art(prompt: str, headline: str) -> str:
             "Configure as credenciais do Cloudflare Workers AI ou OPENAI_API_KEY para gerar artes.",
         )
     return await store_generated_art(content, "image/png")
+
+
+# ─── Feed 4:5 ──────────────────────────────────────────────────────────────────
+# O story nasceu primeiro e por isso a composição acima é 9:16. O feed tem outras
+# restrições: nada de faixa escura no topo (ali não existe interface da Meta, e
+# escurecer sem motivo só suja a foto) e a frase sobe para o terço superior, que é
+# o que aparece no corte quadrado da grade do perfil.
+
+FEED_SIZE = (1080, 1350)
+
+
+def _crop_to_feed(content: bytes) -> bytes:
+    """Recorte central para 4:5. O gerador devolve proporções variadas e o Instagram
+    corta sozinho o que não encaixa; cortar aqui garante que a perda seja nas bordas
+    e não em cima da frase."""
+    source = Image.open(io.BytesIO(content)).convert("RGB")
+    target_ratio = 4 / 5
+    width, height = source.size
+    crop_height = min(height, round(width / target_ratio))
+    crop_width = min(width, round(height * target_ratio))
+    left = max(0, (width - crop_width) // 2)
+    top = max(0, (height - crop_height) // 2)
+    cropped = source.crop((left, top, left + crop_width, top + crop_height))
+    cropped = cropped.resize(FEED_SIZE, Image.Resampling.LANCZOS)
+    output = io.BytesIO()
+    cropped.save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+def _feed_scrim(width: int, height: int) -> Image.Image:
+    """Escurece só a faixa de baixo, onde moram frase, logo e endereço. Sem o
+    degradê do topo que o story usa: no feed aquela faixa não cobre interface
+    nenhuma e deixava a foto com cara de filtro aplicado por cima."""
+    column = Image.new("RGBA", (1, height), (0, 0, 0, 0))
+    pixels = column.load()
+    span = max(1, round(height * 0.62))
+    start = height - span
+    for y in range(start, height):
+        alpha = round(240 * ((y - start) / span) ** 1.55)
+        pixels[0, y] = (*PLUM, min(255, alpha))
+    return column.resize((width, height), Image.Resampling.NEAREST)
+
+
+def _compose_feed_art(background: bytes, logo_content: bytes, headline: str) -> bytes:
+    """Monta a peça de feed: frase grande alinhada à esquerda, filete violeta,
+    endereço e logo. Mesma gramática visual do story, proporção e pesos diferentes.
+
+    A frase ocupa mais área que no story porque o feed é visto na grade do perfil
+    em miniatura, e é o gancho que precisa sobreviver a esse tamanho."""
+    canvas = Image.open(io.BytesIO(background)).convert("RGBA")
+    width, height = canvas.size
+    canvas = Image.alpha_composite(canvas, _feed_scrim(width, height))
+    draw = ImageDraw.Draw(canvas)
+
+    margin_x = round(width * 0.075)
+    content_width = width - margin_x * 2
+    bottom_safe = round(height * 0.062)
+
+    logo = Image.open(io.BytesIO(logo_content)).convert("RGBA")
+    logo_bbox = logo.getbbox()
+    if logo_bbox is None:
+        raise ValueError("Logo oficial sem conteúdo visível")
+    logo = logo.crop(logo_bbox)
+    logo_width = round(width * 0.26)
+    logo_height = round(logo.height * logo_width / logo.width)
+    logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
+
+    safe_headline = sentence_case(headline)[:90]
+    max_text_height = round(height * 0.34)
+    headline_font = _font(round(height * 0.062), "ExtraBold")
+    headline_lines = [safe_headline]
+    line_step = round(height * 0.066)
+    for font_size in range(round(height * 0.086), round(height * 0.040), -2):
+        font = _font(font_size, "ExtraBold")
+        lines = _wrap_headline(draw, safe_headline, font, content_width)
+        ascent, descent = font.getmetrics()
+        step = round(font_size * 1.05)
+        if len(lines) <= 4 and step * (len(lines) - 1) + ascent + descent <= max_text_height:
+            headline_font, headline_lines, line_step = font, lines, step
+            break
+
+    url_font = _font(max(20, round(height * 0.0235)), "SemiBold")
+    url_width = round(draw.textlength(STORY_SITE_URL, font=url_font))
+    url_ascent, url_descent = url_font.getmetrics()
+    url_height = url_ascent + url_descent
+
+    cursor = height - bottom_safe
+    logo_y = cursor - logo_height
+    # Endereço na mesma linha de base do logo, à direita: no feed o leitor já tem o
+    # @ do perfil no topo, então repetir a marca empilhada seria redundante.
+    url_y = logo_y + (logo_height - url_height) // 2
+    cursor = logo_y - round(height * 0.038)
+
+    headline_ascent, headline_descent = headline_font.getmetrics()
+    headline_height = line_step * (len(headline_lines) - 1) + headline_ascent + headline_descent
+    headline_top = cursor - headline_height
+    shadow_offset = max(1, round(headline_font.size * 0.045))
+    text_y = headline_top
+    for line in headline_lines:
+        draw.text((margin_x + shadow_offset, text_y + shadow_offset), line, font=headline_font, fill=(*PLUM, 150))
+        draw.text((margin_x, text_y), line, font=headline_font, fill=(255, 255, 255, 255))
+        text_y += line_step
+
+    rule_height = max(3, round(height * 0.0042))
+    rule_width = round(width * 0.125)
+    rule_y = headline_top - round(height * 0.030) - rule_height
+    draw.rounded_rectangle(
+        (margin_x, rule_y, margin_x + rule_width, rule_y + rule_height),
+        radius=rule_height // 2,
+        fill=(*VIOLET, 255),
+    )
+
+    draw.text((width - margin_x - url_width, url_y), STORY_SITE_URL, font=url_font, fill=(235, 225, 255, 255))
+    canvas.alpha_composite(logo, (margin_x, logo_y))
+
+    output = io.BytesIO()
+    _film_grain(canvas.convert("RGB")).save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+def _fit_headline(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    max_height: int,
+    biggest: int,
+    smallest: int,
+    max_lines: int = 4,
+) -> tuple[ImageFont.FreeTypeFont, list[str], int]:
+    """O maior corpo em que a frase ainda cabe na caixa, já quebrada em linhas.
+
+    O retorno do último caso importa: mesmo quando nem o menor corpo cabe na
+    altura, a frase volta QUEBRADA na largura pedida. Devolver a linha inteira ali
+    foi o que fez o gancho sair cortado pela margem na primeira versão.
+    """
+    for size in range(biggest, smallest, -2):
+        font = _font(size, "ExtraBold")
+        lines = _wrap_headline(draw, text, font, max_width)
+        ascent, descent = font.getmetrics()
+        step = round(size * 1.06)
+        if len(lines) <= max_lines and step * (len(lines) - 1) + ascent + descent <= max_height:
+            return font, lines, step
+    font = _font(smallest, "ExtraBold")
+    return font, _wrap_headline(draw, text, font, max_width), round(smallest * 1.06)
+
+
+# Palavras curtas e de ligacao nao contam como repeticao: quase toda frase as tem.
+_STOPWORDS = {
+    "a", "as", "o", "os", "de", "da", "do", "das", "dos", "e", "em", "no", "na",
+    "nos", "nas", "um", "uma", "por", "para", "com", "sem", "que", "se", "ao",
+    "aos", "mais", "seu", "sua", "the",
+}
+
+
+def _echoes(primeira: str, segunda: str, limite: float = 0.4) -> bool:
+    """Duas frases dizem a mesma coisa? Compara os radicais das palavras de peso.
+
+    Corta em 4 letras para "feche" e "fecha" contarem como a mesma ideia, que e
+    justamente o caso que aparece quando o gancho e o apoio falam do mesmo verbo.
+    """
+    def radicais(texto: str) -> set[str]:
+        limpo = "".join(c if c.isalnum() or c.isspace() else " " for c in texto.lower())
+        return {p[:4] for p in limpo.split() if len(p) > 3 and p not in _STOPWORDS}
+
+    a, b = radicais(primeira), radicais(segunda)
+    if not a or not b:
+        return False
+    return len(a & b) / min(len(a), len(b)) >= limite
+
+
+def _draw_check(draw: ImageDraw.ImageDraw, x: int, cy: int, radius: int) -> None:
+    """Marcador de selo: disco violeta com um tique branco desenhado dentro."""
+    draw.ellipse((x, cy - radius, x + radius * 2, cy + radius), fill=(*VIOLET, 255))
+    draw.line(
+        (
+            x + radius * 0.58, cy + radius * 0.02,
+            x + radius * 0.88, cy + radius * 0.40,
+            x + radius * 1.44, cy - radius * 0.42,
+        ),
+        fill=(255, 255, 255, 255),
+        width=max(2, round(radius * 0.30)),
+        joint="curve",
+    )
+
+
+def _brand_gradient(width: int, height: int) -> Image.Image:
+    """O fundo da peça de produto: violeta vivo caindo para o quase-preto da marca.
+
+    Montado como 2x2 pixels e esticado. O Pillow interpola os quatro cantos de uma
+    vez, o que dá um degradê diagonal suave sem percorrer pixel nenhum em Python.
+    """
+    seed = Image.new("RGB", (2, 2))
+    seed.putpixel((0, 0), VIOLET)        # alto à esquerda: onde a frase começa
+    seed.putpixel((1, 0), (74, 0, 168))
+    seed.putpixel((0, 1), (42, 10, 74))
+    seed.putpixel((1, 1), PLUM)          # baixo à direita: onde a foto se apoia
+    return seed.resize((width, height), Image.Resampling.BICUBIC).convert("RGBA")
+
+
+def _visible_bbox(image: Image.Image, threshold: int = 24) -> tuple[int, int, int, int] | None:
+    """A caixa do que realmente se vê, ignorando sombra quase transparente.
+
+    O `getbbox` do Pillow considera qualquer alfa acima de zero, e os PNGs de
+    produto do site trazem uma sombra larga e levíssima em volta. Cortar por ela
+    deixava o produto pequeno e fora do centro dentro da própria caixa.
+    """
+    alpha = image.getchannel("A").point(lambda value: 255 if value > threshold else 0)
+    return alpha.getbbox()
+
+
+def _round_corners(image: Image.Image, radius: int) -> Image.Image:
+    """Arredonda os cantos preservando a transparência que a imagem já tinha."""
+    mask = Image.new("L", image.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, image.width - 1, image.height - 1), radius=radius, fill=255)
+    out = image.copy()
+    out.putalpha(ImageChops.darker(image.getchannel("A"), mask))
+    return out
+
+
+def _fit_product(product: Image.Image, box_w: int, box_h: int) -> Image.Image:
+    """Encaixa a foto do produto na caixa sem deformar e sem sobra transparente.
+
+    Produto recortado (o leitor facial, o notebook) entra com a silhueta que já
+    tem. Foto de cena, que chega como um retângulo cheio, ganha canto arredondado:
+    sem isso ela fica um bloco colado por cima do degradê.
+    """
+    cropped = product.crop(
+        _visible_bbox(product) or product.getbbox() or (0, 0, product.width, product.height)
+    )
+    scale = min(box_w / cropped.width, box_h / cropped.height)
+    fitted = cropped.resize(
+        (max(1, round(cropped.width * scale)), max(1, round(cropped.height * scale))),
+        Image.Resampling.LANCZOS,
+    )
+    alpha = fitted.getchannel("A")
+    # Quase todo pixel opaco quer dizer que não há recorte: é uma foto inteira.
+    opaco = alpha.histogram()[255] / float(fitted.width * fitted.height)
+    if opaco > 0.97:
+        fitted = _round_corners(fitted, max(12, round(min(fitted.size) * 0.055)))
+    return fitted
+
+
+def _pill(canvas: Image.Image, draw: ImageDraw.ImageDraw, x: int, y: int, texto: str,
+          font: ImageFont.FreeTypeFont, pad_x: int, pad_y: int) -> int:
+    """Pílula de rótulo. Devolve a base, para o chamador continuar dali.
+
+    O véu vai numa camada própria porque o ImageDraw grava o pixel em vez de
+    compor alfa: desenhado direto, o branco translúcido vira bloco sólido e come
+    o texto que vem por cima.
+    """
+    ascent, descent = font.getmetrics()
+    altura = ascent + descent
+    base = y + altura + pad_y * 2
+    veil = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    ImageDraw.Draw(veil).rounded_rectangle(
+        (x, y, x + round(draw.textlength(texto, font=font)) + pad_x * 2, base),
+        radius=(base - y) // 2,
+        fill=(255, 255, 255, 40),
+    )
+    canvas.alpha_composite(veil)
+    draw.text((x + pad_x, y + pad_y), texto, font=font, fill=(255, 255, 255, 255))
+    return base
+
+
+def _footer(canvas: Image.Image, draw: ImageDraw.ImageDraw, logo_content: bytes,
+            width: int, height: int, margin: int) -> int:
+    """Filete, logo e endereço. Devolve o topo do rodapé, que é o limite do conteúdo."""
+    logo = Image.open(io.BytesIO(logo_content)).convert("RGBA")
+    logo = logo.crop(logo.getbbox() or (0, 0, logo.width, logo.height))
+    logo_width = round(width * 0.26)
+    logo = logo.resize((logo_width, round(logo.height * logo_width / logo.width)), Image.Resampling.LANCZOS)
+    logo_y = height - round(height * 0.062) - logo.height
+    top = logo_y - round(height * 0.032)
+
+    rule_height = max(3, round(height * 0.0042))
+    draw.rounded_rectangle(
+        (margin, top - rule_height, margin + round(width * 0.125), top),
+        radius=rule_height // 2,
+        fill=(*VIOLET, 255),
+    )
+    canvas.alpha_composite(logo, (margin, logo_y))
+    url_font = _font(max(20, round(height * 0.0235)), "SemiBold")
+    url_ascent, url_descent = url_font.getmetrics()
+    draw.text(
+        (width - margin - round(draw.textlength(STORY_SITE_URL, font=url_font)),
+         logo_y + (logo.height - (url_ascent + url_descent)) // 2),
+        STORY_SITE_URL,
+        font=url_font,
+        fill=(235, 225, 255, 255),
+    )
+    return top
+
+
+def _draw_cross(draw: ImageDraw.ImageDraw, x: int, cy: int, radius: int) -> None:
+    """Marcador do lado ruim do comparativo: disco apagado com um x branco."""
+    draw.ellipse((x, cy - radius, x + radius * 2, cy + radius), fill=(255, 255, 255, 46))
+    corte = radius * 0.46
+    largura = max(2, round(radius * 0.26))
+    draw.line((x + radius - corte, cy - corte, x + radius + corte, cy + corte),
+              fill=(226, 212, 255, 255), width=largura)
+    draw.line((x + radius - corte, cy + corte, x + radius + corte, cy - corte),
+              fill=(226, 212, 255, 255), width=largura)
+
+
+def _compose_stat_art(logo_content: bytes, headline: str, fact: dict) -> bytes:
+    """Peça de dado: o número ocupa a peça e o gancho fica embaixo.
+
+    É o layout que para o dedo de quem rola o feed. Existe porque a 4Core vende
+    contra um risco concreto, e risco com número é mais concreto que risco com
+    adjetivo. A fonte vai impressa na peça: o revisor reprova promessa sem origem,
+    e esta é a peça onde inventar um percentual seria mais fácil e mais caro.
+    """
+    width, height = 1080, 1350
+    canvas = _brand_gradient(width, height)
+    draw = ImageDraw.Draw(canvas)
+    margin = round(width * 0.075)
+    content_width = width - margin * 2
+    footer_top = _footer(canvas, draw, logo_content, width, height, margin)
+
+    label_font = _font(round(height * 0.0225), "Bold")
+    cursor = _pill(canvas, draw, margin, margin, "O QUE ESTÁ EM JOGO", label_font,
+                   round(width * 0.024), round(height * 0.010))
+
+    # O número manda na peça: ocupa a largura que conseguir.
+    numero = normalize_pt_br_text(str(fact.get("numero") or ""))
+    numero_font = _font(round(height * 0.175), "ExtraBold")
+    for size in range(round(height * 0.185), round(height * 0.070), -4):
+        candidato = _font(size, "ExtraBold")
+        if draw.textlength(numero, font=candidato) <= content_width:
+            numero_font = candidato
+            break
+    n_ascent, n_descent = numero_font.getmetrics()
+
+    contexto_font = _font(round(height * 0.034), "Medium")
+    c_ascent, c_descent = contexto_font.getmetrics()
+    contexto_linhas = _wrap_headline(
+        draw, normalize_pt_br_text(str(fact.get("contexto") or "")), contexto_font, content_width
+    )[:3]
+
+    gancho_font, gancho_linhas, passo = _fit_headline(
+        draw, sentence_case(headline)[:80], content_width, round(height * 0.17),
+        round(height * 0.048), round(height * 0.030), max_lines=3,
+    )
+    g_ascent, g_descent = gancho_font.getmetrics()
+
+    # Mede o miolo inteiro antes de desenhar e sobra o que sobrar em cima e embaixo
+    # em partes iguais. Desenhar de cima para baixo deixava um vazio de um terço da
+    # peça entre o gancho e o rodapé.
+    miolo = (
+        (n_ascent + n_descent) + round(height * 0.012)
+        + (c_ascent + c_descent) * len(contexto_linhas)
+        + round(height * 0.045) + 2 + round(height * 0.035)
+        + passo * (len(gancho_linhas) - 1) + g_ascent + g_descent
+    )
+    livre = footer_top - round(height * 0.030) - cursor
+    cursor += max(round(height * 0.030), (livre - miolo) // 2)
+
+    draw.text((margin, cursor), numero, font=numero_font, fill=(255, 255, 255, 255))
+    cursor += n_ascent + n_descent + round(height * 0.012)
+
+    for linha in contexto_linhas:
+        draw.text((margin, cursor), linha, font=contexto_font, fill=(226, 212, 255, 255))
+        cursor += c_ascent + c_descent
+
+    # O gancho do redator entra abaixo de uma divisória, como leitura seguinte.
+    cursor += round(height * 0.045)
+    draw.rounded_rectangle(
+        (margin, cursor, margin + round(width * 0.30), cursor + 2), radius=1, fill=(255, 255, 255, 56)
+    )
+    cursor += round(height * 0.035)
+
+    for linha in gancho_linhas:
+        draw.text((margin, cursor), linha, font=gancho_font, fill=(255, 255, 255, 255))
+        cursor += passo
+    cursor += (g_ascent + g_descent) - passo
+
+
+
+    output = io.BytesIO()
+    _film_grain(canvas.convert("RGB")).save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+def _compose_compare_art(logo_content: bytes, headline: str, product: dict) -> bytes:
+    """Peça comparativa: o que acontece sem a solução, e o que muda com ela.
+
+    Duas colunas em vez de duas metades empilhadas: no feed a peça aparece em
+    miniatura na grade do perfil, e lado a lado a oposição se lê antes de a pessoa
+    abrir o post.
+    """
+    contraste = product.get("contraste") or {}
+    sem = [str(item) for item in (contraste.get("sem") or [])][:2]
+    com = [str(item) for item in (contraste.get("com") or [])][:2]
+    if not sem or not com:
+        raise ValueError("Produto sem contraste cadastrado")
+
+    width, height = 1080, 1350
+    canvas = _brand_gradient(width, height)
+    draw = ImageDraw.Draw(canvas)
+    margin = round(width * 0.075)
+    content_width = width - margin * 2
+    footer_top = _footer(canvas, draw, logo_content, width, height, margin)
+
+    label_font = _font(round(height * 0.0225), "Bold")
+    cursor = _pill(canvas, draw, margin, margin,
+                   normalize_pt_br_text(str(product.get("name") or "")).upper(),
+                   label_font, round(width * 0.024), round(height * 0.010))
+
+    cursor += round(height * 0.035)
+    gancho_font, gancho_linhas, passo = _fit_headline(
+        draw, sentence_case(headline)[:80], content_width, round(height * 0.22),
+        round(height * 0.066), round(height * 0.038), max_lines=3,
+    )
+    for linha in gancho_linhas:
+        draw.text((margin, cursor), linha, font=gancho_font, fill=(255, 255, 255, 255))
+        cursor += passo
+    g_ascent, g_descent = gancho_font.getmetrics()
+    cursor += (g_ascent + g_descent) - passo + round(height * 0.055)
+
+    coluna = (content_width - round(width * 0.045)) // 2
+    titulo_font = _font(round(height * 0.0225), "Bold")
+    item_font = _font(round(height * 0.0255), "SemiBold")
+    t_ascent, t_descent = titulo_font.getmetrics()
+    i_ascent, i_descent = item_font.getmetrics()
+    mark = round(height * 0.0115)
+
+    # Altura das colunas, medida antes de desenhar, para centralizar o bloco entre
+    # o gancho e o rodapé em vez de deixá-lo colado no topo.
+    def altura_coluna(itens: list[str]) -> int:
+        total = t_ascent + t_descent + round(height * 0.024)
+        for item in itens:
+            linhas = _wrap_headline(
+                draw, normalize_pt_br_text(item), item_font,
+                coluna - (mark * 2 + round(width * 0.016))
+            )[:3]
+            total += (i_ascent + i_descent) * len(linhas) + round(height * 0.020)
+        return total
+
+    bloco = max(altura_coluna(sem), altura_coluna(com))
+    livre = footer_top - round(height * 0.030) - cursor
+    cursor += max(0, (livre - bloco) // 2)
+
+    for indice, (titulo, itens, bom) in enumerate(
+        (("HOJE, SEM ISSO", sem, False), ("COM A 4CORE", com, True))
+    ):
+        x = margin + indice * (coluna + round(width * 0.045))
+        draw.text((x, cursor), titulo, font=titulo_font,
+                  fill=(255, 255, 255, 255) if bom else (196, 178, 230, 255))
+        y = cursor + t_ascent + t_descent + round(height * 0.024)
+        for item in itens:
+            centro = y + (i_ascent + i_descent) // 2
+            if bom:
+                _draw_check(draw, x, centro, mark)
+            else:
+                _draw_cross(draw, x, centro, mark)
+            texto_x = x + mark * 2 + round(width * 0.016)
+            for linha in _wrap_headline(
+                draw, normalize_pt_br_text(item), item_font, coluna - (texto_x - x)
+            )[:3]:
+                draw.text((texto_x, y), linha, font=item_font,
+                          fill=(255, 255, 255, 255) if bom else (206, 190, 236, 255))
+                y += i_ascent + i_descent
+            y += round(height * 0.020)
+
+    output = io.BytesIO()
+    _film_grain(canvas.convert("RGB")).save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+def _compose_product_art(
+    product_content: bytes,
+    logo_content: bytes,
+    headline: str,
+    product: dict,
+) -> bytes:
+    """Peça de feed que mostra o que a 4Core vende.
+
+    Fundo na identidade da marca, foto real do produto, o gancho, o que o produto
+    resolve e os selos de conformidade. Nada aqui passa por modelo de imagem.
+
+    O texto é montado de cima para baixo, na largura inteira, e a foto ocupa o que
+    sobra. O contrário (ancorar a foto primeiro e espremer o texto na coluna que
+    restasse) dava uma coluna estreita demais para um gancho de oito palavras.
+    """
+    width, height = 1080, 1350
+    canvas = _brand_gradient(width, height)
+    draw = ImageDraw.Draw(canvas)
+
+    margin = round(width * 0.075)
+    content_width = width - margin * 2
+    bottom_safe = round(height * 0.062)
+
+    logo = Image.open(io.BytesIO(logo_content)).convert("RGBA")
+    logo = logo.crop(logo.getbbox() or (0, 0, logo.width, logo.height))
+    logo_width = round(width * 0.26)
+    logo = logo.resize((logo_width, round(logo.height * logo_width / logo.width)), Image.Resampling.LANCZOS)
+    logo_y = height - bottom_safe - logo.height
+    footer_top = logo_y - round(height * 0.032)
+
+    # ── 1. a pílula com o nome do produto, no alto ──
+    label = normalize_pt_br_text(str(product.get("name") or "")).upper()
+    label_font = _font(round(height * 0.0225), "Bold")
+    label_ascent, label_descent = label_font.getmetrics()
+    label_height = label_ascent + label_descent
+    pad_x, pad_y = round(width * 0.024), round(height * 0.010)
+    pill_top = margin
+    pill_bottom = pill_top + label_height + pad_y * 2
+    # Numa camada propria: o ImageDraw grava o pixel em vez de compor alfa, entao
+    # desenhar o veu direto no canvas deixava uma pilula branca solida que comia o
+    # texto por cima dela.
+    veil = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    ImageDraw.Draw(veil).rounded_rectangle(
+        (margin, pill_top, margin + round(draw.textlength(label, font=label_font)) + pad_x * 2, pill_bottom),
+        radius=(pill_bottom - pill_top) // 2,
+        fill=(255, 255, 255, 40),
+    )
+    canvas.alpha_composite(veil)
+    draw.text((margin + pad_x, pill_top + pad_y), label, font=label_font, fill=(255, 255, 255, 255))
+
+    # ── 2. o gancho, na largura inteira ──
+    cursor = pill_bottom + round(height * 0.035)
+    headline_font, headline_lines, line_step = _fit_headline(
+        draw,
+        sentence_case(headline)[:80],
+        content_width,
+        round(height * 0.23),
+        round(height * 0.070),
+        round(height * 0.038),
+        max_lines=3,
+    )
+    for line in headline_lines:
+        draw.text((margin, cursor), line, font=headline_font, fill=(255, 255, 255, 255))
+        cursor += line_step
+    h_ascent, h_descent = headline_font.getmetrics()
+    cursor += (h_ascent + h_descent) - line_step
+
+    # ── 3. o que o produto resolve, quando acrescenta algo ──
+    # O gancho vem do redator e o apoio vem do catalogo, entao os dois podem cair
+    # na mesma ideia ("feche a folha" / "fecha a folha sem retrabalho"). Quando se
+    # repetem, o apoio sai: espaco em branco vale mais que eco.
+    resolve = normalize_pt_br_text(str(product.get("resolve") or ""))
+    if resolve and not _echoes(headline, resolve):
+        resolve_font = _font(round(height * 0.0295), "Medium")
+        resolve_ascent, resolve_descent = resolve_font.getmetrics()
+        cursor += round(height * 0.026)
+        for linha in _wrap_headline(draw, resolve, resolve_font, content_width)[:2]:
+            draw.text((margin, cursor), linha, font=resolve_font, fill=(226, 212, 255, 255))
+            cursor += resolve_ascent + resolve_descent
+
+    # ── 4. os selos ──
+    seal_font = _font(round(height * 0.0250), "SemiBold")
+    seal_ascent, seal_descent = seal_font.getmetrics()
+    seal_step = round(height * 0.042)
+    mark = round(height * 0.012)
+    cursor += round(height * 0.028)
+    for selo in [str(item) for item in (product.get("selos") or [])][:2]:
+        _draw_check(draw, margin, cursor + (seal_ascent + seal_descent) // 2, mark)
+        draw.text(
+            (margin + mark * 2 + round(width * 0.018), cursor),
+            normalize_pt_br_text(selo),
+            font=seal_font,
+            fill=(240, 234, 255, 255),
+        )
+        cursor += seal_step
+
+    # ── 5. a foto, no espaço que sobrou entre o texto e o rodapé ──
+    product_image = Image.open(io.BytesIO(product_content)).convert("RGBA")
+    if product_image.getbbox() is None:
+        raise ValueError("Imagem de produto sem conteúdo visível")
+    area_top = cursor + round(height * 0.030)
+    area_height = max(round(height * 0.12), footer_top - round(height * 0.030) - area_top)
+    fitted = _fit_product(product_image, content_width, area_height)
+    # Produto pequeno demais nao vende. Quando sobra altura de verdade, a foto
+    # cresce ate a largura util antes de ficar boiando no meio do degrade.
+    if fitted.width < content_width * 0.62 and fitted.height < area_height * 0.95:
+        fitted = _fit_product(product_image, round(content_width * 0.92), area_height)
+    # Só produto nitidamente em pé (o leitor facial, 2:1) encosta à direita, onde o
+    # degradê escurece e o contraste ajuda. Quadrado conta como deitado: o notebook
+    # tem 1,05 de razão e ancorá-lo à direita abria um vazio na metade esquerda.
+    product_x = (
+        width - margin - fitted.width
+        if fitted.height > fitted.width * 1.4
+        else margin + (content_width - fitted.width) // 2
+    )
+    canvas.alpha_composite(fitted, (product_x, area_top + (area_height - fitted.height) // 2))
+
+    # ── 6. rodapé ──
+    rule_height = max(3, round(height * 0.0042))
+    draw.rounded_rectangle(
+        (margin, footer_top - rule_height, margin + round(width * 0.125), footer_top),
+        radius=rule_height // 2,
+        fill=(*VIOLET, 255),
+    )
+    canvas.alpha_composite(logo, (margin, logo_y))
+    url_font = _font(max(20, round(height * 0.0235)), "SemiBold")
+    url_ascent, url_descent = url_font.getmetrics()
+    draw.text(
+        (width - margin - round(draw.textlength(STORY_SITE_URL, font=url_font)),
+         logo_y + (logo.height - (url_ascent + url_descent)) // 2),
+        STORY_SITE_URL,
+        font=url_font,
+        fill=(235, 225, 255, 255),
+    )
+
+    output = io.BytesIO()
+    _film_grain(canvas.convert("RGB")).save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+async def _fetch_product_image(client: httpx.AsyncClient, url: str) -> bytes:
+    response = await client.get(url, timeout=30.0)
+    if response.status_code >= 400:
+        raise HTTPException(502, "Nao foi possivel carregar a foto do produto no site da 4Core.")
+    return response.content
+
+
+async def _fetch_brand_logo(client: httpx.AsyncClient) -> bytes:
+    response = await client.get(BRAND_LOGO_URL, timeout=30.0)
+    if response.status_code >= 400:
+        raise HTTPException(502, "Nao foi possivel carregar a logo oficial da 4Core.")
+    return response.content
+
+
+# Modelo de cena com referencia. Precisa aceitar imagem de ENTRADA: e isso que
+# permite colocar o produto real dentro de uma cena em vez de pedir ao modelo que
+# desenhe de cabeca um aparelho que ele nao conhece.
+OPENROUTER_SCENE_MODEL = "google/gemini-2.5-flash-image"
+
+SCENE_GUARDRAILS = (
+    " Use the device in the reference image EXACTLY as it is: same proportions, same "
+    "screen, same housing, same brand mark. Do not redesign it, do not invent another "
+    "model. No text, no watermark, no logo overlay anywhere in the image. "
+    "Photorealistic candid documentary photograph, natural light, shallow depth of field."
+)
+
+
+def _scene_consistency(headline: str) -> str:
+    """Impede que a cena mostre justamente o que a frase diz que nao existe.
+
+    Numa peca de 16/11/2026 o gancho era "Acesso rapido, sem cracha" e o modelo
+    pendurou um cracha na parede, ao lado do leitor. A imagem desmentia a frase, e
+    o gerador nao tinha como saber: ele nunca recebia o gancho.
+    """
+    if not headline.strip():
+        return ""
+    return (
+        f' The final piece carries this headline: "{headline.strip()}". '
+        "The scene must not contradict it: do not show any object or action that the "
+        "headline says is unnecessary or replaced. If the headline mentions badges, "
+        "cards, paper sheets or manual processes as the old way, none of them may "
+        "appear in the image."
+    )
+
+
+async def _generate_openrouter_scene(
+    prompt: str, reference: bytes, headline: str = ""
+) -> tuple[bytes, Any]:
+    """Cena fotografica construida a partir da foto real do produto.
+
+    Usa `/chat/completions` com `modalities`, e nao o endpoint `/images`: so o
+    caminho de chat aceita imagem de entrada. A resposta traz a imagem como data
+    URI dentro de `message.images`, e o `usage.cost` com o custo real da chamada.
+    """
+    from app.services.marketing_agent_cost import image_usage
+
+    corpo = {
+        "model": OPENROUTER_SCENE_MODEL,
+        "modalities": ["image", "text"],
+        "usage": {"include": True},
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt + SCENE_GUARDRAILS + _scene_consistency(headline)},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/png;base64," + base64.b64encode(reference).decode()
+                        },
+                    },
+                ],
+            }
+        ],
+    }
+    async with httpx.AsyncClient(timeout=240.0) as client:
+        response = await client.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": settings.openrouter_site_url,
+                "X-Title": "ERP 4Core",
+            },
+            json=corpo,
+        )
+    if response.status_code == 402:
+        raise HTTPException(
+            502,
+            "O OpenRouter pede saldo para gerar imagem. Adicione credito em "
+            "openrouter.ai/settings/credits.",
+        )
+    if response.status_code >= 400:
+        raise HTTPException(502, f"O OpenRouter recusou a cena ({response.status_code}).")
+
+    payload = response.json()
+    bruto = b""
+    for escolha in payload.get("choices", []):
+        for imagem in ((escolha.get("message") or {}).get("images") or []):
+            url = (imagem.get("image_url") or {}).get("url") or imagem.get("url") or ""
+            if url.startswith("data:"):
+                bruto = base64.b64decode(url.split(",", 1)[1])
+                break
+        if bruto:
+            break
+    if not bruto:
+        raise HTTPException(502, "O OpenRouter respondeu sem imagem.")
+
+    uso = payload.get("usage") or {}
+    custo = uso.get("cost")
+    return bruto, image_usage(
+        "openrouter",
+        OPENROUTER_SCENE_MODEL,
+        1,
+        float(custo) if custo is not None else None,
+    )
+
+
+async def _generate_openrouter_image(prompt: str) -> tuple[bytes, Any]:
+    """Imagem pelo OpenRouter. Vale a rota por dois motivos: uma chave só atende
+    texto e imagem, e a resposta traz o custo real da chamada, que é o que o painel
+    de custos mostra como medido em vez de estimado."""
+    from app.services.marketing_agent_cost import image_usage
+
+    model = settings.openrouter_image_model.strip()
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        response = await client.post(
+            "https://openrouter.ai/api/v1/images",
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+                # O OpenRouter usa esses dois cabeçalhos para atribuir o consumo ao
+                # aplicativo no painel da conta.
+                "HTTP-Referer": settings.openrouter_site_url,
+                "X-Title": "ERP 4Core",
+            },
+            json={"model": model, "prompt": prompt, "n": 1},
+        )
+    if response.status_code >= 400:
+        detail = response.text[:200]
+        if response.status_code in {401, 403}:
+            raise HTTPException(502, "O OpenRouter recusou a chave. Confira OPENROUTER_API_KEY.")
+        if response.status_code == 429:
+            raise HTTPException(502, "O limite de uso do OpenRouter foi atingido. Tente mais tarde.")
+        raise HTTPException(502, f"Falha ao gerar a arte no OpenRouter: {detail}")
+    try:
+        payload = response.json()
+        item = payload["data"][0]
+        encoded = item.get("b64_json") or item.get("image_base64")
+        if encoded:
+            content = base64.b64decode(encoded.split(",", 1)[-1], validate=False)
+        else:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                downloaded = await client.get(item["url"])
+            if downloaded.status_code >= 400:
+                raise ValueError("url da imagem inacessivel")
+            content = downloaded.content
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise HTTPException(502, "O OpenRouter não retornou uma imagem válida.") from exc
+
+    reported = (payload.get("usage") or {}).get("cost")
+    return content, image_usage("openrouter", model, 1, reported if isinstance(reported, (int, float)) else None)
+
+
+async def _generate_cloudflare_image(prompt: str) -> tuple[bytes, Any]:
+    """Só os bytes crus da Cloudflare, sem recorte nem composição: quem decide o
+    formato final é o chamador, que sabe se a peça é story ou feed."""
+    from app.services.marketing_agent_cost import image_usage
+
+    models = cloudflare_image_models()
+    last_error: HTTPException | None = None
+    async with httpx.AsyncClient(timeout=180.0) as client:
+        for index, model in enumerate(models):
+            endpoint = (
+                "https://api.cloudflare.com/client/v4/accounts/"
+                f"{settings.cloudflare_account_id.strip()}/ai/run/{model}"
+            )
+            try:
+                response = await client.post(endpoint, **_cloudflare_request_kwargs(model, prompt))
+            except httpx.HTTPError as exc:
+                last_error = HTTPException(502, f"Não foi possível acessar o modelo {model} na Cloudflare.")
+                if index == len(models) - 1:
+                    raise last_error from exc
+                continue
+            if response.status_code >= 400:
+                last_error = _cloudflare_error(response)
+                if last_error.status_code in {429, 503} or index == len(models) - 1:
+                    raise last_error
+                continue
+            try:
+                return _cloudflare_image_bytes(response), image_usage("cloudflare", model, 1)
+            except (TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
+                last_error = HTTPException(502, f"O modelo {model} não retornou uma imagem válida.")
+                if index == len(models) - 1:
+                    raise last_error from exc
+    raise last_error or HTTPException(502, "A Cloudflare não retornou uma imagem válida.")
+
+
+def scene_model_available() -> bool:
+    """A cena com produto real so existe com OpenRouter: e o unico provedor ligado
+    aqui que aceita imagem de entrada. A Cloudflare so recebe texto."""
+    return bool(settings.openrouter_api_key)
+
+
+async def generate_art_with_usage(
+    prompt: str,
+    headline: str,
+    layout: str = "story",
+    product: dict | None = None,
+    fact: dict | None = None,
+    template: str = "",
+) -> tuple[str, Any]:
+    """Gera a arte no formato pedido e devolve também o consumo, para a esteira
+    conseguir contabilizar o custo do passo.
+
+    Ordem dos provedores: OpenRouter primeiro quando configurado, porque ele informa
+    o custo real; Cloudflare depois, que é o mais barato dentro da franquia."""
+    # Os três primeiros não passam por modelo de imagem nenhum. Saem sem custo,
+    # sem texto ilegível e sem risco de o gerador inventar a marca de um terceiro.
+    if layout == "feed" and template in {"produto", "comparativo", "dado"}:
+        async with httpx.AsyncClient(timeout=40.0) as client:
+            logo = await _fetch_brand_logo(client)
+            photo = b""
+            if template == "produto" and product:
+                photo = await _fetch_product_image(client, str(product.get("image_url") or ""))
+        try:
+            if template == "dado" and fact:
+                content = _compose_stat_art(logo, headline, fact)
+            elif template == "comparativo" and product:
+                content = _compose_compare_art(logo, headline, product)
+            elif template == "produto" and product and photo:
+                content = _compose_product_art(photo, logo, headline, product)
+            else:
+                raise ValueError(f"template {template} sem o conteúdo que ele precisa")
+        except (TypeError, ValueError, OSError) as exc:
+            raise HTTPException(502, "Não foi possível montar a arte da peça.") from exc
+        return await store_generated_art(content, "image/png"), None
+
+    # Cena com o produto real dentro: a foto do catálogo vai como referência e o
+    # modelo constrói o ambiente em volta, mantendo o aparelho que é da 4Core.
+    if layout == "feed" and template == "cena" and product and scene_model_available():
+        async with httpx.AsyncClient(timeout=40.0) as client:
+            referencia = await _fetch_product_image(client, str(product.get("image_url") or ""))
+            logo = await _fetch_brand_logo(client)
+        raw, usage = await _generate_openrouter_scene(prompt, referencia, headline)
+        try:
+            content = _compose_feed_art(_crop_to_feed(raw), logo, headline)
+        except (TypeError, ValueError, OSError) as exc:
+            raise HTTPException(502, "Não foi possível finalizar a cena gerada.") from exc
+        return await store_generated_art(content, "image/png"), usage
+
+    if settings.openrouter_api_key:
+        raw, usage = await _generate_openrouter_image(prompt)
+    elif settings.cloudflare_account_id and settings.cloudflare_api_token:
+        raw, usage = await _generate_cloudflare_image(prompt)
+    else:
+        raise HTTPException(
+            503,
+            "Configure OPENROUTER_API_KEY ou as credenciais do Cloudflare Workers AI para gerar artes.",
+        )
+
+    # O story limpa o topo dentro de _compose_brand_art, onde fica a interface da
+    # Meta; o feed não precisa disso e por isso tem composição própria.
+    if layout == "feed":
+        framed, compose = _crop_to_feed(raw), _compose_feed_art
+    else:
+        framed, compose = _crop_to_story(raw), _compose_brand_art
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        logo = await _fetch_brand_logo(client)
+    try:
+        content = compose(framed, logo, headline)
+    except (TypeError, ValueError, OSError) as exc:
+        raise HTTPException(502, "Não foi possível finalizar a arte gerada.") from exc
+    return await store_generated_art(content, "image/png"), usage

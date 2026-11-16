@@ -26,6 +26,8 @@ Backend:
 - `CONTRACT_STORAGE_BUCKET`: opcional; bucket do Supabase Storage para PDFs de contratos, padrão `contracts`
 - `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD`: criam o primeiro usuário quando o banco ainda está vazio
 - `GROQ_API_KEY`: somente no backend, se a IA estiver ativa
+- `OPENROUTER_API_KEY`: opcional; habilita a geração de imagem pelo OpenRouter e faz o painel de custos
+  mostrar valor medido em vez de estimado
 
 ## Segurança
 
@@ -37,4 +39,5 @@ As rotas internas do frontend exigem token de acesso e as APIs do backend, excet
 - Financeiro com Receita, Custos Fixos e Custos Recorrentes
 - Comercial com leads, clientes, pipeline, propostas, contratos, agenda e follow-up
 - Marketing com calendário, posts, ideias, métricas e campanhas
+- Esteira de marketing: sete agentes em sequência, da leitura dos concorrentes à peça de feed agendada, com custo por agente ([docs](docs/agente-conteudo.md))
 - IA, relatórios, configurações e base de conhecimento

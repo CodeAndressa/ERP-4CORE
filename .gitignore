@@ -43,3 +43,6 @@ backend/uploads/
 .claude/skills/
 .codex/
 .impeccable/hook.cache.json
+
+# Contratos e propostas de cliente: documento de negocio, nao versionar.
+contratos/

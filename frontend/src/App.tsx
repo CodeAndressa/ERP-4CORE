@@ -23,6 +23,8 @@ const SistemaLayout = lazy(() => import('./pages/sistema/SistemaLayout'));
 
 const CalendarioPage = lazy(() => import('./pages/marketing/CalendarioPage'));
 const EstudioConteudoPage = lazy(() => import('./pages/marketing/EstudioConteudoPage'));
+const AgenteIaPage = lazy(() => import('./pages/marketing/AgenteIaPage'));
+const AmbientePage = lazy(() => import('./pages/sistema/AmbientePage'));
 const PostsPage = lazy(() => import('./pages/marketing/PostsPage'));
 const IdeiasBancoPage = lazy(() => import('./pages/marketing/IdeiasBancoPage'));
 const MetricasMarketingPage = lazy(() => import('./pages/marketing/MetricasMarketingPage'));
@@ -103,6 +105,7 @@ function App() {
           <Route path="marketing" element={<MarketingLayout />}>
             <Route index element={<Navigate to="/marketing/mensagens" replace />} />
             <Route path="estudio" element={<EstudioConteudoPage />} />
+            <Route path="agente" element={<AgenteIaPage />} />
             <Route path="calendario" element={<CalendarioPage />} />
             <Route path="posts" element={<PostsPage />} />
             <Route path="ideias" element={<IdeiasBancoPage />} />
@@ -130,6 +133,7 @@ function App() {
           <Route element={<SistemaLayout />}>
             <Route path="settings" element={<SettingsPage />} />
             <Route path="knowledge" element={<KnowledgePage />} />
+            <Route path="ambiente" element={<AmbientePage />} />
           </Route>
 
           <Route path="financial" element={<Navigate to="/financeiro" replace />} />

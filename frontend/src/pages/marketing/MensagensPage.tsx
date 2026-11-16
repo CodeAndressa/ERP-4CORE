@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, RefreshCw, Send } from 'lucide-react';
 import { api } from '../../services/api';
+import { Button } from '../../shared/components/ui/Button';
 import { Card } from '../../shared/components/ui/Card';
+import { PageHeader } from '../../shared/components/layout';
 import { EmptyState } from '../../shared/components/ui/EmptyState';
 import { Spinner } from '../../shared/components/ui/Spinner';
 
@@ -130,7 +132,12 @@ export default function MensagensPage() {
   if (configured === false) {
     return (
       <div className="space-y-4">
-        <h1 className="text-lg font-bold" style={{ color: 'var(--erp-text)' }}>Mensagens</h1>
+        <PageHeader
+          eyebrow="Marketing"
+          title="Mensagens"
+          description="Conversas diretas do Instagram"
+          showAI={false}
+        />
         <EmptyState
           icon={<MessageCircle size={28} />}
           title="Conecte o Instagram para ver as mensagens"
@@ -143,18 +150,22 @@ export default function MensagensPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold" style={{ color: 'var(--erp-text)' }}>Mensagens</h1>
-        <button
-          type="button"
-          onClick={() => loadConversations()}
-          className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--erp-surface-2)]"
-          style={{ color: 'var(--erp-text-muted)' }}
-          aria-label="Atualizar"
-        >
-          <RefreshCw size={14} className={loadingConversations ? 'animate-spin' : ''} />
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="Marketing"
+        title="Mensagens"
+        description="Conversas diretas do Instagram"
+        aiModule="Mensagens do Instagram"
+        action={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadConversations()}
+            icon={<RefreshCw size={14} className={loadingConversations ? 'animate-spin' : ''} />}
+          >
+            Atualizar
+          </Button>
+        }
+      />
 
       {error && (
         <div className="rounded-xl px-4 py-3 text-sm font-medium" style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.3)', color: 'var(--erp-rose)' }}>

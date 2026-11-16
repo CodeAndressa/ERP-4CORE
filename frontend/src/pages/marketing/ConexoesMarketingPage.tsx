@@ -39,7 +39,14 @@ interface MetaPage {
 }
 
 interface DmStatus {
+  // configured: existe token guardado. healthy: ele ainda vale.
+  // Os dois precisam ser separados porque a tela mostrava "Conectado" com o token
+  // vencido havia uma semana, só porque o campo não estava vazio.
   configured: boolean;
+  healthy?: boolean;
+  expired?: boolean;
+  expiring_soon?: boolean;
+  days_left?: number | null;
   user_id?: string;
   username?: string;
   token?: string;
@@ -73,6 +80,9 @@ export default function ConexoesMarketingPage() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [dmStatus, setDmStatus] = useState<DmStatus | null>(null);
+  // Serve so para a mensagem de erro falar do .env local ou do painel da Vercel,
+  // conforme onde o backend esta rodando.
+  const [envStatus, setEnvStatus] = useState<{ is_production: boolean } | null>(null);
   const [dmToken, setDmToken] = useState('');
   const [dmBusy, setDmBusy] = useState(false);
   const [dmMessage, setDmMessage] = useState('');
@@ -108,6 +118,9 @@ export default function ConexoesMarketingPage() {
     loadStatus();
     loadIgProfile();
     loadDmStatus();
+    api.get<{ is_production: boolean }>('/settings/env-status')
+      .then(({ data }) => setEnvStatus(data))
+      .catch(() => setEnvStatus(null));
   }, []);
 
   async function connectDm() {
@@ -234,13 +247,31 @@ export default function ConexoesMarketingPage() {
                 style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.3)', color: 'var(--erp-rose)' }}>
                 <ShieldAlert size={13} className="mt-0.5 shrink-0" />
                 <span>
-                  <strong>Variáveis faltando na Vercel.</strong> Adicione em{' '}
-                  <a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
-                    vercel.com/dashboard
-                  </a>{' '}
-                  → Settings → Environment Variables:{' '}
-                  <code>META_APP_SECRET</code>, <code>META_PAGE_ID</code>, <code>META_PAGE_ACCESS_TOKEN</code>,{' '}
-                  <code>INSTAGRAM_BUSINESS_ACCOUNT_ID</code>. Após adicionar, clique em Redeploy.
+                  {/* A mensagem anterior mandava sempre para a Vercel. Rodando local o
+                      problema e o .env da maquina, e apontar para a Vercel fazia
+                      procurar la uma variavel que ja estava configurada. */}
+                  <strong>Faltam variáveis da Meta neste backend.</strong>{' '}
+                  {envStatus?.is_production === false ? (
+                    <>
+                      Preencha no arquivo <code>.env</code> da raiz do projeto e reinicie o backend.
+                      Para apenas <strong>ler</strong> o Instagram bastam <code>META_PAGE_ID</code> e{' '}
+                      <code>META_PAGE_ACCESS_TOKEN</code>, obtidos no{' '}
+                      <a href="https://developers.facebook.com/tools/explorer" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
+                        Graph API Explorer
+                      </a>. O botão abaixo é o único que exige <code>META_APP_ID</code> e <code>META_APP_SECRET</code>.
+                    </>
+                  ) : (
+                    <>
+                      Adicione em{' '}
+                      <a href="https://vercel.com/dashboard" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>
+                        vercel.com/dashboard
+                      </a>{' '}
+                      → Settings → Environment Variables:{' '}
+                      <code>META_APP_SECRET</code>, <code>META_PAGE_ID</code>, <code>META_PAGE_ACCESS_TOKEN</code>,{' '}
+                      <code>INSTAGRAM_BUSINESS_ACCOUNT_ID</code>. Após adicionar, clique em Redeploy.
+                    </>
+                  )}{' '}
+                  <Link to="/ambiente" style={{ textDecoration: 'underline' }}>Ver tudo em Sistema &gt; Ambiente</Link>
                 </span>
               </div>
             )}
@@ -367,15 +398,40 @@ export default function ConexoesMarketingPage() {
         {dmStatus?.configured ? (
           <div className="mt-3 space-y-2 text-sm" style={{ color: 'var(--erp-text-muted)' }}>
             <div className="flex items-center gap-2">
-              <StatusBadge ok={true} label="Conectado" />
+              <StatusBadge
+                ok={dmStatus.healthy !== false}
+                label={dmStatus.expired ? 'Token expirado' : 'Conectado'}
+              />
               {dmStatus.username && <span style={{ color: 'var(--erp-text)' }}>@{dmStatus.username}</span>}
             </div>
             <p className="text-xs">
               Token: <strong style={{ color: 'var(--erp-text)' }}>{dmStatus.token}</strong>
               {dmStatus.expires_at && (
-                <> · expira em {new Date(dmStatus.expires_at).toLocaleDateString('pt-BR')}</>
+                <>
+                  {' · '}
+                  {dmStatus.expired ? 'venceu' : 'expira'} em{' '}
+                  {new Date(dmStatus.expires_at).toLocaleDateString('pt-BR')}
+                  {dmStatus.days_left != null && (
+                    <> ({dmStatus.expired ? `há ${Math.abs(dmStatus.days_left)} dias` : `em ${dmStatus.days_left} dias`})</>
+                  )}
+                </>
               )}
             </p>
+            {dmStatus.expired && (
+              <div className="rounded-xl px-3 py-2.5 text-xs leading-relaxed"
+                style={{ background: 'rgba(190,18,60,0.08)', border: '1px solid rgba(190,18,60,0.3)', color: 'var(--erp-rose)' }}>
+                <strong>Renovar não resolve.</strong> A Meta não renova token já vencido, por isso o botão abaixo
+                falha. É preciso gerar um token novo em developers.facebook.com, no app de mensagens, e colar aqui
+                em cima. A partir de agora a renovação roda sozinha toda semana, então isso não deve se repetir.
+              </div>
+            )}
+            {!dmStatus.expired && dmStatus.expiring_soon && (
+              <div className="rounded-xl px-3 py-2.5 text-xs leading-relaxed"
+                style={{ background: 'rgba(180,83,9,0.08)', border: '1px solid rgba(180,83,9,0.3)', color: '#b45309' }}>
+                O token vence em {dmStatus.days_left} dias. A rotina semanal renova sozinha, mas se quiser
+                adiantar é só clicar em Renovar token.
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 type="button"

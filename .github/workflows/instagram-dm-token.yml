@@ -1,0 +1,35 @@
+name: Renovar o token das mensagens do Instagram
+
+# Semanal. O token dura 60 dias e so e renovado quando faltam menos de 15, entao a
+# maioria das execucoes nao faz nada. A frequencia existe para dar varias chances
+# de recuperacao antes do vencimento: token expirado a Meta nao renova, so
+# reconexao manual resolve.
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: instagram-dm-token
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Renovar se estiver perto de vencer
+        env:
+          MARKETING_CRON_SECRET: ${{ secrets.MARKETING_CRON_SECRET }}
+        run: |
+          test -n "$MARKETING_CRON_SECRET"
+          resposta=$(curl --fail-with-body --silent --show-error --retry 2 \
+            --request POST \
+            --header "Authorization: Bearer $MARKETING_CRON_SECRET" \
+            https://4core-backend.vercel.app/marketing/meta/instagram-login/refresh-cron)
+          echo "$resposta"
+          # Falha o job quando o token nao esta saudavel, para o alerta do GitHub
+          # chegar enquanto ainda da tempo de reconectar.
+          echo "$resposta" | grep -q '"healthy":true' || {
+            echo "::error::O token das mensagens do Instagram precisa de atencao."
+            exit 1
+          }

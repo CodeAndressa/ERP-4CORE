@@ -93,6 +93,17 @@
   --erp-sidebar-mid: #1c0f42;
   --erp-sidebar-active: #4a2a94;
   --erp-sidebar-glow: #7b00ff;
+
+  /* ─── Canais RGB ──────────────────────────────────────────────────────────
+     A mesma cor servindo qualquer opacidade, como `rgb(var(--erp-line) / .08)`.
+     Sem isso, cada nivel de transparencia virava um rgba() escrito a mao na
+     tela, e o levantamento achou cinco alfas diferentes para o mesmo papel. */
+  --erp-ink: 21 17 39;
+  --erp-line: 43 22 92;
+  --erp-accent: 43 22 92;
+  --erp-ok: 4 120 87;
+  --erp-warn: 180 83 9;
+  --erp-bad: 190 18 60;
 }
 
 *, *::before, *::after {
@@ -259,3 +270,130 @@ textarea::placeholder {
 }
 
 
+/* ─── Classes de componente ──────────────────────────────────────────────────
+   Uma superficie, uma borda, um campo: escritos uma vez aqui em vez de repetidos
+   em cada tela. O projeto tinha 21 `rounded-2xl border` crus e as telas somavam
+   um style inline so para a cor da borda.
+
+   A sombra e em duas camadas com um `inset` claro no topo. E o detalhe que faz o
+   card parecer apoiado na pagina em vez de desenhado sobre ela, e e barato: sem
+   ele, superficie branca sobre fundo quase branco vira um retangulo de borda
+   cinza, que e a cara de interface montada sem referencia. */
+@layer components {
+  .surface {
+    background: var(--erp-surface);
+    border: 1px solid rgb(var(--erp-line) / 0.10);
+    border-radius: var(--erp-radius-lg);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.6),
+      0 1px 2px rgb(var(--erp-ink) / 0.04),
+      0 8px 24px -16px rgb(var(--erp-ink) / 0.18);
+  }
+
+  /* A versao clicavel responde ao ponteiro: sem isso o cartao parece link e nao
+     se comporta como um. */
+  .surface-interactive {
+    transition: border-color 150ms, box-shadow 150ms, transform 150ms;
+  }
+
+  .surface-interactive:hover {
+    border-color: rgb(var(--erp-line) / 0.20);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.6),
+      0 2px 4px rgb(var(--erp-ink) / 0.05),
+      0 12px 28px -14px rgb(var(--erp-ink) / 0.22);
+    transform: translateY(-1px);
+  }
+
+  .hairline {
+    border-color: rgb(var(--erp-line) / 0.10);
+  }
+
+  /* Pilula de rotulo. O projeto tinha 61 variacoes inline desta mesma forma. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: var(--erp-radius-full);
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+  }
+
+  /* Campo no formato que o DESIGN.md pede: superficie recuada, sem borda em
+     repouso, e o mesmo anel de foco dos botoes e links. O Input.tsx do projeto
+     fazia o oposto (pilula branca com borda) e por isso nenhuma tela o usava. */
+  .field {
+    width: 100%;
+    border-radius: var(--erp-radius-md);
+    border: 1px solid transparent;
+    background: var(--erp-surface-2);
+    padding: 10px 12px;
+    font-size: 0.875rem;
+    color: var(--erp-text);
+    transition: background-color 150ms, border-color 150ms;
+  }
+
+  .field::placeholder {
+    color: var(--erp-text-dim);
+  }
+
+  .field:focus {
+    outline: 2px solid rgb(var(--erp-accent) / 0.52);
+    outline-offset: 2px;
+    background: var(--erp-surface);
+    border-color: rgb(var(--erp-line) / 0.14);
+  }
+
+  /* Menu e popover sao opacos de proposito: conteudo atravessando um menu e
+     ilegivel, e e o erro mais comum de vidro aplicado sem criterio. */
+  .popover {
+    background: var(--erp-surface);
+    border: 1px solid rgb(var(--erp-line) / 0.14);
+    border-radius: var(--erp-radius-lg);
+    box-shadow: var(--erp-shadow-float);
+  }
+}
+
+/* ─── Superficies do navegador ───────────────────────────────────────────────
+   Selecao, cursor e barra de rolagem saem com o padrao do navegador, que nao
+   pertence a sistema de design nenhum. E o sinal mais barato de que uma tela foi
+   construida, e o mais esquecido. */
+::selection {
+  background: rgb(var(--erp-accent) / 0.16);
+  color: var(--erp-text);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--erp-ink) / 0.18) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--erp-ink) / 0.16);
+  border-radius: var(--erp-radius-full);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--erp-ink) / 0.28);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Numerais de largura fixa em todo dado: sem isso uma coluna de valores dança a
+   cada atualizacao, porque o 1 e mais estreito que o 8. */
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

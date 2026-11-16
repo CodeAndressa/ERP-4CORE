@@ -13,7 +13,10 @@ interface PageHeaderProps {
   showAI?: boolean;
 }
 
-export function PageHeader({ eyebrow, title, description, action, aiModule, aiContext, showAI = true }: PageHeaderProps) {
+// `showAI` agora nasce desligado. O cabecalho global ja tem "Analisar com IA"
+// em toda tela, e os dois juntos deixavam o mesmo botao duas vezes na mesma
+// altura da pagina. Quem quiser o atalho no contexto da tela pede por ele.
+export function PageHeader({ eyebrow, title, description, action, aiModule, aiContext, showAI = false }: PageHeaderProps) {
   const openAIDrawer = useUIStore((s) => s.openAIDrawer);
 
   return (
@@ -23,9 +26,11 @@ export function PageHeader({ eyebrow, title, description, action, aiModule, aiCo
     <div className="page-header border-b border-violet-100 pb-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1 lg:flex-row lg:items-baseline lg:gap-3">
-          {eyebrow && <p className="page-header__eyebrow shrink-0 text-xs font-semibold uppercase tracking-[0.2em] text-violet-600">{eyebrow}</p>}
-          <h1 className="page-header__title shrink-0 text-xl font-bold tracking-tight text-slate-950">{title}</h1>
-          {description && <p className="page-header__description min-w-0 truncate text-sm text-slate-600">{description}</p>}
+          {eyebrow && <p className="page-header__eyebrow shrink-0 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--erp-text-dim)]">{eyebrow}</p>}
+          <h1 className="page-header__title shrink-0 text-2xl font-bold tracking-tight text-[color:var(--erp-text)]">{title}</h1>
+          {/* Sem `truncate`: cortar a frase com reticencias e pior que deixa-la
+              quebrar numa segunda linha quando o espaco aperta. */}
+          {description && <p className="page-header__description min-w-0 text-sm text-[color:var(--erp-text-muted)]">{description}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {action}

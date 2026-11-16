@@ -47,26 +47,30 @@ function AreaButton({ area, collapsed }: { area: AreaItem; collapsed: boolean })
     <NavLink
       to={area.path}
       title={collapsed ? area.label : undefined}
-      className="group relative flex h-11 items-center overflow-hidden rounded-2xl text-[13px] font-medium outline-none transition-[background-color,box-shadow,color] duration-200"
+      // Raio de 10px, nao 16: item de menu com canto de botao e um dos sinais
+      // mais faceis de interface montada sem referencia. O estado ativo e um
+      // fundo solido, sem gradiente nem brilho: antes era gradiente mais duas
+      // sombras empilhadas, e o resultado competia com o proprio conteudo.
+      className="group relative flex h-10 items-center overflow-hidden rounded-[10px] text-sm outline-none transition-colors duration-150"
       style={{
         justifyContent: collapsed ? 'center' : 'flex-start',
-        gap: collapsed ? 0 : '12px',
-        padding: collapsed ? 0 : '0 14px',
+        gap: collapsed ? 0 : '11px',
+        padding: collapsed ? 0 : '0 12px',
         width: collapsed ? '40px' : '100%',
         marginInline: collapsed ? 'auto' : 0,
-        color: active ? '#ffffff' : 'rgba(230,224,247,0.62)',
-        background: active ? 'linear-gradient(135deg, #4a2a94 0%, #2b165c 100%)' : 'transparent',
-        boxShadow: active ? '0 0 0 1px rgba(155,53,255,0.4), 0 10px 24px -6px rgba(123,0,255,0.5)' : 'none',
+        fontWeight: active ? 600 : 450,
+        color: active ? '#ffffff' : 'rgba(226, 219, 246, 0.70)',
+        background: active ? 'var(--erp-sidebar-active)' : 'transparent',
       }}
     >
       {!active && (
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-          style={{ background: 'rgba(255,255,255,0.07)' }}
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+          style={{ background: 'rgba(255,255,255,0.06)' }}
         />
       )}
-      <Icon size={18} className="relative z-10 flex-shrink-0 transition-transform duration-200 group-hover:scale-[1.08]" />
+      <Icon size={17} className="relative z-10 flex-shrink-0" strokeWidth={active ? 2.2 : 1.8} />
       {!collapsed && <span className="relative z-10 truncate">{area.label}</span>}
     </NavLink>
   );
@@ -81,21 +85,18 @@ export default function MainMenu() {
       animate={{ width: sidebarCollapsed ? 64 : 240 }}
       transition={{ type: 'spring', damping: 28, stiffness: 280 }}
       className="relative hidden flex-shrink-0 flex-col overflow-hidden lg:flex"
+      // Os valores vem dos tokens, que ate agora so existiam no DESIGN.md. O
+      // degrade ficou de duas paradas e quase imperceptivel: o de tres, com o
+      // brilho radial borrado por cima, era decoracao de dashboard, nao marca.
       style={{
         minHeight: '100vh',
-        background: 'linear-gradient(175deg, #2b165c 0%, #1c0f42 48%, #12081f 100%)',
-        borderRight: '1px solid rgba(155,53,255,0.16)',
+        background: 'linear-gradient(180deg, var(--erp-sidebar-mid) 0%, var(--erp-sidebar-deep) 100%)',
+        borderRight: '1px solid rgba(255,255,255,0.07)',
       }}
     >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-28 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full"
-        style={{ background: 'radial-gradient(circle, rgba(123,0,255,0.4) 0%, rgba(123,0,255,0) 70%)', filter: 'blur(6px)' }}
-      />
 
       <div
         className={`relative flex flex-shrink-0 ${sidebarCollapsed ? 'flex-col items-center gap-3 px-2 py-5' : 'items-center gap-2.5 px-5 py-6'}`}
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
         <img
           src={sidebarCollapsed ? LOGO_MARK_SRC : LOGO_SRC}
@@ -106,15 +107,25 @@ export default function MainMenu() {
           onClick={toggleSidebar}
           title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
           aria-label={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
-          className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-transform duration-200 hover:scale-110 ${sidebarCollapsed ? '' : 'ml-auto'}`}
-          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(155,53,255,0.35)', color: '#e6ddff' }}
+          className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full transition-colors duration-150 hover:bg-white/15 ${sidebarCollapsed ? '' : 'ml-auto'}`}
+          style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(226,219,246,0.75)' }}
         >
           {sidebarCollapsed ? <ChevronRight size={13} /> : <ChevronLeft size={13} />}
         </button>
       </div>
 
-      <nav className={`relative flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${sidebarCollapsed ? 'space-y-1.5' : 'space-y-1'}`}>
-        {AREAS.map((area) => <AreaButton key={area.path} area={area} collapsed={sidebarCollapsed} />)}
+      <nav className="relative flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {!sidebarCollapsed && (
+          <p
+            className="mb-2 px-3 text-xs font-semibold uppercase tracking-[0.16em]"
+            style={{ color: 'rgba(226,219,246,0.38)' }}
+          >
+            Áreas
+          </p>
+        )}
+        <div className={sidebarCollapsed ? 'space-y-1.5' : 'space-y-0.5'}>
+          {AREAS.map((area) => <AreaButton key={area.path} area={area} collapsed={sidebarCollapsed} />)}
+        </div>
       </nav>
     </motion.aside>
   );

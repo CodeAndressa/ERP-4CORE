@@ -9,18 +9,26 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const paddings = { sm: 'p-3 sm:p-4', md: 'p-4 sm:p-5', lg: 'p-4 sm:p-6' };
 
+/** O cartão usa `.surface` de styles.css: superfície, borda fina e a sombra em
+ *  duas camadas com um brilho `inset` no topo. É esse brilho que faz o cartão
+ *  parecer apoiado na página em vez de desenhado sobre ela; sem ele, branco
+ *  sobre quase-branco vira um retângulo de borda cinza, que é a aparência de
+ *  interface montada sem referência. */
 export function Card({ children, glass = false, hover = false, padding = 'md', className = '', style, ...rest }: CardProps) {
   return (
     <div
       className={[
-        'rounded-2xl border border-violet-100 bg-white',
-        hover ? 'cursor-pointer transition-colors duration-200 hover:border-violet-200 hover:bg-[var(--erp-surface-2)]' : '',
+        'surface',
+        hover ? 'surface-interactive cursor-pointer' : '',
         paddings[padding],
         className,
-      ].join(' ')}
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{
-        background: glass ? 'rgba(255,255,255,0.88)' : 'var(--erp-surface)',
-        backdropFilter: glass ? 'blur(16px)' : undefined,
+        ...(glass
+          ? { background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(16px)' }
+          : null),
         ...style,
       }}
       {...rest}

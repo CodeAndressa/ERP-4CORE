@@ -267,6 +267,29 @@ export default function DashboardPage() {
   // a semana cheia. Contar agendamento em três lugares diferentes foi o que
   // permitiu essa divergência, então aqui não há contagem própria.
   const scheduledThisWeek = coverage?.in_next_7_days ?? 0;
+
+  // Post e story contados separados. Somados viram um numero que nao diz o que
+  // vai ao ar: tres stories e nenhum post e uma semana sem feed, e a soma "3"
+  // parece uma semana coberta. A fila inteira entra quando a semana esta vazia,
+  // porque "nada esta semana" com oito pecas na fila nao e a mesma coisa que
+  // "nada esta semana" com a fila seca.
+  const feedThisWeek = coverage?.by_kind_next_7_days?.feed ?? 0;
+  const storyThisWeek = coverage?.by_kind_next_7_days?.story ?? 0;
+  const filaTotal = coverage?.total_upcoming ?? 0;
+
+  const agendaDetalhe = (() => {
+    if (coverageFailed) return 'Não foi possível consultar os próximos agendamentos';
+    if (scheduledThisWeek === 0) {
+      return filaTotal > 0
+        ? `Nada nos próximos 7 dias, mas ${fmt.format(filaTotal)} na fila depois disso`
+        : 'Sem post nem story agendado';
+    }
+    const partes: string[] = [];
+    if (feedThisWeek > 0) partes.push(`${fmt.format(feedThisWeek)} post${feedThisWeek > 1 ? 's' : ''}`);
+    if (storyThisWeek > 0) partes.push(`${fmt.format(storyThisWeek)} story${storyThisWeek > 1 ? 'ies' : ''}`);
+    const quebra = partes.length ? partes.join(' e ') : `${fmt.format(scheduledThisWeek)} publicações`;
+    return `${quebra} nos próximos 7 dias`;
+  })();
   const overdueCount = asaas?.overdue_count ?? 0;
 
   const priorities: { key: string; icon: ReactNode; label: string; detail: string; value: string; tone: PriorityTone; to: string }[] = [
@@ -292,11 +315,7 @@ export default function DashboardPage() {
       key: 'posts',
       icon: <CalendarDays size={16} />,
       label: coverageFailed ? 'Agenda não verificada' : scheduledThisWeek > 0 ? 'Conteúdo desta semana' : 'Nada agendado esta semana',
-      detail: coverageFailed
-        ? 'Não foi possível consultar os próximos agendamentos'
-        : scheduledThisWeek > 0
-        ? (scheduledThisWeek === 1 ? '1 publicação agendada nos próximos 7 dias' : `${fmt.format(scheduledThisWeek)} publicações agendadas nos próximos 7 dias`)
-        : 'Sem post nem story nos próximos 7 dias',
+      detail: agendaDetalhe,
       value: coverageFailed ? '—' : fmt.format(scheduledThisWeek),
       // O tom estava invertido: semana vazia aparecia em verde e semana cheia em
       // âmbar, o oposto do que o cartão "precisa de atenção" quer dizer.

@@ -12,6 +12,9 @@ export type Coverage = {
   in_next_7_days:number;
   partial?:boolean; errors?:Record<string,string>;
   by_kind:Record<string,number>; by_source:Record<string,number>; upcoming:Upcoming[];
+  // Post e story separados, so nos proximos sete dias: story vence em 24h e
+  // post fica, entao somar os dois esconde o que importa na leitura da semana.
+  by_kind_next_7_days?:Record<string,number>;
 };
 
 // Vermelho só quando a fila realmente vai secar. Alerta que grita em situação

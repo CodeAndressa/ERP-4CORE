@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarCheck, CalendarClock, ChevronRight } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, ChevronRight } from 'lucide-react';
 import { api } from '../../services/api';
-import { SCHEDULE_KINDS, type ScheduleKind } from '../scheduleKinds';
+import type { ScheduleKind } from '../scheduleKinds';
 
 type Level = 'ok' | 'warning' | 'critical';
 type Upcoming = { id:number; title:string; kind:ScheduleKind; source:'erp'|'externo'; scheduled_at:string };
@@ -34,7 +34,9 @@ function longDate(iso:string|null) {
 /** Alerta de cobertura de agendamento das redes. `compact` é a versão da Visão
  *  geral, sem a lista das próximas peças. `coverage` deixa quem já buscou o dado
  *  repassar em vez de disparar a mesma rota de novo na mesma tela. */
-export default function ScheduleCoverageAlert({ compact=false, coverage }:{ compact?:boolean; coverage?:Coverage|null }) {
+// A prop `compact` saiu: o aviso agora e sempre curto, entao nao havia mais uma
+// versao longa para ela escolher.
+export default function ScheduleCoverageAlert({ coverage }:{ coverage?:Coverage|null }) {
   const [fetched,setFetched]=useState<Coverage|null>(null), [failed,setFailed]=useState(false);
   const provided = coverage !== undefined;
 
@@ -73,19 +75,9 @@ export default function ScheduleCoverageAlert({ compact=false, coverage }:{ comp
             {until?<>Agendado até {until}</>:data.partial?'Agenda parcialmente verificada':'Nenhuma publicação agendada'}
           </p>
           <p className="mt-1 text-xs leading-relaxed" style={{color:style.text,opacity:.85}}>{data.message}</p>
-          {data.total_upcoming>0&&<div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold">
-            {/* Os pontos coloridos repetem a paleta do Calendário de propósito: a
-                mesma cor tem que significar a mesma coisa nas duas telas. */}
-            {(['story','feed'] as ScheduleKind[]).map((kind)=>
-              <span key={kind} className="flex items-center gap-1.5" style={{color:style.text}}>
-                <span className="h-2 w-2 rounded-full" style={{background:SCHEDULE_KINDS[kind].fill}}/>
-                {data.by_kind[kind]||0} {SCHEDULE_KINDS[kind].label.toLowerCase()}{(data.by_kind[kind]||0)===1?'':'s'}
-              </span>
-            )}
-            <span className="uppercase tracking-wide" style={{color:style.text,opacity:.6}}>
-              {data.total_upcoming} na fila{data.by_source?.externo?` · ${data.by_source.externo} manual`:''}
-            </span>
-          </div>}
+          {data.total_upcoming>0&&<p className="mt-1 text-xs" style={{color:style.text,opacity:.7}}>
+            {data.total_upcoming} na fila{data.by_source?.externo?` · ${data.by_source.externo} manual`:''}
+          </p>}
         </div>
       </div>
       <Link to="/marketing/calendario" className="flex min-h-10 shrink-0 items-center gap-1 rounded-xl px-3 text-xs font-semibold" style={{color:style.text,background:'var(--erp-surface)',border:`1px solid ${style.border}`}}>
@@ -94,16 +86,8 @@ export default function ScheduleCoverageAlert({ compact=false, coverage }:{ comp
       </Link>
     </div>
 
-    {!compact&&data.upcoming.length>0&&<ul className="mt-3 space-y-1.5 border-t pt-3" style={{borderColor:style.border}}>
-      {data.upcoming.slice(0,4).map(item=><li key={`${item.source}-${item.id}`} className="flex items-center gap-2 text-xs" style={{color:style.text}}>
-        <CalendarClock size={12} className="shrink-0" style={{opacity:.7}}/>
-        <span className="shrink-0 font-semibold">{new Date(item.scheduled_at).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
-        <span className="truncate" style={{opacity:.85}}>{item.title}</span>
-        <span className="ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
-              style={{background:SCHEDULE_KINDS[item.kind].soft,color:SCHEDULE_KINDS[item.kind].ink}}>
-          {SCHEDULE_KINDS[item.kind].label}
-        </span>
-      </li>)}
-    </ul>}
+    {/* A lista das proximas publicacoes saiu daqui. Ela repetia, em quatro
+        linhas no topo de toda tela, o que o Calendario mostra inteiro a um
+        clique de distancia; o aviso so precisa dizer que ha um vazio a cobrir. */}
   </section>;
 }

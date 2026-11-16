@@ -354,7 +354,7 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      <ScheduleCoverageAlert compact coverage={coverage} />
+      <ScheduleCoverageAlert coverage={coverage} />
 
       {asaasError && (
         <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: 'rgba(190,18,60,0.3)', background: 'rgba(190,18,60,0.06)', color: 'var(--erp-rose)' }}>

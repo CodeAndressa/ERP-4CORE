@@ -28,7 +28,7 @@ from app.models.financial import DunningLog, TopdataAccessControl
 from app.models.prospecting import Prospect, ProspectingActivity, ProspectingCampaign, ProspectingSuppression
 from app.routes import auth, dashboard, financial, leads, clients, proposals, marketing, marketing_agent, marketing_content, marketing_insights, knowledge, ai, site_analytics, integrations, contracts, prospecting, settings as settings_routes
 from app.services.bootstrap_service import ensure_bootstrap_admin
-from app.services.marketing_content_service import cloudflare_image_models
+from app.services.marketing_content_service import OPENROUTER_SCENE_MODEL, cloudflare_image_models
 
 
 logger = logging.getLogger(__name__)
@@ -169,12 +169,17 @@ for router in [auth.router, dashboard.router, financial.router, leads.router, cl
 
 @app.get('/health')
 def health_check():
+    # Quem de fato gera a arte, nao a lista fixa da Cloudflare. Com a chave do
+    # OpenRouter presente ele assume a geracao, e o health dizia o contrario.
     image_models = cloudflare_image_models()
+    openrouter = bool(settings.openrouter_api_key)
     return {
         'status': 'ok',
         'api_version': 3,
         'image_generation': {
-            'primary': image_models[0],
-            'fallback': image_models[1] if len(image_models) > 1 else None,
+            'provider': 'openrouter' if openrouter else 'cloudflare',
+            'primary': settings.openrouter_image_model.strip() if openrouter else image_models[0],
+            'fallback': image_models[0] if openrouter else (image_models[1] if len(image_models) > 1 else None),
+            'scene_model': OPENROUTER_SCENE_MODEL if openrouter else None,
         },
     }

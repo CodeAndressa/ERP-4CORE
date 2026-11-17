@@ -587,6 +587,7 @@ function runOutcome(result: RunResult | null, agentNames: Record<string, string>
 export default function AgenteIaPage() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [benchmark, setBenchmark] = useState<Benchmark | null>(null);
+  const [loadingBenchmark, setLoadingBenchmark] = useState(true);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [roster, setRoster] = useState<AgentInfo[]>([]);
   const [dashboard, setDashboard] = useState<CostDashboard | null>(null);
@@ -610,9 +611,12 @@ export default function AgenteIaPage() {
   const loadAll = useCallback(async () => {
     setError('');
     try {
-      const [competitorsRes, benchmarkRes, runsRes, rosterRes, costsRes, contentRes] = await Promise.all([
+      // O benchmark sai do caminho critico. Ele consulta a Graph API uma vez
+      // por concorrente, entao demora segundos, e dentro do Promise.all fazia a
+      // tela inteira esperar por ele: a esteira abria devagar enquanto as outras
+      // telas abriam na hora, e a diferenca era so esta chamada.
+      const [competitorsRes, runsRes, rosterRes, costsRes, contentRes] = await Promise.all([
         api.get<Competitor[]>('/marketing/agent/competitors'),
-        api.get<Benchmark>('/marketing/agent/benchmark'),
         api.get<RunSummary[]>('/marketing/agent/runs', { params: { limit: 10 } }),
         api.get<AgentInfo[]>('/marketing/agent/roster'),
         api.get<CostDashboard>('/marketing/agent/costs'),
@@ -625,7 +629,6 @@ export default function AgenteIaPage() {
           .catch(() => [] as { status: string }[]),
       ]);
       setCompetitors(competitorsRes.data);
-      setBenchmark(benchmarkRes.data);
       setRuns(runsRes.data);
       setRoster(rosterRes.data);
       setDashboard(costsRes.data);
@@ -636,6 +639,15 @@ export default function AgenteIaPage() {
         .get<Credits>('/marketing/agent/credits')
         .then((res) => setCredits(res.data))
         .catch(() => setCredits(null));
+
+      // O benchmark chega quando chegar, e as pilulas que dependem dele mostram
+      // tracinho ate la, em vez de segurar a tela toda.
+      setLoadingBenchmark(true);
+      api
+        .get<Benchmark>('/marketing/agent/benchmark')
+        .then((res) => setBenchmark(res.data))
+        .catch(() => setBenchmark(null))
+        .finally(() => setLoadingBenchmark(false));
     } catch (err) {
       setError(errorMessage(err, 'Não foi possível carregar o painel da esteira.'));
     } finally {
@@ -968,7 +980,7 @@ export default function AgenteIaPage() {
         />
         <StatPill
           label="Engajamento"
-          value={`${own?.engagement_rate ?? 0}%`}
+          value={loadingBenchmark && !own ? '...' : `${own?.engagement_rate ?? 0}%`}
           detail={
             own?.engagement_from_history
               ? `Histórico, sem posts na janela. Média do mercado: ${market?.avg_engagement_rate ?? 0}%`
@@ -980,7 +992,7 @@ export default function AgenteIaPage() {
         />
         <StatPill
           label="Posts por semana"
-          value={String(own?.posts_per_week ?? 0)}
+          value={loadingBenchmark && !own ? '...' : String(own?.posts_per_week ?? 0)}
           detail={
             own?.is_silent
               ? `Parado há ${own.days_since_last_post} dias. Média do mercado: ${market?.avg_posts_per_week ?? 0}`
@@ -991,7 +1003,7 @@ export default function AgenteIaPage() {
         />
         <StatPill
           label="Ranking"
-          value={market?.own_position ? `${market.own_position}º` : '-'}
+          value={loadingBenchmark && !market ? '...' : market?.own_position ? `${market.own_position}º` : '-'}
           detail={`Entre ${market?.ranking_size ?? 0} perfis observados`}
         />
       </div>

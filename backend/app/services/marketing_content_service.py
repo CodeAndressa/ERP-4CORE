@@ -838,7 +838,16 @@ def _compose_feed_art(
     logo_height = round(logo.height * logo_width / logo.width)
     logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
 
-    url_font = _font(max(18, round(height * 0.0205)), "SemiBold")
+    # O logo sobe para o topo. No rodape ele dividia a faixa com o CTA e o
+    # endereco, e tres elementos empilhados embaixo empurravam o titulo para o
+    # meio da foto. Em cima ele assina a peca na primeira olhada, que e o que a
+    # marca quer de uma peca vista na grade do perfil.
+    canvas.alpha_composite(logo, (margin_x, round(height * 0.045)))
+
+    # O endereco fica embaixo e pequeno: ele e referencia, nao chamada. Quem vai
+    # agir age pelo CTA ou pelo perfil, e o site so precisa estar legivel para
+    # quem procurar por ele.
+    url_font = _font(max(15, round(height * 0.0165)), "SemiBold")
     url_width = round(draw.textlength(STORY_SITE_URL, font=url_font))
     url_ascent, url_descent = url_font.getmetrics()
 
@@ -846,14 +855,9 @@ def _compose_feed_art(
     url_y = cursor - (url_ascent + url_descent)
     draw.text(
         ((width - url_width) // 2, url_y),
-        STORY_SITE_URL, font=url_font, fill=(226, 214, 255, 230),
+        STORY_SITE_URL, font=url_font, fill=(226, 214, 255, 200),
     )
-
-    # Logo centralizado, como nas pecas da marca. No canto ele disputava com a
-    # curva de assinatura, que ocupa justamente aquele canto.
-    logo_y = url_y - round(height * 0.016) - logo_height
-    canvas.alpha_composite(logo, ((width - logo_width) // 2, logo_y))
-    cursor = logo_y - round(height * 0.030)
+    cursor = url_y - round(height * 0.022)
 
     # ── o CTA, quando o redator mandou um ──
     texto_cta = " ".join((cta or "").split())[:34]

@@ -256,7 +256,11 @@ def active_theme(hoje: date | None = None) -> SeasonalTheme | None:
 
     ja_passou, distancia, tema = min(candidatos, key=lambda item: (item[0], item[1]))
     # Negativo quando a data já passou, para "faltam -1 dias" nunca ser escrito.
-    return SeasonalTheme({**tema, "dias_para_a_data": -distancia if ja_passou else distancia})
+    return SeasonalTheme({
+        **tema,
+        "dias_para_a_data": -distancia if ja_passou else distancia,
+        "escolhido": False,
+    })
 
 
 def theme_by_key(key: str) -> SeasonalTheme | None:
@@ -266,7 +270,14 @@ def theme_by_key(key: str) -> SeasonalTheme | None:
         return None
     for tema in SEASONAL_CALENDAR:
         if tema["key"] == alvo or tema["nome"].lower() == alvo:
-            return SeasonalTheme({**tema, "dias_para_a_data": _dias_ate(date.today(), tema["mes"], tema["dia"])})
+            # `escolhido` muda o tom do briefing. Ver theme_brief: tema que o
+            # calendário liga sozinho é contexto, tema que a pessoa escolheu no
+            # seletor é o assunto da peça.
+            return SeasonalTheme({
+                **tema,
+                "dias_para_a_data": _dias_ate(date.today(), tema["mes"], tema["dia"]),
+                "escolhido": True,
+            })
     return None
 
 
@@ -285,8 +296,22 @@ def theme_brief(tema: SeasonalTheme | None) -> str:
         f"Ângulo obrigatório: {tema['angulo']}\n"
         f"Tom: {tema['tom']}\n"
         f"Proibido nesta data: {tema['proibido']}\n"
-        "A peça precisa fazer sentido para quem vê sem conhecer a campanha: a data "
-        "entra como contexto do problema, nunca como o assunto inteiro."
+        + (
+            # Tom forte: a pessoa foi ao seletor e pediu esta data. Entregar uma
+            # peça comum com um aceno à data não é o que ela pediu, e foi o que
+            # aconteceu: uma rodada pedida como Black Friday saiu sem uma palavra
+            # de Black Friday.
+            "ESTA PEÇA É DA CAMPANHA DE " + str(tema["nome"]).upper() + ". A data foi "
+            "escolhida a dedo para esta rodada, então ela precisa estar no gancho e na "
+            "primeira linha da legenda, não insinuada no meio. Quem vir a peça tem de "
+            "saber de que data ela é sem ler até o fim. O problema de sempre continua "
+            "sendo o assunto; o que muda é que a data é o motivo de falar dele agora."
+            if tema.get("escolhido")
+            # Tom leve: foi o calendário que ligou. Encher o feed inteiro de
+            # Black Friday porque novembro chegou é pior do que ignorar a data.
+            else "A peça precisa fazer sentido para quem vê sem conhecer a campanha: a "
+            "data entra como contexto do problema, nunca como o assunto inteiro."
+        )
     )
 
 

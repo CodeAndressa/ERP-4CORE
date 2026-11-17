@@ -37,6 +37,7 @@ from app.services.marketing_brand_system import (
     FOURCORE_BRAND_SYSTEM,
     VOZ_HUMANA,
     build_copy_system_prompt,
+    hoje_block,
     build_image_prompt,
     match_product,
     match_risk_fact,
@@ -364,7 +365,9 @@ async def agent_estrategista(
     # O tema entra no system prompt, e nao no payload: e regra da rodada, com o
     # mesmo peso das regras da marca, nao mais um dado para o modelo ponderar.
     sistema = STRATEGIST_PROMPT + theme_brief(tema)
-    result, usage = await ask_json(sistema, payload, "analisar os concorrentes", temperature=0.5)
+    result, usage = await ask_json(
+        sistema + hoje_block(), payload, "analisar os concorrentes", temperature=0.5
+    )
     return {
         "leitura": normalize_pt_br_text(str(result.get("leitura") or ""))[:2000],
         "pontos_fortes": [normalize_pt_br_text(str(item))[:300] for item in (result.get("pontos_fortes") or [])][:8],
@@ -444,7 +447,7 @@ Responda em JSON:
 }"""
 
 
-async def agent_diretor_criacao(pauta: dict[str, Any]) -> tuple[dict[str, Any], Usage | None]:
+async def agent_diretor_criacao(pauta: dict[str, Any], tema: dict[str, Any] | None = None) -> tuple[dict[str, Any], Usage | None]:
     """O ângulo da peça, decidido antes de qualquer linha ser escrita.
 
     Existe porque o estrategista entrega o tema e o redator saía escrevendo, o que
@@ -453,7 +456,7 @@ async def agent_diretor_criacao(pauta: dict[str, Any]) -> tuple[dict[str, Any], 
     """
     try:
         result, usage = await ask_json(
-            CREATIVE_DIRECTOR_PROMPT,
+            CREATIVE_DIRECTOR_PROMPT + theme_brief(tema) + hoje_block(),
             {
                 "title": pauta.get("title", ""),
                 "brief": pauta.get("brief", ""),
@@ -587,7 +590,7 @@ async def agent_revisor_texto(draft: dict[str, Any], pauta: dict[str, Any]) -> t
         "caption": draft["caption"],
     }
     result, usage = await ask_json(
-        REVIEWER_PROMPT, payload, "revisar o texto", temperature=0.3, creative=True
+        REVIEWER_PROMPT + hoje_block(), payload, "revisar o texto", temperature=0.3, creative=True
     )
     headline = normalize_pt_br_text(str(result.get("headline_final") or draft["headline"]))
     caption = normalize_pt_br_text(str(result.get("caption_final") or draft["caption"]))
@@ -611,7 +614,7 @@ async def agent_diretor_arte(
     refinamento é melhor que derrubar a peça inteira."""
     try:
         result, usage = await ask_json(
-            ART_DIRECTOR_PROMPT,
+            ART_DIRECTOR_PROMPT + theme_brief(tema),
             {"headline": headline, "conceito_do_redator": draft.get("visual_concept", "")},
             "dirigir a arte",
             temperature=0.5,
@@ -778,7 +781,12 @@ async def _produce(
         }
         try:
             async with recorder.step("diretor_criacao", item.id) as box:
-                direcao, usage = await agent_diretor_criacao(pauta)
+                # O tema entra AQUI, e nao so no redator. O angulo da peca e
+                # decidido neste passo; sem o tema, a peca ja nasce sem a data e
+                # o redator depois fica preso a um angulo que a ignora. Foi por
+                # isso que uma rodada pedida como Black Friday saiu sem uma
+                # palavra de Black Friday.
+                direcao, usage = await agent_diretor_criacao(pauta, tema_sazonal)
                 box["usage"] = usage
                 box["summary"] = (
                     f"Ângulo: {direcao['angulo'][:80]}" if direcao.get("angulo")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import date
 
 
 BRAND_SYSTEM_VERSION = "4core-instagram-site-2026-08-v3"
@@ -145,6 +146,36 @@ ORTOGRAFIA
 """.strip()
 
 
+_MESES = (
+    "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+    "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+)
+
+
+def hoje_block() -> str:
+    """A data de hoje, por extenso, e a proibição de inventar ano.
+
+    Nenhum prompt do sistema dizia a data, e sem isso o modelo cai no ano mais
+    frequente no treino dele: uma peça escrita em novembro de 2026 saiu falando
+    de 2024, com total confiança, porque para ele aquele é o presente.
+
+    Dizer a data não basta sozinho. O modelo continua citando "desde 2023" e "a
+    partir de 2024" ao falar de legislação que acha que lembra, e cada um desses
+    anos é uma afirmação verificável e errada numa peça de empresa. Por isso a
+    proibição vem junto.
+    """
+    agora = date.today()
+    return (
+        "HOJE É " + str(agora.day) + " de " + _MESES[agora.month - 1] + " de "
+        + str(agora.year) + ". O ano corrente é " + str(agora.year) + ".\n"
+        "NUNCA escreva um ano que não esteja nesta instrução ou no payload. Nada de "
+        "'desde 2023', 'a partir de 2024' nem 'as mudanças deste ano' com data colada: "
+        "se você não recebeu o ano, escreva a frase sem ele. Isso vale especialmente "
+        "para legislação, portaria e prazo, porque citar o ano errado de uma norma é o "
+        "tipo de erro que o cliente percebe e a empresa não tem como defender."
+    )
+
+
 def _guidance_block(title: str, value: str) -> str:
     value = (value or "").strip()
     return f"\n\n{title}\n{value}" if value else ""
@@ -265,7 +296,9 @@ foi reprovado.
 Não invente percentuais, leis, clientes, funcionalidades ou resultados. Quando o
 briefing trouxer uma afirmação quantitativa sem fonte, transforme-a em linguagem
 qualitativa. Responda somente JSON válido com headline, caption, cta, visual_concept e
-visual_constraints.{_guidance_block("APRENDIZADO ACUMULADO SOBRE REDAÇÃO:", learned_copy_guidance)}
+visual_constraints.
+
+{hoje_block()}{_guidance_block("APRENDIZADO ACUMULADO SOBRE REDAÇÃO:", learned_copy_guidance)}
 
 {FOURCORE_BRAND_SYSTEM}
 """.strip()
@@ -295,7 +328,9 @@ Regras da legenda, sempre:
 - EXATAMENTE 5 hashtags relevantes ao final (nunca mais, nunca menos que 5);
 - não inventar percentuais, leis, clientes, funcionalidades ou resultados.
 
-Responda somente JSON válido: {{"caption": string}}{_guidance_block("APRENDIZADO ACUMULADO SOBRE REDAÇÃO:", learned_copy_guidance)}
+Responda somente JSON válido: {{"caption": string}}
+
+{hoje_block()}{_guidance_block("APRENDIZADO ACUMULADO SOBRE REDAÇÃO:", learned_copy_guidance)}
 
 {FOURCORE_BRAND_SYSTEM}
 """.strip()

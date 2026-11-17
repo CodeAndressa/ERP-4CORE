@@ -448,6 +448,21 @@ async def upload_edited_art(
     return _serialize(item)
 
 
+class RedoRequest(BaseModel):
+    pedido: str = Field(min_length=3, max_length=600)
+
+
+@router.post("/{content_id}/redo")
+async def redo(content_id: int, payload: RedoRequest, db: Session = Depends(get_db)):
+    """Refaz a peça aplicando um pedido escrito em português.
+
+    Diferente de `/reject`, que marca e devolve para a fila esperando alguém
+    rodar a esteira de novo: aqui o ajuste é aplicado na hora."""
+    from app.services.marketing_agent_service import redo_piece
+
+    return await redo_piece(db, content_id, payload.pedido)
+
+
 @router.post("/{content_id}/generate")
 async def generate_content(content_id: int, db: Session = Depends(get_db)):
     item = _get(db, content_id)

@@ -321,6 +321,12 @@ Quando o payload trouxer "ajustes_pedidos", trate cada item como correção
 obrigatória desta peça: a nova versão precisa resolver todos, e não repetir o que
 foi reprovado.
 
+Quando vier também "texto_atual", você NÃO está escrevendo do zero: está editando
+uma peça que já existe e que alguém aprovou até aqui. Resolva o que foi pedido e
+PRESERVE todo o resto, incluindo a cena de abertura, o ângulo, a data sazonal e a
+estrutura dos parágrafos. Trocar uma frase não é motivo para jogar fora uma
+abertura que funcionava. Se o pedido não fala do gancho, devolva o gancho igual.
+
 Não invente percentuais, leis, clientes, funcionalidades ou resultados. Quando o
 briefing trouxer uma afirmação quantitativa sem fonte, transforme-a em linguagem
 qualitativa. Responda somente JSON válido com headline, caption, cta, visual_concept e

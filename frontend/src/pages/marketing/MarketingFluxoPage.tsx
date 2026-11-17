@@ -21,6 +21,7 @@ import { api } from '../../services/api';
 import { PageHeader } from '../../shared/components/layout';
 import { Button } from '../../shared/components/ui/Button';
 import { SeletorDeData } from '../../shared/components/ui/SeletorDeData';
+import { AGENT_SPRITES, SPRITE_H, SPRITE_PALETTE, SPRITE_W } from './agentSprites';
 
 /** Marketing como um fluxo, e não como dez telas.
  *
@@ -59,6 +60,7 @@ type Content = {
 
 type Ideia = { title: string; pillar: string; objective: string; brief: string };
 type Tema = { key: string; nome: string; ativo: boolean };
+type AgenteInfo = { key: string; name: string; role: string };
 type Credits = { configured: boolean; error?: string | null; balance_usd?: number; posts_left?: number };
 
 function erroDe(e: unknown, reserva: string) {
@@ -138,6 +140,103 @@ function Miniatura({ id, pronta, alt }: { id: number; pronta: boolean; alt: stri
   );
 }
 
+/** O exército, em pixel art, com o estado de cada agente.
+ *
+ *  Os agentes já existiam desenhados, na tela da Esteira. Aqui eles aparecem no
+ *  lugar onde o trabalho de fato acontece, e não numa tela que se visita para
+ *  disparar e sair.
+ *
+ *  Quem está trabalhando pulsa; os outros ficam quietos. Sem rodada em curso a
+ *  fileira fica parada, dizendo quem existe: ver a equipe inteira em repouso é
+ *  o que faz entender o que cada peça atravessou. */
+function Exercito({ roster, rodando }: { roster: AgenteInfo[]; rodando: string }) {
+  const [frame, setFrame] = useState<0 | 1>(0);
+
+  useEffect(() => {
+    if (!rodando) {
+      setFrame(0);
+      return;
+    }
+    const relogio = window.setInterval(() => setFrame((f) => (f === 0 ? 1 : 0)), 420);
+    return () => window.clearInterval(relogio);
+  }, [rodando]);
+
+  if (!roster.length) return null;
+
+  return (
+    <div className="-mx-1 overflow-x-auto px-1">
+      <ul className="m-0 flex list-none items-end gap-3 p-0">
+        {roster.map((agente) => {
+          const ativo = agente.key === rodando;
+          return (
+            <li
+              key={agente.key}
+              className="flex shrink-0 flex-col items-center gap-1"
+              title={`${agente.name}: ${agente.role}`}
+            >
+              <div
+                className="grid h-[44px] w-[44px] place-items-center rounded-xl border transition-colors"
+                style={{
+                  borderColor: ativo ? 'var(--erp-violet)' : 'var(--erp-border)',
+                  background: ativo ? 'var(--erp-violet-dim)' : 'var(--erp-surface-2)',
+                }}
+              >
+                <SpriteDoAgente agentKey={agente.key} frame={ativo ? frame : 0} />
+              </div>
+              <span
+                className="max-w-[56px] truncate text-center text-2xs font-semibold"
+                style={{ color: ativo ? 'var(--erp-violet)' : 'var(--erp-text-dim)' }}
+              >
+                {agente.name.split(' ')[0]}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** O desenho do agente, num canvas de 20x16 ampliado com pixelated. */
+function SpriteDoAgente({ agentKey, frame }: { agentKey: string; frame: 0 | 1 }) {
+  const canvas = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const alvo = canvas.current;
+    const ctx = alvo?.getContext('2d');
+    if (!alvo || !ctx) return;
+    ctx.clearRect(0, 0, SPRITE_W, SPRITE_H);
+    const quadros = AGENT_SPRITES[agentKey];
+    const linhas = quadros?.[frame] ?? quadros?.[0];
+    if (!linhas) return;
+    linhas.forEach((linha, y) => {
+      for (let x = 0; x < linha.length; x += 1) {
+        const cor = SPRITE_PALETTE[linha[x]];
+        if (!cor) continue;
+        ctx.fillStyle = cor;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    });
+  }, [agentKey, frame]);
+
+  if (!AGENT_SPRITES[agentKey]) {
+    return (
+      <span className="text-sm font-bold uppercase" style={{ color: 'var(--erp-text-dim)' }}>
+        {agentKey.slice(0, 1)}
+      </span>
+    );
+  }
+  return (
+    <canvas
+      ref={canvas}
+      width={SPRITE_W}
+      height={SPRITE_H}
+      aria-hidden="true"
+      style={{ imageRendering: 'pixelated', width: SPRITE_W * 1.6, height: SPRITE_H * 1.6 }}
+    />
+  );
+}
+
 /** Uma coluna do fluxo. */
 function Coluna({
   titulo,
@@ -191,6 +290,9 @@ export default function MarketingFluxoPage() {
   const [items, setItems] = useState<Content[]>([]);
   const [ideias, setIdeias] = useState<Ideia[]>([]);
   const [temas, setTemas] = useState<Tema[]>([]);
+  const [roster, setRoster] = useState<AgenteInfo[]>([]);
+  // Qual agente esta trabalhando agora, para a fileira pulsar no certo.
+  const [agenteAtivo, setAgenteAtivo] = useState('');
   const [tema, setTema] = useState('');
   const [credits, setCredits] = useState<Credits | null>(null);
   const [ocupado, setOcupado] = useState('');
@@ -233,8 +335,44 @@ export default function MarketingFluxoPage() {
     void carregar();
     // Temas e saldo são apoio: falham em silêncio para não segurar o quadro.
     api.get<Tema[]>('/marketing/agent/themes').then((r) => setTemas(r.data)).catch(() => undefined);
+    api.get<AgenteInfo[]>('/marketing/agent/roster').then((r) => setRoster(r.data)).catch(() => undefined);
     api.get<Credits>('/marketing/agent/credits').then((r) => setCredits(r.data)).catch(() => undefined);
   }, [carregar]);
+
+  // Enquanto alguma coisa esta sendo produzida ou refeita, a tela consulta a
+  // rodada em curso e marca quem esta trabalhando. O backend ja grava cada passo
+  // na hora; sem olhar, a fileira ficaria parada justamente quando ha o que ver.
+  useEffect(() => {
+    if (!ocupado) {
+      setAgenteAtivo('');
+      return;
+    }
+    let cancelado = false;
+    const espiar = async () => {
+      try {
+        const { data: recentes } = await api.get<{ id: number; status: string }[]>(
+          '/marketing/agent/runs',
+          { params: { limit: 1 } },
+        );
+        const atual = recentes[0];
+        if (!atual || atual.status !== 'running' || cancelado) return;
+        const { data } = await api.get<{ steps: { agent: string; status: string }[] }>(
+          `/marketing/agent/runs/${atual.id}`,
+        );
+        const vivo = (data.steps ?? []).find((s) => s.status === 'running');
+        if (!cancelado) setAgenteAtivo(vivo?.agent ?? '');
+      } catch {
+        // Falha ao espiar nao e falha da producao: a producao esta no POST.
+      }
+    };
+    espiar();
+    const relogio = window.setInterval(espiar, 2500);
+    return () => {
+      cancelado = true;
+      window.clearInterval(relogio);
+      setAgenteAtivo('');
+    };
+  }, [ocupado]);
 
   useEffect(() => {
     setEdicao({ caption: aberta?.caption || '', scheduled_at: paraInput(aberta?.scheduled_at) });
@@ -307,23 +445,32 @@ export default function MarketingFluxoPage() {
     }
   }
 
-  async function pedirAjuste() {
+  async function refazer() {
     if (!aberta || motivo.trim().length < 3) {
-      toast.error('Escreva o que precisa mudar: é isso que a IA usa para refazer.');
+      toast.error('Escreva o que precisa mudar: é esse texto que a IA usa para refazer.');
       return;
     }
-    setOcupado('ajuste');
+    setOcupado('refazer');
     try {
-      await api.post(`/marketing/content/${aberta.id}/reject`, { reason: motivo, aspects: [] });
-      setAbertaId(null);
+      const { data } = await api.post<{ alvo: string }>(
+        `/marketing/content/${aberta.id}/redo`,
+        { pedido: motivo },
+        // Pode refazer a arte, que leva um tempo. O padrão de 30s do axios
+        // derrubaria a tela com a peça ainda sendo refeita.
+        { timeout: 600000 },
+      );
+      setPedindoAjuste(false);
+      setMotivo('');
       await carregar();
-      toast.success('Ajuste pedido. A peça volta para a fila.');
+      const oQue = data.alvo === 'texto' ? 'O texto' : data.alvo === 'imagem' ? 'A arte' : 'A peça';
+      toast.success(`${oQue} foi refeita com o seu pedido.`);
     } catch (e) {
-      toast.error(erroDe(e, 'Não foi possível pedir o ajuste.'));
+      toast.error(erroDe(e, 'Não foi possível refazer a peça.'));
     } finally {
       setOcupado('');
     }
   }
+
 
   const temaAtivo = temas.find((t) => t.ativo);
 
@@ -370,6 +517,15 @@ export default function MarketingFluxoPage() {
             Ver no Estúdio <ArrowRight size={13} />
           </span>
         </Link>
+      )}
+
+      {roster.length > 0 && (
+        <div>
+          <p className="mb-2 text-2xs font-bold uppercase tracking-widest" style={{ color: 'var(--erp-text-dim)' }}>
+            O exército
+          </p>
+          <Exercito roster={roster} rodando={agenteAtivo} />
+        </div>
       )}
 
       {/* O quadro. Rola na horizontal no celular, que é o comportamento
@@ -590,23 +746,30 @@ export default function MarketingFluxoPage() {
               </label>
 
               {pedindoAjuste ? (
-                <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--erp-amber-border)', background: 'var(--erp-amber-soft)' }}>
-                  <p className="text-xs font-semibold" style={{ color: 'var(--erp-amber)' }}>
-                    O que precisa mudar?
+                <div className="space-y-2 rounded-xl border p-3" style={{ borderColor: 'var(--erp-violet-soft)', background: 'var(--erp-violet-dim)' }}>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--erp-violet)' }}>
+                    O que você quer mudar?
                   </p>
                   <textarea
                     value={motivo}
                     onChange={(e) => setMotivo(e.target.value)}
                     rows={3}
-                    placeholder="Ex.: a pessoa da foto não parece estar usando o aparelho"
+                    placeholder="Ex.: deixa a foto mais clara e troca a frase para falar de multa"
                     className="field resize-y"
                   />
+                  {/* Escrito em português mesmo. Uma chamada curta decide se o
+                      pedido é de texto, de imagem ou dos dois, e só o que
+                      precisa é refeito: refazer a imagem para trocar uma palavra
+                      custaria US$ 0,04 à toa. */}
+                  <p className="text-2xs leading-relaxed" style={{ color: 'var(--erp-violet)' }}>
+                    Escreva como falaria com uma pessoa. A peça volta refeita, aqui mesmo.
+                  </p>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => setPedindoAjuste(false)}>
                       Cancelar
                     </Button>
-                    <Button size="sm" loading={ocupado === 'ajuste'} onClick={() => void pedirAjuste()}>
-                      Enviar o pedido
+                    <Button size="sm" loading={ocupado === 'refazer'} onClick={() => void refazer()}>
+                      Refazer agora
                     </Button>
                   </div>
                 </div>
@@ -617,7 +780,7 @@ export default function MarketingFluxoPage() {
                     icon={<MessageSquarePlus size={14} />}
                     onClick={() => setPedindoAjuste(true)}
                   >
-                    Pedir ajuste
+                    Mudar algo
                   </Button>
                   <Button
                     icon={<Check size={14} />}

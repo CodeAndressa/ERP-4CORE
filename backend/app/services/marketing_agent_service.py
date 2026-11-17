@@ -568,6 +568,15 @@ async def agent_redator(
         "recent_instagram_captions": [caption[:260] for caption in recent_captions[:6]],
         "formato": "post de feed 4:5",
     }
+    # Numa refação, o que já existe vai junto, e o prompt manda editar em vez de
+    # reescrever. Sem isto, pedir "troca a frase para falar de multa" numa peça
+    # de Natal devolvia uma peça sem Natal: o redator escrevia do zero, com o
+    # tema que estiver ativo hoje.
+    if pauta.get("ajustes_pedidos"):
+        payload["ajustes_pedidos"] = pauta["ajustes_pedidos"]
+    if pauta.get("texto_atual"):
+        payload["texto_atual"] = pauta["texto_atual"]
+
     # A direção manda sobre o tema: o redator escreve para sustentar o ângulo, não
     # para cobrir a pauta inteira.
     if direcao and direcao.get("angulo"):
@@ -1243,6 +1252,189 @@ async def run_from_idea(
         run.finished_at = datetime.now(timezone.utc)
         db.commit()
         raise HTTPException(500, "Não foi possível produzir a peça a partir dessa ideia.") from exc
+
+
+ROUTER_PROMPT = """Você recebe um pedido de ajuste numa peça de Instagram já pronta.
+Diga apenas o que esse pedido exige refazer.
+
+- "texto": muda só o que está escrito (gancho, legenda, chamada, tom, erro de português).
+- "imagem": muda só a fotografia (luz, cena, enquadramento, pessoa, produto, cor).
+- "ambos": o pedido claramente exige os dois.
+
+Na dúvida entre "texto" e "ambos", escolha "texto": refazer a imagem custa caro e
+refazer de novo é barato. Na dúvida entre "imagem" e "ambos", escolha "imagem".
+
+Responda somente JSON: {"alvo": "texto" | "imagem" | "ambos"}"""
+
+
+async def _rotear_ajuste(pedido: str) -> str:
+    """O que o pedido exige refazer: texto, imagem ou os dois.
+
+    Uma chamada curta e barata (~US$ 0,0002) que evita pagar uma imagem inteira
+    (US$ 0,04) para trocar uma palavra. É o padrão de roteamento: classificar a
+    entrada e mandar só para o caminho necessário.
+
+    Falhou? Assume "ambos". Errar para o lado caro é melhor do que devolver a
+    peça sem a correção que a pessoa pediu.
+    """
+    try:
+        resultado, _ = await ask_json(
+            ROUTER_PROMPT, {"pedido": pedido}, "entender o ajuste", temperature=0.0, timeout=25.0
+        )
+        alvo = str(resultado.get("alvo", "")).strip().lower()
+        return alvo if alvo in {"texto", "imagem", "ambos"} else "ambos"
+    except Exception:  # noqa: BLE001
+        logger.exception("roteamento do ajuste falhou; refazendo os dois")
+        return "ambos"
+
+
+async def redo_piece(db: Session, content_id: int, pedido: str) -> dict[str, Any]:
+    """Refaz a peça aplicando um pedido escrito em português.
+
+    Diferente de `/reject`, que marcava e devolvia para a fila esperando alguém
+    rodar a esteira de novo. Aqui o pedido vira correção aplicada agora.
+    """
+    item = db.query(MarketingContent).filter(MarketingContent.id == content_id).first()
+    if not item:
+        raise HTTPException(404, "Peça não encontrada.")
+    if item.status in {"publishing", "published"}:
+        raise HTTPException(409, "Uma publicação enviada não pode ser refeita.")
+    if not pedido.strip():
+        raise HTTPException(409, "Escreva o que precisa mudar.")
+
+    run = MarketingAgentRun(status="running", trigger="ajuste")
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    recorder = StepRecorder(db, run.id)
+
+    tema_sazonal = active_theme()
+    learned = await learned_guidance(db)
+    alvo = await _rotear_ajuste(pedido)
+
+    try:
+        pauta = {
+            "title": item.title,
+            "brief": item.brief or item.title,
+            "pillar": "",
+            "objective": "",
+            "por_que_agora": "",
+        }
+        draft: dict[str, Any] = {
+            "headline": item.headline or item.title,
+            "caption": item.caption or "",
+            "cta": "",
+            "visual_concept": "",
+            "visual_constraints": pedido,
+        }
+
+        if alvo in {"texto", "ambos"}:
+            async with recorder.step("redator", item.id) as box:
+                # O pedido entra como `ajustes_pedidos`, que o prompt do redator
+                # já trata como correção obrigatória desta peça.
+                novo, usage = await agent_redator(
+                    {
+                        **pauta,
+                        "ajustes_pedidos": [pedido],
+                        "texto_atual": {
+                            "headline": item.headline or "",
+                            "caption": item.caption or "",
+                        },
+                    },
+                    [],
+                    learned,
+                    None,
+                    tema_sazonal,
+                )
+                box["usage"] = usage
+                box["summary"] = f"Texto refeito: {pedido[:60]}"
+            draft = {**draft, **novo}
+            item.headline = normalize_pt_br_text(str(draft.get("headline") or item.headline))
+            item.caption = normalize_pt_br_text(str(draft.get("caption") or item.caption))
+            db.commit()
+
+        if alvo in {"imagem", "ambos"} and item.layout == "feed":
+            produto = match_product(item.headline or "", item.title, item.brief or "")
+            fato = match_risk_fact(item.headline or "", item.title)
+            template = choose_template(
+                produto, fato, item.id, scene_model_available(), image_model_available()
+            )
+
+            image_prompt = ""
+            if template in {"cena", "foto"}:
+                async with recorder.step("diretor_arte", item.id) as box:
+                    image_prompt, usage = await agent_diretor_arte(
+                        item.headline or item.title,
+                        {**draft, "visual_constraints": pedido},
+                        learned,
+                        tema_sazonal,
+                    )
+                    box["usage"] = usage
+                    box["summary"] = f"Arte redirecionada: {pedido[:60]}"
+
+            correcoes = ""
+            veredito = None
+            for tentativa in range(MAX_REDOS + 1):
+                async with recorder.step("ilustrador", item.id) as box:
+                    art_path, usage = await generate_art_with_usage(
+                        image_prompt + correcoes,
+                        item.headline or item.title,
+                        item.layout,
+                        produto,
+                        fato,
+                        template,
+                        palette=theme_palette(tema_sazonal),
+                        cta=str(draft.get("cta") or ""),
+                    )
+                    box["usage"] = usage
+                    box["summary"] = "Arte refeita." if tentativa == 0 else f"Arte refeita ({tentativa}a correcao)."
+
+                anterior = veredito
+                veredito = await _criticar(recorder, item.id, art_path, item.headline or item.title)
+                if veredito is None or veredito["aprovado"]:
+                    break
+                if tentativa >= MAX_REDOS:
+                    break
+                if anterior and veredito["nota_minima"] <= anterior["nota_minima"]:
+                    break
+                correcoes = instrucao_de_correcao(veredito)
+
+            item.art_path = art_path
+            db.commit()
+
+        # Volta para a fila de aprovação, com o pedido registrado. O histórico
+        # importa: a próxima versão precisa saber o que já foi pedido antes.
+        item.status = "awaiting_approval"
+        item.error_message = ""
+        item.revision_notes = (f"{item.revision_notes}\n{pedido}" if item.revision_notes else pedido)[:2000]
+        db.commit()
+
+        run.status = "done"
+        run.finished_at = datetime.now(timezone.utc)
+        run.created_content_ids = str(item.id)
+        db.commit()
+
+        return {
+            "content_id": item.id,
+            "alvo": alvo,
+            "headline": item.headline,
+            "caption": item.caption,
+            "costs": total_cost(recorder.usages),
+            "steps": [serialize_step(step) for step in list_steps(db, run.id)],
+        }
+    except HTTPException as exc:
+        run.status = "failed"
+        run.error_message = str(exc.detail)[:2000]
+        run.finished_at = datetime.now(timezone.utc)
+        db.commit()
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("falha ao refazer a peca")
+        run.status = "failed"
+        run.error_message = str(exc)[:2000]
+        run.finished_at = datetime.now(timezone.utc)
+        db.commit()
+        raise HTTPException(500, "Não foi possível refazer a peça com esse ajuste.") from exc
 
 
 def seasonal_themes() -> list[dict[str, str]]:

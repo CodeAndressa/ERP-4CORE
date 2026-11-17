@@ -21,7 +21,7 @@ from datetime import datetime, time, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import or_
+from sqlalchemy import inspect, or_
 from sqlalchemy.orm import Session
 
 from app.models.marketing import ExternalScheduledPost, MarketingContent
@@ -83,27 +83,54 @@ def best_hour(posts: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _last_committed_slot(db: Session) -> datetime | None:
-    """A publicação mais distante já comprometida, do ERP ou registrada como externa.
-    Conta o agendamento externo também: senão o agente marcaria em cima de um post
-    que já vai sair pelo Business Suite."""
-    latest = (
-        db.query(MarketingContent.scheduled_at)
-        .filter(
-            MarketingContent.scheduled_at.isnot(None),
-            or_(
-                MarketingContent.status.in_(["approved", "scheduled", "publishing", "published"]),
-                MarketingContent.status == "awaiting_approval",
-            ),
-        )
-        .order_by(MarketingContent.scheduled_at.desc())
-        .first()
+def _tem_coluna_layout(db: Session) -> bool:
+    """Se a coluna de formato existe nesta base.
+
+    Implantação cuja migration de `layout` ainda não rodou continua funcionando
+    com fila única: cadência errada é melhor do que consulta que estoura."""
+    try:
+        return "layout" in {
+            coluna["name"]
+            for coluna in inspect(db.get_bind()).get_columns(MarketingContent.__tablename__)
+        }
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _last_committed_slot(db: Session, layout: str = "") -> datetime | None:
+    """A publicação mais distante já comprometida NO MESMO FORMATO.
+
+    Conta o agendamento externo também: senão o agente marcaria em cima de um
+    post que já vai sair pelo Business Suite.
+
+    O formato importa porque post e story são filas diferentes. Story vence em
+    24 horas e pode sair todo dia; post fica no perfil e vai de dois em dois.
+    Antes a consulta olhava as duas juntas, e um story agendado para daqui a
+    oito dias empurrava o próximo post para o nono, como se disputassem o mesmo
+    espaço. Não disputam.
+    """
+    consulta = db.query(MarketingContent.scheduled_at).filter(
+        MarketingContent.scheduled_at.isnot(None),
+        or_(
+            MarketingContent.status.in_(["approved", "scheduled", "publishing", "published"]),
+            MarketingContent.status == "awaiting_approval",
+        ),
     )
-    external = (
-        db.query(ExternalScheduledPost.scheduled_at)
-        .order_by(ExternalScheduledPost.scheduled_at.desc())
-        .first()
-    )
+    if layout and _tem_coluna_layout(db):
+        consulta = consulta.filter(MarketingContent.layout == layout)
+    latest = consulta.order_by(MarketingContent.scheduled_at.desc()).first()
+    externa = db.query(ExternalScheduledPost.scheduled_at)
+    if layout:
+        try:
+            colunas = {
+                coluna["name"]
+                for coluna in inspect(db.get_bind()).get_columns(ExternalScheduledPost.__tablename__)
+            }
+            if "layout" in colunas:
+                externa = externa.filter(ExternalScheduledPost.layout == layout)
+        except Exception:  # noqa: BLE001
+            pass
+    external = externa.order_by(ExternalScheduledPost.scheduled_at.desc()).first()
     candidates = [value[0] for value in (latest, external) if value and value[0]]
     if not candidates:
         return None
@@ -116,13 +143,14 @@ def next_slots(
     hour: int,
     cadence_days: int = 2,
     now: datetime | None = None,
+    layout: str = "",
 ) -> list[datetime]:
     """Os próximos horários livres, respeitando a cadência e pulando fim de semana.
 
     Parte do que já está comprometido, não de hoje: rodar o agente duas vezes no
     mesmo dia não pode gerar duas publicações para a mesma data."""
     reference = (now or datetime.now(timezone.utc)).astimezone(BRAZIL_TZ)
-    last = _last_committed_slot(db)
+    last = _last_committed_slot(db, layout)
     if last:
         cursor = last.astimezone(BRAZIL_TZ)
     else:
@@ -145,9 +173,15 @@ def next_slots(
     return slots
 
 
-def plan(db: Session, posts: list[dict[str, Any]], count: int, cadence_days: int = 2) -> dict[str, Any]:
+def plan(
+    db: Session,
+    posts: list[dict[str, Any]],
+    count: int,
+    cadence_days: int = 2,
+    layout: str = "",
+) -> dict[str, Any]:
     timing = best_hour(posts)
-    slots = next_slots(db, count, timing["hour"], cadence_days)
+    slots = next_slots(db, count, timing["hour"], cadence_days, layout=layout)
     return {
         **timing,
         "cadence_days": cadence_days,

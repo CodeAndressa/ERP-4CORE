@@ -515,3 +515,53 @@ class EscolhaDeLayoutTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FilaPorFormatoTests(unittest.TestCase):
+    """Post e story são filas separadas de agendamento.
+
+    Antes a consulta olhava todas as peças juntas: um story marcado para daqui a
+    oito dias empurrava o próximo post para o nono, como se os dois disputassem
+    o mesmo espaço no calendário. Não disputam. Story vence em 24 horas e pode
+    sair todo dia; post fica no perfil e vai de dois em dois.
+    """
+
+    def setUp(self):
+        self.db = _session()
+        self.addCleanup(self.db.close)
+
+    def _marcar(self, layout: str, dias: int) -> None:
+        quando = datetime.now(timezone.utc) + timedelta(days=dias)
+        self.db.add(MarketingContent(
+            title=f"{layout} em {dias}d", brief="", caption="", headline="",
+            channel="instagram", layout=layout, status="approved", scheduled_at=quando,
+        ))
+        self.db.commit()
+
+    def test_story_distante_nao_empurra_o_proximo_post(self):
+        self._marcar("story", dias=20)
+        slot = next_slots(self.db, 1, hour=9, cadence_days=2, layout="feed")[0]
+        daqui = (slot - datetime.now(BRAZIL_TZ)).days
+        self.assertLess(daqui, 7, f"o post foi para {daqui} dias, arrastado pelo story")
+
+    def test_post_distante_nao_empurra_o_proximo_story(self):
+        self._marcar("feed", dias=20)
+        slot = next_slots(self.db, 1, hour=9, cadence_days=1, layout="story")[0]
+        daqui = (slot - datetime.now(BRAZIL_TZ)).days
+        self.assertLess(daqui, 7, f"o story foi para {daqui} dias, arrastado pelo post")
+
+    def test_post_respeita_a_fila_dos_proprios_posts(self):
+        """O que a fila do mesmo formato diz continua valendo: é só a mistura
+        entre formatos que estava errada."""
+        self._marcar("feed", dias=10)
+        slot = next_slots(self.db, 1, hour=9, cadence_days=2, layout="feed")[0]
+        daqui = (slot - datetime.now(BRAZIL_TZ)).days
+        self.assertGreaterEqual(daqui, 10, "o post deveria vir depois do último post marcado")
+
+    def test_sem_formato_informado_volta_a_fila_unica(self):
+        """Compatibilidade: quem chamar sem dizer o formato mantém o
+        comportamento antigo, em vez de receber uma data otimista demais."""
+        self._marcar("story", dias=20)
+        slot = next_slots(self.db, 1, hour=9, cadence_days=2)[0]
+        daqui = (slot - datetime.now(BRAZIL_TZ)).days
+        self.assertGreaterEqual(daqui, 20)

@@ -704,7 +704,7 @@ async def run_pipeline(
 
         # 7. Agendador
         async with recorder.step("agendador") as box:
-            schedule = await _schedule(db, created, benchmark, cadence_days)
+            schedule = await _schedule(db, created, benchmark, cadence_days, layout)
             box["summary"] = schedule["reason"]
 
         costs = total_cost(recorder.usages)
@@ -957,6 +957,7 @@ async def _schedule(
     created: list[dict[str, Any]],
     benchmark: dict[str, Any],
     cadence_days: int,
+    layout: str = "",
 ) -> dict[str, Any]:
     """Distribui as peças prontas na cadência pedida, no melhor horário medido.
 
@@ -972,7 +973,10 @@ async def _schedule(
                 continue
 
     ready = [entry for entry in created if entry["status"] == "awaiting_approval"]
-    schedule = plan_schedule(db, parsed, len(ready) or 1, cadence_days)
+    # O formato entra na conta: post e story sao filas separadas, e sem isto
+    # um story agendado para daqui a oito dias empurrava o proximo post para
+    # o nono, como se disputassem o mesmo espaco.
+    schedule = plan_schedule(db, parsed, len(ready) or 1, cadence_days, layout=layout)
 
     for entry, slot in zip(ready, schedule["_slots"]):
         item = db.query(MarketingContent).filter(MarketingContent.id == entry["content_id"]).first()
@@ -1199,7 +1203,7 @@ async def run_from_idea(
             # Sem benchmark: o agendador usa o histórico de publicação quando
             # existe, e cai no horário padrão quando não. Para uma peça só, ler
             # os concorrentes de novo não mudaria o horário escolhido.
-            schedule = await _schedule(db, created, {}, cadence_days)
+            schedule = await _schedule(db, created, {}, cadence_days, layout)
             box["summary"] = schedule["reason"]
 
         costs = total_cost(recorder.usages)

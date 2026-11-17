@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 import { PageHeader } from '../../shared/components/layout';
 import { Button } from '../../shared/components/ui/Button';
+import { SeletorDeData } from '../../shared/components/ui/SeletorDeData';
 
 /** Marketing como um fluxo, e não como dez telas.
  *
@@ -200,6 +201,22 @@ export default function MarketingFluxoPage() {
   const [carregando, setCarregando] = useState(true);
 
   const aberta = items.find((i) => i.id === abertaId) || null;
+
+  // O que ja esta marcado no mesmo formato da peca aberta, para o calendario
+  // mostrar onde nao cabe outra.
+  const diasOcupados = useMemo(
+    () =>
+      items
+        .filter(
+          (i) =>
+            i.scheduled_at &&
+            i.id !== aberta?.id &&
+            i.layout === aberta?.layout &&
+            ['approved', 'scheduled', 'publishing', 'published', 'awaiting_approval'].includes(i.status),
+        )
+        .map((i) => ({ data: i.scheduled_at as string, titulo: i.headline || i.title })),
+    [items, aberta?.id, aberta?.layout],
+  );
 
   const carregar = useCallback(async () => {
     try {
@@ -560,12 +577,16 @@ export default function MarketingFluxoPage() {
                 <span className="text-2xs font-semibold uppercase tracking-widest" style={{ color: 'var(--erp-text-muted)' }}>
                   Publicar em
                 </span>
-                <input
-                  type="datetime-local"
-                  value={edicao.scheduled_at}
-                  onChange={(e) => setEdicao({ ...edicao, scheduled_at: e.target.value })}
-                  className="field mt-1.5"
-                />
+                {/* Os dias ocupados sao so os do MESMO formato. Post e story
+                    sao filas separadas: ver os stories marcados enquanto se
+                    agenda um post so atrapalha a decisao. */}
+                <div className="mt-1.5">
+                  <SeletorDeData
+                    value={edicao.scheduled_at}
+                    onChange={(valor) => setEdicao({ ...edicao, scheduled_at: valor })}
+                    ocupados={diasOcupados}
+                  />
+                </div>
               </label>
 
               {pedindoAjuste ? (

@@ -720,90 +720,208 @@ def _crop_to_feed(content: bytes) -> bytes:
 
 
 def _feed_scrim(width: int, height: int) -> Image.Image:
-    """Escurece só a faixa de baixo, onde moram frase, logo e endereço. Sem o
-    degradê do topo que o story usa: no feed aquela faixa não cobre interface
-    nenhuma e deixava a foto com cara de filtro aplicado por cima."""
+    """Assenta a base da peça sem apagar a foto.
+
+    Era 62% da altura com opacidade subindo até 240, de quando a frase era texto
+    branco solto sobre a foto e precisava daquele contraste todo. Hoje cada linha
+    do título vai dentro de caixa sólida, que já garante a leitura, e o véu
+    continuava lá escurecendo a imagem inteira: a peça saía cinza-arroxeada e
+    pesada, que foi o "cru e sombrio" apontado.
+
+    Ficou a faixa curta do rodapé, onde moram logo, endereço e a curva, que
+    precisam de fundo para não disputar com a foto.
+    """
     column = Image.new("RGBA", (1, height), (0, 0, 0, 0))
     pixels = column.load()
-    span = max(1, round(height * 0.62))
+    span = max(1, round(height * 0.34))
     start = height - span
     for y in range(start, height):
-        alpha = round(240 * ((y - start) / span) ** 1.55)
+        alpha = round(185 * ((y - start) / span) ** 1.9)
         pixels[0, y] = (*PLUM, min(255, alpha))
     return column.resize((width, height), Image.Resampling.NEAREST)
 
 
-def _compose_feed_art(background: bytes, logo_content: bytes, headline: str) -> bytes:
-    """Monta a peça de feed: frase grande alinhada à esquerda, filete violeta,
-    endereço e logo. Mesma gramática visual do story, proporção e pesos diferentes.
+# As palavras que nunca levam o destaque de cor: destacar "de" ou "para" num
+# titulo chama atencao para o lugar errado.
+_SEM_DESTAQUE = {
+    "de", "da", "do", "das", "dos", "e", "ou", "a", "o", "as", "os", "em", "no",
+    "na", "nos", "nas", "um", "uma", "por", "para", "com", "sem", "que", "se",
+    "ao", "aos", "a\u00e0", "mais", "menos", "ja", "j\u00e1", "nao", "n\u00e3o",
+}
 
-    A frase ocupa mais área que no story porque o feed é visto na grade do perfil
-    em miniatura, e é o gancho que precisa sobreviver a esse tamanho."""
+
+def _destaque(palavras: list[str]) -> set[int]:
+    """Quais palavras do gancho saem em violeta dentro do titulo branco.
+
+    A marca destaca o dado: em "76% das empresas ainda enfrentam dificuldades",
+    o violeta pega "76%". Entao a regra e procurar numero primeiro, porque e o
+    que o olho busca na miniatura.
+
+    Sem numero nenhum, destaca a ultima palavra util, que e onde quase todo
+    gancho bom poe a carga ("...sem crach\u00e1", "...na m\u00e3o"). Destacar nada
+    deixaria a peca sem o elemento de cor que a identidade tem.
+    """
+    com_numero = {
+        i for i, palavra in enumerate(palavras)
+        if any(caractere.isdigit() for caractere in palavra)
+    }
+    if com_numero:
+        return com_numero
+
+    for i in range(len(palavras) - 1, -1, -1):
+        limpa = palavras[i].strip(".,;:!?\u2014-").lower()
+        if limpa and limpa not in _SEM_DESTAQUE:
+            return {i}
+    return set()
+
+
+def _curva_de_canto(width: int, height: int, cor: tuple[int, int, int]) -> Image.Image:
+    """A curva fina do canto inferior esquerdo, que a marca usa como assinatura.
+
+    Desenhada em dobro e reduzida, porque o Pillow nao suaviza linha: traco de
+    3px desenhado direto sai serrilhado, e serrilhado numa peca que se quer
+    premium e a primeira coisa que denuncia.
+    """
+    escala = 2
+    camada = Image.new("RGBA", (width * escala, height * escala), (0, 0, 0, 0))
+    traco = ImageDraw.Draw(camada)
+    espessura = max(2, round(width * 0.0035)) * escala
+    raio = round(width * 0.30) * escala
+    esquerda = round(width * 0.03) * escala
+    base = height * escala - round(height * 0.015) * escala
+    traco.arc(
+        (esquerda, base - raio, esquerda + raio, base + raio),
+        start=180, end=270, fill=(*cor, 190), width=espessura,
+    )
+    traco.line(
+        (esquerda + raio // 2, base, width * escala, base),
+        fill=(*cor, 190), width=espessura,
+    )
+    return camada.resize((width, height), Image.Resampling.LANCZOS)
+
+
+def _compose_feed_art(
+    background: bytes,
+    logo_content: bytes,
+    headline: str,
+    cta: str = "",
+    palette: dict | None = None,
+) -> bytes:
+    """Monta a peca de feed na identidade que a 4Core publica.
+
+    Cada linha do gancho vai dentro de uma caixa solida com barra de acento a
+    esquerda, o termo-chave sai em cor dentro do titulo branco, e o rodape leva
+    logo centralizado, endereco e o CTA. Antes era frase branca solta sobre a
+    foto: sem caixa, o contraste depende da foto que veio, e peca a peca o texto
+    some ou fica cru.
+    """
+    acento = _hex_rgb(str((palette or {}).get("acento", "")), VIOLET)
+    fundo_caixa = _hex_rgb(str((palette or {}).get("fundo", "")), PLUM)
+
     canvas = Image.open(io.BytesIO(background)).convert("RGBA")
     width, height = canvas.size
     canvas = Image.alpha_composite(canvas, _feed_scrim(width, height))
+    canvas = Image.alpha_composite(canvas, _curva_de_canto(width, height, acento))
     draw = ImageDraw.Draw(canvas)
 
-    margin_x = round(width * 0.075)
+    margin_x = round(width * 0.068)
     content_width = width - margin_x * 2
-    bottom_safe = round(height * 0.062)
+    bottom_safe = round(height * 0.055)
 
+    # ── o rodape, montado de baixo para cima ──
     logo = Image.open(io.BytesIO(logo_content)).convert("RGBA")
     logo_bbox = logo.getbbox()
     if logo_bbox is None:
-        raise ValueError("Logo oficial sem conteúdo visível")
+        raise ValueError("Logo oficial sem conteudo visivel")
     logo = logo.crop(logo_bbox)
-    logo_width = round(width * 0.26)
+    logo_width = round(width * 0.23)
     logo_height = round(logo.height * logo_width / logo.width)
     logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
 
-    safe_headline = sentence_case(headline)[:90]
-    max_text_height = round(height * 0.34)
-    headline_font = _font(round(height * 0.062), "ExtraBold")
-    headline_lines = [safe_headline]
-    line_step = round(height * 0.066)
-    for font_size in range(round(height * 0.086), round(height * 0.040), -2):
-        font = _font(font_size, "ExtraBold")
-        lines = _wrap_headline(draw, safe_headline, font, content_width)
-        ascent, descent = font.getmetrics()
-        step = round(font_size * 1.05)
-        if len(lines) <= 4 and step * (len(lines) - 1) + ascent + descent <= max_text_height:
-            headline_font, headline_lines, line_step = font, lines, step
-            break
-
-    url_font = _font(max(20, round(height * 0.0235)), "SemiBold")
+    url_font = _font(max(18, round(height * 0.0205)), "SemiBold")
     url_width = round(draw.textlength(STORY_SITE_URL, font=url_font))
     url_ascent, url_descent = url_font.getmetrics()
-    url_height = url_ascent + url_descent
 
     cursor = height - bottom_safe
-    logo_y = cursor - logo_height
-    # Endereço na mesma linha de base do logo, à direita: no feed o leitor já tem o
-    # @ do perfil no topo, então repetir a marca empilhada seria redundante.
-    url_y = logo_y + (logo_height - url_height) // 2
-    cursor = logo_y - round(height * 0.038)
-
-    headline_ascent, headline_descent = headline_font.getmetrics()
-    headline_height = line_step * (len(headline_lines) - 1) + headline_ascent + headline_descent
-    headline_top = cursor - headline_height
-    shadow_offset = max(1, round(headline_font.size * 0.045))
-    text_y = headline_top
-    for line in headline_lines:
-        draw.text((margin_x + shadow_offset, text_y + shadow_offset), line, font=headline_font, fill=(*PLUM, 150))
-        draw.text((margin_x, text_y), line, font=headline_font, fill=(255, 255, 255, 255))
-        text_y += line_step
-
-    rule_height = max(3, round(height * 0.0042))
-    rule_width = round(width * 0.125)
-    rule_y = headline_top - round(height * 0.030) - rule_height
-    draw.rounded_rectangle(
-        (margin_x, rule_y, margin_x + rule_width, rule_y + rule_height),
-        radius=rule_height // 2,
-        fill=(*VIOLET, 255),
+    url_y = cursor - (url_ascent + url_descent)
+    draw.text(
+        ((width - url_width) // 2, url_y),
+        STORY_SITE_URL, font=url_font, fill=(226, 214, 255, 230),
     )
 
-    draw.text((width - margin_x - url_width, url_y), STORY_SITE_URL, font=url_font, fill=(235, 225, 255, 255))
-    canvas.alpha_composite(logo, (margin_x, logo_y))
+    # Logo centralizado, como nas pecas da marca. No canto ele disputava com a
+    # curva de assinatura, que ocupa justamente aquele canto.
+    logo_y = url_y - round(height * 0.016) - logo_height
+    canvas.alpha_composite(logo, ((width - logo_width) // 2, logo_y))
+    cursor = logo_y - round(height * 0.030)
+
+    # ── o CTA, quando o redator mandou um ──
+    texto_cta = " ".join((cta or "").split())[:34]
+    if texto_cta:
+        cta_font = _font(max(20, round(height * 0.0255)), "Bold")
+        cta_width = round(draw.textlength(texto_cta, font=cta_font))
+        cta_ascent, cta_descent = cta_font.getmetrics()
+        pad_x, pad_y = round(width * 0.028), round(height * 0.014)
+        caixa_w = cta_width + pad_x * 2
+        caixa_h = cta_ascent + cta_descent + pad_y * 2
+        caixa_x = (width - caixa_w) // 2
+        caixa_y = cursor - caixa_h
+
+        # Em camada propria: o ImageDraw escreve o pixel direto e nao compoe
+        # alfa, entao pilula translucida desenhada no canvas sai chapada.
+        pilula = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        ImageDraw.Draw(pilula).rounded_rectangle(
+            (caixa_x, caixa_y, caixa_x + caixa_w, caixa_y + caixa_h),
+            radius=caixa_h // 2, fill=(*acento, 255),
+        )
+        canvas = Image.alpha_composite(canvas, pilula)
+        draw = ImageDraw.Draw(canvas)
+        draw.text((caixa_x + pad_x, caixa_y + pad_y), texto_cta, font=cta_font, fill=(255, 255, 255, 255))
+        cursor = caixa_y - round(height * 0.030)
+
+    # ── o titulo em caixas solidas ──
+    safe_headline = sentence_case(headline)[:90]
+    max_text_height = round(height * 0.40)
+    headline_font, headline_lines, line_step = _fit_headline(
+        draw, safe_headline, content_width - round(width * 0.055),
+        max_text_height, round(height * 0.082), round(height * 0.040), max_lines=4,
+    )
+
+    palavras = safe_headline.split()
+    destacadas = _destaque(palavras)
+    ascent, descent = headline_font.getmetrics()
+    altura_linha = ascent + descent
+    pad_h = round(width * 0.022)
+    pad_v = round(height * 0.009)
+    barra = max(4, round(width * 0.0075))
+
+    # As caixas sao desenhadas numa camada so, e o texto por cima, para o alfa
+    # compor uma vez e nao linha a linha.
+    caixas = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    pincel = ImageDraw.Draw(caixas)
+
+    topo = cursor - (line_step * (len(headline_lines) - 1) + altura_linha + pad_v * 2)
+    y = topo
+    posicoes: list[tuple[int, int, str]] = []
+    indice_palavra = 0
+    for linha in headline_lines:
+        largura = round(draw.textlength(linha, font=headline_font))
+        caixa_w = largura + pad_h * 2
+        pincel.rectangle((margin_x, y, margin_x + caixa_w, y + altura_linha + pad_v * 2), fill=(*fundo_caixa, 232))
+        pincel.rectangle((margin_x, y, margin_x + barra, y + altura_linha + pad_v * 2), fill=(*acento, 255))
+        posicoes.append((margin_x + barra + pad_h, y + pad_v, linha))
+        y += line_step
+
+    canvas = Image.alpha_composite(canvas, caixas)
+    draw = ImageDraw.Draw(canvas)
+
+    for x, y_texto, linha in posicoes:
+        cursor_x = x
+        for palavra in linha.split():
+            cor = (*acento, 255) if indice_palavra in destacadas else (255, 255, 255, 255)
+            draw.text((cursor_x, y_texto), palavra, font=headline_font, fill=cor)
+            cursor_x += round(draw.textlength(palavra + " ", font=headline_font))
+            indice_palavra += 1
 
     output = io.BytesIO()
     _film_grain(canvas.convert("RGB")).save(output, format="PNG", optimize=True)
@@ -875,17 +993,39 @@ def _draw_check(draw: ImageDraw.ImageDraw, x: int, cy: int, radius: int) -> None
     )
 
 
-def _brand_gradient(width: int, height: int) -> Image.Image:
+def _hex_rgb(valor: str, reserva: tuple[int, int, int]) -> tuple[int, int, int]:
+    """Converte #RRGGBB em tupla, caindo na reserva quando o valor não presta."""
+    texto = (valor or "").strip().lstrip("#")
+    if len(texto) != 6:
+        return reserva
+    try:
+        return (int(texto[0:2], 16), int(texto[2:4], 16), int(texto[4:6], 16))
+    except ValueError:
+        return reserva
+
+
+def _brand_gradient(width: int, height: int, palette: dict | None = None) -> Image.Image:
     """O fundo da peça de produto: violeta vivo caindo para o quase-preto da marca.
 
     Montado como 2x2 pixels e esticado. O Pillow interpola os quatro cantos de uma
     vez, o que dá um degradê diagonal suave sem percorrer pixel nenhum em Python.
+
+    Com `palette`, o degradê assume as cores da data sazonal. Sem ela, continua
+    sendo o da marca: uma peça de Black Friday com o mesmo violeta de sempre é
+    uma peça em que nada na tela diz que é Black Friday.
     """
+    if palette:
+        alto = _hex_rgb(str(palette.get("acento", "")), VIOLET)
+        baixo = _hex_rgb(str(palette.get("fundo", "")), PLUM)
+        meio = _hex_rgb(str(palette.get("fundo_2", "")), (42, 10, 74))
+    else:
+        alto, meio, baixo = VIOLET, (42, 10, 74), PLUM
+
     seed = Image.new("RGB", (2, 2))
-    seed.putpixel((0, 0), VIOLET)        # alto à esquerda: onde a frase começa
-    seed.putpixel((1, 0), (74, 0, 168))
-    seed.putpixel((0, 1), (42, 10, 74))
-    seed.putpixel((1, 1), PLUM)          # baixo à direita: onde a foto se apoia
+    seed.putpixel((0, 0), alto)          # alto à esquerda: onde a frase começa
+    seed.putpixel((1, 0), tuple((a + m) // 2 for a, m in zip(alto, meio)))
+    seed.putpixel((0, 1), meio)
+    seed.putpixel((1, 1), baixo)         # baixo à direita: onde a foto se apoia
     return seed.resize((width, height), Image.Resampling.BICUBIC).convert("RGBA")
 
 
@@ -994,7 +1134,7 @@ def _draw_cross(draw: ImageDraw.ImageDraw, x: int, cy: int, radius: int) -> None
               fill=(226, 212, 255, 255), width=largura)
 
 
-def _compose_stat_art(logo_content: bytes, headline: str, fact: dict) -> bytes:
+def _compose_stat_art(logo_content: bytes, headline: str, fact: dict, palette: dict | None = None) -> bytes:
     """Peça de dado: o número ocupa a peça e o gancho fica embaixo.
 
     É o layout que para o dedo de quem rola o feed. Existe porque a 4Core vende
@@ -1003,7 +1143,7 @@ def _compose_stat_art(logo_content: bytes, headline: str, fact: dict) -> bytes:
     e esta é a peça onde inventar um percentual seria mais fácil e mais caro.
     """
     width, height = 1080, 1350
-    canvas = _brand_gradient(width, height)
+    canvas = _brand_gradient(width, height, palette)
     draw = ImageDraw.Draw(canvas)
     margin = round(width * 0.075)
     content_width = width - margin * 2
@@ -1073,7 +1213,7 @@ def _compose_stat_art(logo_content: bytes, headline: str, fact: dict) -> bytes:
     return output.getvalue()
 
 
-def _compose_compare_art(logo_content: bytes, headline: str, product: dict) -> bytes:
+def _compose_compare_art(logo_content: bytes, headline: str, product: dict, palette: dict | None = None) -> bytes:
     """Peça comparativa: o que acontece sem a solução, e o que muda com ela.
 
     Duas colunas em vez de duas metades empilhadas: no feed a peça aparece em
@@ -1087,7 +1227,7 @@ def _compose_compare_art(logo_content: bytes, headline: str, product: dict) -> b
         raise ValueError("Produto sem contraste cadastrado")
 
     width, height = 1080, 1350
-    canvas = _brand_gradient(width, height)
+    canvas = _brand_gradient(width, height, palette)
     draw = ImageDraw.Draw(canvas)
     margin = round(width * 0.075)
     content_width = width - margin * 2
@@ -1164,6 +1304,7 @@ def _compose_product_art(
     logo_content: bytes,
     headline: str,
     product: dict,
+    palette: dict | None = None,
 ) -> bytes:
     """Peça de feed que mostra o que a 4Core vende.
 
@@ -1175,7 +1316,7 @@ def _compose_product_art(
     restasse) dava uma coluna estreita demais para um gancho de oito palavras.
     """
     width, height = 1080, 1350
-    canvas = _brand_gradient(width, height)
+    canvas = _brand_gradient(width, height, palette)
     draw = ImageDraw.Draw(canvas)
 
     margin = round(width * 0.075)
@@ -1563,6 +1704,8 @@ async def generate_art_with_usage(
     product: dict | None = None,
     fact: dict | None = None,
     template: str = "",
+    palette: dict | None = None,
+    cta: str = "",
 ) -> tuple[str, Any]:
     """Gera a arte no formato pedido e devolve também o consumo, para a esteira
     conseguir contabilizar o custo do passo.
@@ -1579,11 +1722,11 @@ async def generate_art_with_usage(
                 photo = await _fetch_product_image(client, str(product.get("image_url") or ""))
         try:
             if template == "dado" and fact:
-                content = _compose_stat_art(logo, headline, fact)
+                content = _compose_stat_art(logo, headline, fact, palette)
             elif template == "comparativo" and product:
-                content = _compose_compare_art(logo, headline, product)
+                content = _compose_compare_art(logo, headline, product, palette)
             elif template == "produto" and product and photo:
-                content = _compose_product_art(photo, logo, headline, product)
+                content = _compose_product_art(photo, logo, headline, product, palette)
             else:
                 raise ValueError(f"template {template} sem o conteúdo que ele precisa")
         except (TypeError, ValueError, OSError) as exc:
@@ -1602,7 +1745,7 @@ async def generate_art_with_usage(
             prompt, referencia, headline, product_appearance(product)
         )
         try:
-            content = _compose_feed_art(_crop_to_feed(raw), logo, headline)
+            content = _compose_feed_art(_crop_to_feed(raw), logo, headline, cta, palette)
         except (TypeError, ValueError, OSError) as exc:
             raise HTTPException(502, "Não foi possível finalizar a cena gerada.") from exc
         return await store_generated_art(content, "image/png"), usage
@@ -1619,15 +1762,15 @@ async def generate_art_with_usage(
 
     # O story limpa o topo dentro de _compose_brand_art, onde fica a interface da
     # Meta; o feed não precisa disso e por isso tem composição própria.
-    if layout == "feed":
-        framed, compose = _crop_to_feed(raw), _compose_feed_art
-    else:
-        framed, compose = _crop_to_story(raw), _compose_brand_art
-
     async with httpx.AsyncClient(timeout=30.0) as client:
         logo = await _fetch_brand_logo(client)
     try:
-        content = compose(framed, logo, headline)
+        if layout == "feed":
+            content = _compose_feed_art(_crop_to_feed(raw), logo, headline, cta, palette)
+        else:
+            # O story nao leva CTA: ali o rodape e o topo sao da interface da
+            # Meta, e botao desenhado embaixo fica atras da barra de resposta.
+            content = _compose_brand_art(_crop_to_story(raw), logo, headline)
     except (TypeError, ValueError, OSError) as exc:
         raise HTTPException(502, "Não foi possível finalizar a arte gerada.") from exc
     return await store_generated_art(content, "image/png"), usage

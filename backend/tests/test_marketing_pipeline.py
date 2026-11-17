@@ -168,7 +168,14 @@ class PipelineTests(unittest.TestCase):
 
         raise AssertionError(f"agente sem resposta falsa para a ação {action!r}")
 
-    async def _fake_generate_art(self, prompt, headline, layout="feed", product=None, fact=None, template=""):
+    async def _fake_generate_art(
+        self, prompt, headline, layout="feed", product=None, fact=None, template="",
+        palette=None, cta="",
+    ):
+        # O CTA e a paleta sazonal entram na arte; guardados aqui para o teste
+        # poder afirmar que chegaram, e nao so que a chamada nao quebrou.
+        self.ultimo_cta = cta
+        self.ultima_paleta = palette
         self.assertEqual(layout, "feed")
         self.ultimo_template = template
         # Layout montado no codigo nao chama modelo de imagem, entao nao tem consumo.

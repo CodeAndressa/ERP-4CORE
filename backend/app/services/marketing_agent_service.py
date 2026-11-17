@@ -44,6 +44,13 @@ from app.services.marketing_brand_system import (
     sentence_case,
 )
 from app.services.marketing_competitor_service import build_benchmark, sync_all
+from app.services.marketing_seasonal import (
+    active_theme,
+    theme_brief,
+    theme_by_key,
+    theme_palette,
+    theme_visual,
+)
 from app.services.marketing_content_service import (
     generate_art_with_usage,
     image_model_available,
@@ -342,7 +349,9 @@ def _compact_profile(profile: dict[str, Any], posts: int = 3, caption_chars: int
     return compact
 
 
-async def agent_estrategista(benchmark: dict[str, Any]) -> tuple[dict[str, Any], Usage | None]:
+async def agent_estrategista(
+    benchmark: dict[str, Any], tema: dict[str, Any] | None = None
+) -> tuple[dict[str, Any], Usage | None]:
     if not has_text_model():
         return _fallback_strategy(benchmark), None
     payload = {
@@ -351,7 +360,10 @@ async def agent_estrategista(benchmark: dict[str, Any]) -> tuple[dict[str, Any],
         "mercado": benchmark.get("market", {}),
         "janela_dias": benchmark.get("window_days"),
     }
-    result, usage = await ask_json(STRATEGIST_PROMPT, payload, "analisar os concorrentes", temperature=0.5)
+    # O tema entra no system prompt, e nao no payload: e regra da rodada, com o
+    # mesmo peso das regras da marca, nao mais um dado para o modelo ponderar.
+    sistema = STRATEGIST_PROMPT + theme_brief(tema)
+    result, usage = await ask_json(sistema, payload, "analisar os concorrentes", temperature=0.5)
     return {
         "leitura": normalize_pt_br_text(str(result.get("leitura") or ""))[:2000],
         "pontos_fortes": [normalize_pt_br_text(str(item))[:300] for item in (result.get("pontos_fortes") or [])][:8],
@@ -530,6 +542,7 @@ async def agent_redator(
     recent_captions: list[str],
     learned: dict[str, str],
     direcao: dict[str, Any] | None = None,
+    tema: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], Usage]:
     payload = {
         "title": pauta["title"],
@@ -549,7 +562,7 @@ async def agent_redator(
             if direcao.get(chave)
         }
     result, usage = await ask_json(
-        build_copy_system_prompt(learned.get("copy", "")),
+        build_copy_system_prompt(learned.get("copy", "")) + theme_brief(tema),
         payload,
         "escrever a peça",
         temperature=0.6,
@@ -558,6 +571,9 @@ async def agent_redator(
     return {
         "headline": normalize_pt_br_text(str(result.get("headline") or pauta["title"])),
         "caption": normalize_pt_br_text(str(result.get("caption") or "")),
+        # O botao da arte. Reserva curta e deliberada: peca sem CTA nenhum foi
+        # parte do que a equipe reprovou, entao vazio nao e opcao.
+        "cta": normalize_pt_br_text(str(result.get("cta") or "Falar com a 4Core"))[:34],
         "visual_concept": str(result.get("visual_concept") or ""),
         "visual_constraints": str(result.get("visual_constraints") or ""),
     }, usage
@@ -587,6 +603,7 @@ async def agent_diretor_arte(
     headline: str,
     draft: dict[str, Any],
     learned: dict[str, str],
+    tema: dict[str, Any] | None = None,
 ) -> tuple[str, Usage | None]:
     """Devolve o prompt final da imagem. Se o modelo de texto não responder com um
     conceito utilizável, cai no conceito que o redator já tinha escrito: perder o
@@ -601,7 +618,11 @@ async def agent_diretor_arte(
         )
         concept = str(result.get("visual_concept") or draft.get("visual_concept") or "")
         constraints = str(result.get("visual_constraints") or draft.get("visual_constraints") or "")
-        return build_image_prompt(headline, concept, constraints, learned.get("image", "")), usage
+        return (
+            build_image_prompt(headline, concept, constraints, learned.get("image", ""))
+            + theme_visual(tema),
+            usage,
+        )
     except HTTPException:
         logger.warning("diretor de arte indisponivel, usando o conceito do redator")
         return build_image_prompt(
@@ -629,7 +650,13 @@ async def run_pipeline(
     with_art: bool = True,
     cadence_days: int = 2,
     trigger: str = "manual",
+    theme: str = "",
 ) -> dict[str, Any]:
+    # O tema explicito vence o calendario: "rodar com tema Black Friday" em
+    # marco e um pedido deliberado, nao um engano. Sem ele, quem decide e a data
+    # de hoje, para a esteira automatica nao depender de ninguem lembrar.
+    tema_sazonal = theme_by_key(theme) if theme else active_theme()
+
     run = MarketingAgentRun(status="running", trigger=trigger)
     db.add(run)
     db.commit()
@@ -647,7 +674,7 @@ async def run_pipeline(
 
         # 2. Estrategista de pauta
         async with recorder.step("estrategista") as box:
-            diagnosis, usage = await agent_estrategista(benchmark)
+            diagnosis, usage = await agent_estrategista(benchmark, tema_sazonal)
             box["usage"] = usage
             box["summary"] = f"{len(diagnosis['pautas'])} pautas propostas, {len(diagnosis['lacunas'])} lacunas apontadas."
 
@@ -657,6 +684,7 @@ async def run_pipeline(
                 db, recorder, diagnosis["pautas"],
                 (benchmark.get("own") or {}).get("recent_captions") or [],
                 layout, with_art, min(content_limit, MAX_IDEAS_PER_RUN),
+                tema_sazonal,
             )
 
         # 7. Agendador
@@ -705,6 +733,7 @@ async def _produce(
     layout: str,
     with_art: bool,
     limit: int,
+    tema_sazonal: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Passos 3 a 6, uma vez por peça. Uma peça que falha não derruba as outras:
     ela fica em rascunho com o erro gravado e a esteira segue para a próxima."""
@@ -756,7 +785,9 @@ async def _produce(
                 )
 
             async with recorder.step("redator", item.id) as box:
-                draft, usage = await agent_redator(pauta, recent_captions, learned, direcao)
+                draft, usage = await agent_redator(
+                    pauta, recent_captions, learned, direcao, tema_sazonal
+                )
                 box["usage"] = usage
                 box["summary"] = f"Gancho: {draft['headline'][:80]}"
 
@@ -797,7 +828,7 @@ async def _produce(
                 if template in {"cena", "foto"}:
                     async with recorder.step("diretor_arte", item.id) as box:
                         image_prompt, usage = await agent_diretor_arte(
-                            review["headline"], draft, learned
+                            review["headline"], draft, learned, tema_sazonal
                         )
                         box["usage"] = usage
                         box["summary"] = "Instrução de imagem pronta."
@@ -806,7 +837,14 @@ async def _produce(
 
                 async with recorder.step("ilustrador", item.id) as box:
                     art_path, usage = await generate_art_with_usage(
-                        image_prompt, review["headline"], layout, product, fact, template
+                        image_prompt,
+                        review["headline"],
+                        layout,
+                        product,
+                        fact,
+                        template,
+                        palette=theme_palette(tema_sazonal),
+                        cta=draft.get("cta", ""),
                     )
                     box["usage"] = usage
                     box["summary"] = ROTULO_TEMPLATE.get(template, f"Arte {layout} gerada.").format(

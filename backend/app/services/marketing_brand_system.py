@@ -249,7 +249,11 @@ Crie:
    RH/DP, divergências em registros de ponto, controle de acesso ou equipamento
    realista. Não use metáfora abstrata nem natureza, flores, plantas, paisagem ou
    objetos sem relação direta com o problema. Não escolha cores, fonte ou formato;
-4. visual_constraints: EM INGLÊS, no máximo 40 palavras, apenas as restrições
+4. cta: de 2 a 4 palavras, em português, que vão DENTRO da arte como botão.
+   É o que a pessoa faz agora, com verbo no infinitivo ou imperativo: "Falar com
+   a 4Core", "Pedir uma proposta", "Ver como funciona", "Agendar demonstração".
+   Nunca "Saiba mais" nem "Clique aqui", que não dizem o que acontece depois;
+5. visual_constraints: EM INGLÊS, no máximo 40 palavras, apenas as restrições
    visuais concretas que vêm do feedback da equipe e dos ajustes pedidos nesta peça
    (o que evitar e o que manter na fotografia). Devolva string vazia quando não
    houver feedback nem ajuste pendente.
@@ -260,7 +264,7 @@ foi reprovado.
 
 Não invente percentuais, leis, clientes, funcionalidades ou resultados. Quando o
 briefing trouxer uma afirmação quantitativa sem fonte, transforme-a em linguagem
-qualitativa. Responda somente JSON válido com headline, caption, visual_concept e
+qualitativa. Responda somente JSON válido com headline, caption, cta, visual_concept e
 visual_constraints.{_guidance_block("APRENDIZADO ACUMULADO SOBRE REDAÇÃO:", learned_copy_guidance)}
 
 {FOURCORE_BRAND_SYSTEM}
@@ -425,39 +429,54 @@ THREE LAYERS THAT MUST ALL BE PRESENT — a frame missing any of them is wrong:
    finger on the biometric reader, a face half a metre from the facial terminal,
    a monitor with a monthly attendance sheet open and a hand pointing at a row,
    a tablet with a report carried through the floor. Show the gesture.
-3. THE COMPANY AROUND IT. A recognisable Brazilian workplace with real wear:
-   painted walls, stacked paperwork, a marked floor, a visitor badge on a desk,
-   a worn chair. A construction site, a logistics warehouse, a clinic reception,
-   a factory floor, a shop back office, a building entrance, a hospital corridor,
-   a canteen at shift change, or an HR room with archives. Never the bright
-   minimal modern office: that is the stock-photo look this piece must not have.
+3. THE COMPANY AROUND IT, AND IT LOOKS GOOD. A real Brazilian workplace shot
+   the way this brand shoots: a corporate reception with polished stone and a
+   glass front, a clean modern office at golden hour, a well-kept factory floor
+   with its lights on, a hospital or clinic entrance, a logistics hub. Surfaces
+   catch light: glass, brushed metal, stone, a lit facade behind. People are
+   dressed for work and look competent, walking with purpose or mid-task, never
+   posed for the camera. This is aspirational B2B, the standard the reader wants
+   their own company to reach, not a documentary about a tired back office. No
+   peeling paint, no clutter, no gloom.
 
 PHOTOGRAPHIC TREATMENT — this is what keeps it believable:
 - full-frame camera, 35mm or 50mm lens, f/2 depth of field with a natural focus
   falloff and one clearly sharp plane;
-- available light only: window light, ceiling fluorescents, the glow of a monitor.
-  Light comes from a source you can point at in the room;
+- directional available light with shape to it: golden-hour sun through a glass
+  front, a warm downlight over a reception desk, the glow of a monitor. Light
+  comes from a source you can point at in the room, and it flatters the scene;
 - fine visible film grain, slight sensor noise in the shadows, natural skin texture
   with pores and imperfection, no retouching;
-- deep plum colour GRADE, as if graded in post: #10001F in the shadows, #240044 in
-  the midtones, restrained. At most one small practical light in electric purple
-  #7B00FF, already present in the scene. Purple is a colour here, never a flower,
-  never a glow effect;
-- an ordinary Brazilian workplace with real wear: stacked paperwork, a scuffed desk,
-  a painted wall, a biometric terminal that has been touched by many hands;
+- a BRIGHT, well-exposed image. Plum only as a faint cast in the deepest shadows,
+  never over the midtones or the skin: the violet of the brand is added afterwards
+  by the layout, and a photograph already washed purple makes the finished piece
+  look muddy. At most one small practical light in electric purple #7B00FF, already
+  present in the scene. Purple is a colour here, never a flower, never a glow;
+- CURRENT equipment, as of this year: widescreen flat monitors, modern terminals,
+  recent phones. Never a CRT monitor, a beige tower or anything that reads as
+  older than the last few years;
+- a Brazilian workplace that is cared for: clean surfaces that catch light, glass
+  and stone, a terminal mounted straight on a finished wall, warm practical lights
+  already in the room;
 - the person is a real Brazilian professional caught mid-task, off-axis, not looking
   into the lens, not smiling at the camera. Ordinary clothes, ordinary posture.
 
-COMPOSITION FOR THE STORY FRAME:
+COMPOSITION:
 - keep the subject in the upper and middle thirds, weighted slightly to the right;
-- keep the LOWER 45 PERCENT quiet, dark and visually simple for a later editorial
-  overlay;
+- keep the LOWER THIRD visually simple, without faces or important detail, because
+  text is laid over it afterwards. Simple does not mean dark: the image stays
+  bright and well exposed throughout, and the layout supplies its own contrast;
 - keep the very top clear, because Instagram overlays the avatar and close button;
 - off-centre and slightly imperfect framing is preferred over a symmetrical one.
 
 The frame is purely photographic and contains no graphic overlays or written
 elements. It must look like an untouched editorial background, not a composed
 campaign piece.{feedback_section}{revision_section}
+
+LEAVE THE LOWER THIRD UNCLUTTERED: text and graphics are laid over it afterwards
+by the application, which brings its own solid background. Keep detail out of that
+band, but keep the exposure up: a dark bottom is not required and makes the piece
+look gloomy.
 
 ABSOLUTELY AVOID: {AI_LOOK_NEGATIVE}, flowers, lavender, plants, leaves, nature,
 landscape, wellness or cosmetics imagery, generic blue corporate template,

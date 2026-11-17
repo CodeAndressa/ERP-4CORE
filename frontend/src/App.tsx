@@ -17,7 +17,7 @@ const VisaoGeralLayout = lazy(() => import('./pages/visao/VisaoGeralLayout'));
 const ComercialLayout = lazy(() => import('./pages/comercial/ComercialLayout'));
 const FinanceiroLayout = lazy(() => import('./pages/financeiro/FinanceiroPage'));
 const MarketingLayout = lazy(() => import('./pages/marketing/MarketingLayout'));
-const MarketingHomePage = lazy(() => import('./pages/marketing/MarketingHomePage'));
+const MarketingFluxoPage = lazy(() => import('./pages/marketing/MarketingFluxoPage'));
 const IALayout = lazy(() => import('./pages/ia/IALayout'));
 const RelatoriosLayout = lazy(() => import('./pages/relatorios/RelatoriosLayout'));
 const SistemaLayout = lazy(() => import('./pages/sistema/SistemaLayout'));
@@ -107,7 +107,7 @@ function App() {
             {/* Marketing passa a ter porta de entrada. Antes `/marketing`
                 jogava direto em Mensagens, que e uma das dez telas e nem e a
                 principal: quem abria a area caia no meio dela. */}
-            <Route index element={<MarketingHomePage />} />
+            <Route index element={<MarketingFluxoPage />} />
             <Route path="estudio" element={<EstudioConteudoPage />} />
             <Route path="agente" element={<AgenteIaPage />} />
             <Route path="calendario" element={<CalendarioPage />} />

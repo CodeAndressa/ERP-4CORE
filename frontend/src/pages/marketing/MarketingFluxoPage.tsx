@@ -11,6 +11,7 @@ import {
   Lightbulb,
   Loader2,
   MessageSquarePlus,
+  Radar,
   Send,
   Sparkles,
   Wallet,
@@ -61,6 +62,7 @@ type Content = {
 type Ideia = { title: string; pillar: string; objective: string; brief: string };
 type Tema = { key: string; nome: string; ativo: boolean };
 type AgenteInfo = { key: string; name: string; role: string };
+type Achado = { fonte: string; assunto: string; por_que_pegou: string; pauta: string; brief: string };
 type Credits = { configured: boolean; error?: string | null; balance_usd?: number; posts_left?: number };
 
 function erroDe(e: unknown, reserva: string) {
@@ -293,6 +295,8 @@ export default function MarketingFluxoPage() {
   const [roster, setRoster] = useState<AgenteInfo[]>([]);
   // Qual agente esta trabalhando agora, para a fileira pulsar no certo.
   const [agenteAtivo, setAgenteAtivo] = useState('');
+  const [achados, setAchados] = useState<Achado[]>([]);
+  const [avisoBatedor, setAvisoBatedor] = useState('');
   const [tema, setTema] = useState('');
   const [credits, setCredits] = useState<Credits | null>(null);
   const [ocupado, setOcupado] = useState('');
@@ -392,6 +396,29 @@ export default function MarketingFluxoPage() {
       problema: por('rejected', 'failed'),
     };
   }, [items]);
+
+  async function varrer() {
+    setOcupado('batedor');
+    setAvisoBatedor('');
+    try {
+      const { data } = await api.post<{ achados: Achado[]; aviso?: string; perfis_lidos: number }>(
+        '/marketing/agent/scout',
+        { extras: [] },
+        // Le varios perfis na Graph API antes da sintese: o padrao de 30s do
+        // axios derrubaria a tela com a varredura ainda rodando.
+        { timeout: 300000 },
+      );
+      setAchados(data.achados ?? []);
+      if (data.aviso) setAvisoBatedor(data.aviso);
+      else if (!data.achados?.length) {
+        setAvisoBatedor(`${data.perfis_lidos} perfis lidos, nada destoou da media.`);
+      }
+    } catch (e) {
+      setAvisoBatedor(erroDe(e, 'Nao foi possivel varrer agora.'));
+    } finally {
+      setOcupado('');
+    }
+  }
 
   async function gerarIdeias() {
     setOcupado('ideias');
@@ -527,6 +554,79 @@ export default function MarketingFluxoPage() {
           <Exercito roster={roster} rodando={agenteAtivo} />
         </div>
       )}
+
+      {/* O batedor. Fica acima do quadro porque é o começo do caminho: o que
+          está performando no setor vira pauta, e a pauta entra na primeira
+          coluna. */}
+      <div>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-2xs font-bold uppercase tracking-widest" style={{ color: 'var(--erp-text-dim)' }}>
+            O que está performando no setor
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={ocupado === 'batedor'}
+            onClick={() => void varrer()}
+            icon={<Radar size={13} />}
+          >
+            Varrer agora
+          </Button>
+        </div>
+
+        {achados.length > 0 ? (
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {achados.map((achado, i) => (
+              <div
+                key={i}
+                className="flex min-w-[260px] max-w-[300px] shrink-0 flex-col rounded-2xl border p-3"
+                style={{ borderColor: 'var(--erp-border)', background: 'var(--erp-surface)' }}
+              >
+                <span className="text-2xs font-bold" style={{ color: 'var(--erp-violet)' }}>
+                  {achado.fonte}
+                </span>
+                <p className="mt-1 text-xs font-semibold leading-snug" style={{ color: 'var(--erp-text)' }}>
+                  {achado.assunto}
+                </p>
+                <p className="mt-1 text-2xs leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>
+                  {achado.por_que_pegou}
+                </p>
+                <div className="mt-2 rounded-xl p-2" style={{ background: 'var(--erp-surface-2)' }}>
+                  <p className="text-2xs font-bold uppercase tracking-wider" style={{ color: 'var(--erp-text-dim)' }}>
+                    Pauta
+                  </p>
+                  <p className="mt-0.5 text-xs leading-snug" style={{ color: 'var(--erp-text)' }}>
+                    {achado.pauta}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={!!ocupado}
+                  onClick={() =>
+                    void produzir({ title: achado.pauta, brief: achado.brief, pillar: '', objective: '' })
+                  }
+                  className="mt-2 flex h-8 items-center justify-center gap-1.5 rounded-lg text-2xs font-bold text-white disabled:opacity-60"
+                  style={{ background: 'var(--erp-violet)' }}
+                >
+                  {ocupado === `ideia-${achado.pauta}` ? (
+                    <><Loader2 size={11} className="animate-spin" /> Produzindo</>
+                  ) : (
+                    <><ArrowRight size={11} /> Virar peça</>
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p
+            className="rounded-2xl border px-4 py-3 text-xs leading-relaxed"
+            style={{ borderColor: 'var(--erp-border)', color: 'var(--erp-text-muted)' }}
+          >
+            {avisoBatedor ||
+              'O batedor lê os perfis que você observa e procura as publicações que performaram acima da média de quem postou. Clique em varrer.'}
+          </p>
+        )}
+      </div>
 
       {/* O quadro. Rola na horizontal no celular, que é o comportamento
           esperado de um fluxo com etapas: espremer quatro colunas em 360px

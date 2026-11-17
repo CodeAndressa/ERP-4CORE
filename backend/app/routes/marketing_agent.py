@@ -211,6 +211,20 @@ class IdeaRunRequest(BaseModel):
     theme: str = Field(default="", max_length=40)
 
 
+class ScoutRequest(BaseModel):
+    # Perfis extras a observar nesta varredura, alem dos concorrentes ja
+    # cadastrados. Util para olhar uma conta nova sem precisar registra-la.
+    extras: list[str] = Field(default_factory=list, max_length=20)
+
+
+@router.post("/scout")
+async def scout(payload: ScoutRequest | None = None, db: Session = Depends(get_db)):
+    """O batedor: procura o que performou acima da média e liga à 4Core."""
+    from app.services.marketing_scout import scan
+
+    return await scan(db, (payload.extras if payload else None))
+
+
 @router.get("/themes")
 def themes():
     """Os temas sazonais e qual deles vale hoje."""

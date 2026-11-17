@@ -189,3 +189,38 @@ class ArteDeProdutoTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CaixaDeNomeProprioTests(unittest.TestCase):
+    """A caixa de frase não pode rebaixar nome próprio.
+
+    A regra existe para impedir "Capitalizar Cada Palavra" e acertava em tudo
+    menos em data: uma peça de Natal saiu com "Plantão de natal", em minúscula.
+
+    Duas armadilhas na correção, as duas cometidas antes de chegar aqui:
+    mês em português é minúsculo ("em dezembro", ao contrário do inglês), e
+    nome composto não é pego por uma regra que percorre palavra a palavra.
+    """
+
+    def test_data_mantem_a_inicial(self):
+        self.assertEqual(sentence_case("Plantão de NATAL sem improviso"), "Plantão de Natal sem improviso")
+
+    def test_nome_composto_mantem_as_duas(self):
+        self.assertEqual(sentence_case("BLACK FRIDAY do ponto"), "Black Friday do ponto")
+        self.assertEqual(sentence_case("Comece o ano novo em dia"), "Comece o Ano Novo em dia")
+
+    def test_mes_fica_minusculo(self):
+        """Em português mês é minúsculo. A primeira correção incluiu os doze
+        meses na lista de nome próprio e produzia "em Dezembro", trocando um
+        erro de caixa por outro."""
+        self.assertEqual(sentence_case("O RH em dezembro"), "O RH em dezembro")
+        self.assertEqual(sentence_case("Fecha em JANEIRO"), "Fecha em janeiro")
+
+    def test_sigla_continua_em_caixa_alta(self):
+        self.assertEqual(sentence_case("o rh e o dp"), "O RH e o DP")
+
+    def test_a_regra_principal_continua_valendo(self):
+        self.assertEqual(
+            sentence_case("Seu Espelho De Ponto Prova Alguma Coisa"),
+            "Seu espelho de ponto prova alguma coisa",
+        )

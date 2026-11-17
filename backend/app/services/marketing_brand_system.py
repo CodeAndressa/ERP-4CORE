@@ -10,6 +10,21 @@ BRAND_SYSTEM_VERSION = "4core-instagram-site-2026-08-v3"
 # Siglas do setor que não podem ser rebaixadas para minúscula ao aplicar a caixa de
 # frase, e grafias oficiais que precisam voltar exatamente como a marca escreve.
 KEEP_UPPERCASE = {"RH", "DP", "CLT", "CIPA", "LGPD", "REP", "REPP", "AFD", "PME", "PMES", "CNPJ", "CPF", "MTE", "EPI"}
+
+# Nomes proprios de uma palavra que a regra de caixa baixava sem querer. A regra
+# existe para impedir "Capitalizar Cada Palavra", e acertava em tudo menos aqui:
+# uma peca de Natal saiu com "Plantao de natal", em minuscula.
+#
+# Mes NAO entra nesta lista. Em portugues, nome de mes se escreve em minuscula
+# ("entrega em dezembro"), ao contrario do ingles. A primeira versao desta
+# correcao incluiu os doze meses e produzia "em Dezembro", trocando um erro de
+# caixa por outro.
+KEEP_CAPITALIZED = {"natal", "carnaval", "pascoa", "páscoa", "brasil", "portaria"}
+
+# Nomes proprios de mais de uma palavra. Precisam de tratamento proprio porque a
+# regra de caixa percorre palavra a palavra: "black" e "friday" isolados nao
+# estao em lista nenhuma, e a frase saia como "Black friday".
+KEEP_CAPITALIZED_PHRASES = ("black friday", "ano novo", "sexta-feira santa")
 BRAND_SPELLINGS = {
     "4core": "4Core",
     "topdata": "Topdata",
@@ -85,9 +100,22 @@ def sentence_case(text: str) -> str:
     words = []
     for word in normalized.split(" "):
         letters = re.sub(r"[^0-9A-Za-zÀ-ÿ]", "", word)
-        words.append(word.upper() if letters and letters.upper() in KEEP_UPPERCASE else word.lower())
+        if letters and letters.upper() in KEEP_UPPERCASE:
+            words.append(word.upper())
+        elif letters and letters.lower() in KEEP_CAPITALIZED:
+            # Nome próprio mantém a inicial, e só ela: "Natal", não "NATAL".
+            words.append(word.lower().capitalize())
+        else:
+            words.append(word.lower())
     sentence = " ".join(words)
     sentence = sentence[0].upper() + sentence[1:]
+    for frase in KEEP_CAPITALIZED_PHRASES:
+        sentence = re.sub(
+            re.escape(frase),
+            frase.title(),
+            sentence,
+            flags=re.IGNORECASE,
+        )
     for wrong, right in BRAND_SPELLINGS.items():
         sentence = re.sub(rf"\b{wrong}\b", right, sentence, flags=re.IGNORECASE)
     return sentence

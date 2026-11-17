@@ -39,6 +39,8 @@ class SeasonalTheme(dict):
 SEASONAL_CALENDAR: list[dict[str, Any]] = [
     {
         "key": "black_friday",
+        # O selo so entra quando a cena nao carrega a data sozinha.
+        "selo": True,
         "nome": "Black Friday",
         "mes": 11,
         "dia": 28,
@@ -68,6 +70,8 @@ SEASONAL_CALENDAR: list[dict[str, Any]] = [
     },
     {
         "key": "natal",
+        # O selo so entra quando a cena nao carrega a data sozinha.
+        "selo": False,
         "nome": "Natal",
         "mes": 12,
         "dia": 25,
@@ -114,6 +118,8 @@ SEASONAL_CALENDAR: list[dict[str, Any]] = [
     },
     {
         "key": "ano_novo",
+        # O selo so entra quando a cena nao carrega a data sozinha.
+        "selo": False,
         "nome": "Virada de ano",
         "mes": 1,
         "dia": 1,
@@ -143,6 +149,8 @@ SEASONAL_CALENDAR: list[dict[str, Any]] = [
     },
     {
         "key": "volta_as_aulas",
+        # O selo so entra quando a cena nao carrega a data sozinha.
+        "selo": False,
         "nome": "Volta às aulas",
         "mes": 2,
         "dia": 1,
@@ -165,6 +173,8 @@ SEASONAL_CALENDAR: list[dict[str, Any]] = [
     },
     {
         "key": "dia_do_trabalho",
+        # O selo so entra quando a cena nao carrega a data sozinha.
+        "selo": False,
         "nome": "Dia do Trabalho",
         "mes": 5,
         "dia": 1,
@@ -190,6 +200,8 @@ SEASONAL_CALENDAR: list[dict[str, Any]] = [
     },
     {
         "key": "ferias_julho",
+        # O selo so entra quando a cena nao carrega a data sozinha.
+        "selo": False,
         "nome": "Férias de julho",
         "mes": 7,
         "dia": 1,
@@ -362,4 +374,10 @@ def theme_palette(tema: SeasonalTheme | None) -> dict[str, str] | None:
     """
     if not tema:
         return None
-    return {**dict(tema["paleta"]), "nome": str(tema["nome"])}
+    # `nome` só vai quando o tema pede selo. A composição desenha o selo quando
+    # recebe o nome, e Natal não precisa dele: a árvore e o vermelho na cena já
+    # dizem a data, e o selo viraria um rótulo repetindo a imagem.
+    paleta = dict(tema["paleta"])
+    if tema.get("selo"):
+        paleta["nome"] = str(tema["nome"])
+    return paleta

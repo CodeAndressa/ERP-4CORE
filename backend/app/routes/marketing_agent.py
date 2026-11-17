@@ -20,7 +20,9 @@ from app.services.marketing_agent_service import (
     list_runs,
     list_steps,
     run_cost,
+    run_from_idea,
     run_pipeline,
+    seasonal_themes,
     serialize_run,
     serialize_step,
 )
@@ -65,6 +67,9 @@ class RunRequest(BaseModel):
     layout: Literal["feed", "story"] = "feed"
     with_art: bool = True
     cadence_days: int = Field(default=2, ge=1, le=14)
+    # Vazio deixa o calendario sazonal decidir pela data de hoje. Preenchido,
+    # forca aquele tema, que e como se pede uma peca de Black Friday em marco.
+    theme: str = Field(default="", max_length=40)
 
 
 @router.get("/competitors")
@@ -196,6 +201,40 @@ async def credits(db: Session = Depends(get_db)):
     }
 
 
+class IdeaRunRequest(BaseModel):
+    title: str = Field(min_length=3, max_length=180)
+    brief: str = Field(default="", max_length=900)
+    pillar: str = Field(default="", max_length=60)
+    objective: str = Field(default="", max_length=300)
+    layout: Literal["feed", "story"] = "feed"
+    with_art: bool = True
+    theme: str = Field(default="", max_length=40)
+
+
+@router.get("/themes")
+def themes():
+    """Os temas sazonais e qual deles vale hoje."""
+    return seasonal_themes()
+
+
+@router.post("/run-from-idea")
+async def start_run_from_idea(payload: IdeaRunRequest, db: Session = Depends(get_db)):
+    """Produz uma peça a partir de uma ideia escolhida na tela de Planejamento."""
+    return await run_from_idea(
+        db,
+        {
+            "title": payload.title,
+            "brief": payload.brief or payload.title,
+            "pillar": payload.pillar,
+            "objective": payload.objective,
+            "por_que_agora": "",
+        },
+        layout=payload.layout,
+        with_art=payload.with_art,
+        theme=payload.theme,
+    )
+
+
 @router.post("/run")
 async def start_run(payload: RunRequest, db: Session = Depends(get_db)):
     return await run_pipeline(
@@ -207,6 +246,7 @@ async def start_run(payload: RunRequest, db: Session = Depends(get_db)):
         with_art=payload.with_art,
         cadence_days=payload.cadence_days,
         trigger="manual",
+        theme=payload.theme,
     )
 
 

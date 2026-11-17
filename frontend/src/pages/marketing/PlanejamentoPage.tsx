@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Calendar, Target, TrendingUp, Plus, X, Check, Sparkles, Loader2, Camera } from 'lucide-react';
 import { Card } from '../../shared/components/ui/Card';
 import { MetricCard } from '../../shared/components/layout/MetricCard';
+import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 
 interface Goal {
@@ -33,6 +34,36 @@ export default function PlanejamentoPage() {
   const [suggestions, setSuggestions] = useState<AISuggestion[]>([]);
   const [loadingAI, setLoadingAI] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  // O título da ideia que está sendo produzida agora, ou null. Um de cada vez:
+  // cada peça custa uma geração de imagem, e disparar cinco com dois cliques
+  // distraídos é dinheiro gasto sem ninguém ter decidido.
+  const [gerando, setGerando] = useState<string | null>(null);
+
+  async function gerarPeca(ideia: AISuggestion) {
+    if (gerando) return;
+    setGerando(ideia.title);
+    setAiError(null);
+    try {
+      await api.post(
+        '/marketing/agent/run-from-idea',
+        {
+          title: ideia.title,
+          brief: ideia.angle || ideia.title,
+          pillar: ideia.pillar,
+          objective: '',
+        },
+        // A esteira escreve, revisa, dirige a arte e gera a imagem. O padrão de
+        // 30s do axios derrubaria a tela com a peça ainda sendo produzida.
+        { timeout: 600000 },
+      );
+      toast.success('Peça produzida. Ela está no Estúdio esperando sua aprovação.');
+    } catch (error) {
+      const detalhe = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setAiError(detalhe || 'Não foi possível produzir a peça a partir dessa ideia.');
+    } finally {
+      setGerando(null);
+    }
+  }
 
   const doneCount = goals.filter((g) => g.done).length;
 
@@ -126,6 +157,26 @@ export default function PlanejamentoPage() {
                 </div>
                 <p className="text-sm font-medium mb-1" style={{ color: 'var(--erp-text)' }}>{s.title}</p>
                 <p className="text-xs leading-relaxed" style={{ color: 'var(--erp-text-muted)' }}>{s.angle}</p>
+                {/* A ideia boa que a pessoa acabou de ler vira peça aqui mesmo.
+                    Antes ela morria na tela: a esteira só sabia usar as pautas
+                    que o próprio estrategista inventava. */}
+                <button
+                  type="button"
+                  onClick={() => void gerarPeca(s)}
+                  disabled={gerando !== null}
+                  className="mt-2.5 inline-flex h-8 items-center gap-1.5 rounded-xl px-2.5 text-[11px] font-semibold disabled:opacity-60"
+                  style={{ background: 'var(--erp-violet)', color: '#fff' }}
+                >
+                  {gerando === s.title ? (
+                    <>
+                      <Loader2 size={11} className="animate-spin" /> Produzindo
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={11} /> Gerar peça
+                    </>
+                  )}
+                </button>
                 {s.suggested_date && (
                   <div className="flex items-center gap-1 mt-2">
                     <Camera size={10} style={{ color: 'var(--erp-text-dim)' }} />

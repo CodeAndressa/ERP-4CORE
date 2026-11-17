@@ -607,6 +607,10 @@ export default function AgenteIaPage() {
   const [contentLimit, setContentLimit] = useState(3);
   const [withArt, setWithArt] = useState(true);
   const [cadenceDays, setCadenceDays] = useState(2);
+  // Vazio deixa o calendário decidir pela data de hoje. O seletor existe para o
+  // caso contrário: pedir Black Friday fora da janela dela.
+  const [theme, setTheme] = useState('');
+  const [themes, setThemes] = useState<{ key: string; nome: string; ativo: boolean }[]>([]);
 
   const loadAll = useCallback(async () => {
     setError('');
@@ -635,6 +639,10 @@ export default function AgenteIaPage() {
       setAwaiting(contentRes.filter((item) => item.status === 'awaiting_approval').length);
       // O saldo vem depois e por fora: o OpenRouter estar fora do ar nao pode
       // impedir a esteira de abrir, so de mostrar quanto sobrou.
+      api
+        .get<{ key: string; nome: string; ativo: boolean }[]>('/marketing/agent/themes')
+        .then((res) => setThemes(res.data))
+        .catch(() => setThemes([]));
       api
         .get<Credits>('/marketing/agent/credits')
         .then((res) => setCredits(res.data))
@@ -704,7 +712,7 @@ export default function AgenteIaPage() {
     try {
       const { data } = await api.post<RunResult>(
         '/marketing/agent/run',
-        { content_limit: contentLimit, with_art: withArt, layout: 'feed', cadence_days: cadenceDays },
+        { content_limit: contentLimit, with_art: withArt, layout: 'feed', cadence_days: cadenceDays, theme },
         // Sete agentes em sequência, com geração de imagem no meio. O timeout padrão
         // de 30s do axios derrubaria a tela com a esteira ainda rodando no backend.
         { timeout: 600000 },
@@ -804,9 +812,28 @@ export default function AgenteIaPage() {
         description="Sete agentes em sequência, da leitura dos concorrentes à peça agendada"
         aiModule="Esteira de marketing"
         action={
-          <Button icon={<Bot size={14} />} loading={running} onClick={runPipeline} disabled={!competitors.length}>
-            Rodar esteira
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {themes.length > 0 && (
+              <select
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                className="field !w-auto !py-1.5 text-xs"
+                title="Tema sazonal desta rodada. Automático usa a data de hoje."
+              >
+                <option value="">
+                  Tema automático{themes.find((t) => t.ativo) ? ` (${themes.find((t) => t.ativo)!.nome})` : ''}
+                </option>
+                {themes.map((t) => (
+                  <option key={t.key} value={t.key}>
+                    {t.nome}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Button icon={<Bot size={14} />} loading={running} onClick={runPipeline} disabled={!competitors.length}>
+              Rodar esteira
+            </Button>
+          </div>
         }
       />
 

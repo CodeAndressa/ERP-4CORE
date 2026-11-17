@@ -45,6 +45,7 @@ from app.services.marketing_brand_system import (
 )
 from app.services.marketing_competitor_service import build_benchmark, sync_all
 from app.services.marketing_seasonal import (
+    SEASONAL_CALENDAR,
     active_theme,
     theme_brief,
     theme_by_key,
@@ -1085,6 +1086,96 @@ def cost_dashboard(db: Session, days: int = 90) -> dict[str, Any]:
         ),
         "roster": AGENT_ROSTER,
     }
+
+
+async def run_from_idea(
+    db: Session,
+    pauta: dict[str, Any],
+    layout: str = "feed",
+    with_art: bool = True,
+    cadence_days: int = 2,
+    theme: str = "",
+) -> dict[str, Any]:
+    """Produz uma peça a partir de uma pauta que já veio pronta.
+
+    Pula o analista e o estrategista de propósito: os dois existem para
+    descobrir sobre o que escrever, e aqui isso já foi decidido por uma pessoa
+    olhando a ideia. Pular também evita pagar a leitura dos concorrentes e a
+    chamada do estrategista para uma peça só.
+
+    O tema explícito vence o calendário, pelo mesmo motivo da rodada normal:
+    pedir Black Friday em março é decisão, não engano.
+    """
+    tema_sazonal = theme_by_key(theme) if theme else active_theme()
+
+    run = MarketingAgentRun(status="running", trigger="ideia")
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    recorder = StepRecorder(db, run.id)
+
+    try:
+        created = await _produce(
+            db, recorder, [pauta], [], layout, with_art, 1, tema_sazonal
+        )
+
+        async with recorder.step("agendador") as box:
+            # Sem benchmark: o agendador usa o histórico de publicação quando
+            # existe, e cai no horário padrão quando não. Para uma peça só, ler
+            # os concorrentes de novo não mudaria o horário escolhido.
+            schedule = await _schedule(db, created, {}, cadence_days)
+            box["summary"] = schedule["reason"]
+
+        costs = total_cost(recorder.usages)
+        run.diagnosis_json = json.dumps(
+            {
+                "origem": "ideia do Planejamento",
+                "pauta": pauta,
+                "tema": tema_sazonal.get("nome") if tema_sazonal else None,
+                "schedule": {k: v for k, v in schedule.items() if not k.startswith("_")},
+            },
+            ensure_ascii=False,
+            default=str,
+        )
+        run.created_content_ids = ",".join(str(entry["content_id"]) for entry in created)[:300]
+        run.status = "done"
+        run.finished_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(run)
+
+        return {
+            **serialize_run(run),
+            "created": created,
+            "schedule": {k: v for k, v in schedule.items() if not k.startswith("_")},
+            "steps": [serialize_step(step) for step in list_steps(db, run.id)],
+            "costs": costs,
+        }
+    except HTTPException as exc:
+        run.status = "failed"
+        run.error_message = str(exc.detail)[:2000]
+        run.finished_at = datetime.now(timezone.utc)
+        db.commit()
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("falha ao produzir a partir de uma ideia")
+        run.status = "failed"
+        run.error_message = str(exc)[:2000]
+        run.finished_at = datetime.now(timezone.utc)
+        db.commit()
+        raise HTTPException(500, "Não foi possível produzir a peça a partir dessa ideia.") from exc
+
+
+def seasonal_themes() -> list[dict[str, str]]:
+    """Os temas que a tela oferece para escolher, e qual está ativo hoje."""
+    ativo = active_theme()
+    return [
+        {
+            "key": str(tema["key"]),
+            "nome": str(tema["nome"]),
+            "ativo": bool(ativo and ativo["key"] == tema["key"]),
+        }
+        for tema in SEASONAL_CALENDAR
+    ]
 
 
 # Nome antigo mantido para a rota de cron que já existia.

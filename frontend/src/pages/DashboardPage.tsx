@@ -406,7 +406,7 @@ export default function DashboardPage() {
 
       <Card padding="sm">
         <div className="px-2 pt-1 sm:px-1">
-          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>Precisa de atenção hoje</p>
+          <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--erp-text-muted)' }}>Como está cada área</p>
         </div>
         <div className="mt-2 space-y-1">
           {(asaasLoading || secondaryLoading) ? (

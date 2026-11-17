@@ -328,5 +328,12 @@ def theme_visual(tema: SeasonalTheme | None) -> str:
 
 
 def theme_palette(tema: SeasonalTheme | None) -> dict[str, str] | None:
-    """As cores da arte montada, quando a data tem identidade própria."""
-    return dict(tema["paleta"]) if tema else None
+    """As cores da arte montada, e o nome da data, quando há uma ativa.
+
+    O nome vai junto porque a composição desenha um selo com ele. Mandar só as
+    cores obrigaria o compositor a receber o tema inteiro ou a adivinhar a data
+    pela paleta, e as duas coisas são piores do que uma chave a mais aqui.
+    """
+    if not tema:
+        return None
+    return {**dict(tema["paleta"]), "nome": str(tema["nome"])}

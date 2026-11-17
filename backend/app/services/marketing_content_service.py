@@ -838,6 +838,36 @@ def _compose_feed_art(
     logo_height = round(logo.height * logo_width / logo.width)
     logo = logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
 
+    # O selo da data, no topo à direita, do lado oposto ao logo. Fica em cima
+    # porque é ali que o olho entra na peça, e é o que faz alguém entender que a
+    # peça é de campanha antes de ler o gancho. Só aparece quando há data ativa:
+    # peça comum não leva selo nenhum.
+    selo = " ".join(str((palette or {}).get("nome", "")).split()).upper()[:18]
+    if selo:
+        selo_font = _font(max(16, round(height * 0.0195)), "ExtraBold")
+        selo_w = round(draw.textlength(selo, font=selo_font))
+        s_asc, s_desc = selo_font.getmetrics()
+        pad_x, pad_y = round(width * 0.022), round(height * 0.0095)
+        caixa_w, caixa_h = selo_w + pad_x * 2, s_asc + s_desc + pad_y * 2
+        caixa_x = width - margin_x - caixa_w
+        caixa_y = round(height * 0.045)
+
+        # Camada própria: o ImageDraw escreve o pixel direto e não compõe alfa,
+        # então retângulo translúcido desenhado no canvas sai chapado.
+        marca = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        ImageDraw.Draw(marca).rounded_rectangle(
+            (caixa_x, caixa_y, caixa_x + caixa_w, caixa_y + caixa_h),
+            radius=round(caixa_h * 0.28), fill=(*acento, 255),
+        )
+        canvas = Image.alpha_composite(canvas, marca)
+        draw = ImageDraw.Draw(canvas)
+        # Letra espaçada: em caixa alta e corpo pequeno, o espaçamento é o que
+        # faz o selo ler como selo e não como mais uma palavra na foto.
+        cursor_selo = caixa_x + pad_x
+        for letra in selo:
+            draw.text((cursor_selo, caixa_y + pad_y), letra, font=selo_font, fill=(255, 255, 255, 255))
+            cursor_selo += round(draw.textlength(letra, font=selo_font) * 1.08)
+
     # O logo sobe para o topo. No rodape ele dividia a faixa com o CTA e o
     # endereco, e tres elementos empilhados embaixo empurravam o titulo para o
     # meio da foto. Em cima ele assina a peca na primeira olhada, que e o que a

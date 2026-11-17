@@ -276,10 +276,25 @@ export default function DashboardPage() {
   const feedThisWeek = coverage?.by_kind_next_7_days?.feed ?? 0;
   const storyThisWeek = coverage?.by_kind_next_7_days?.story ?? 0;
   const filaTotal = coverage?.total_upcoming ?? 0;
+  const esperandoAprovacao = coverage?.awaiting_approval ?? 0;
+
+  // Peça produzida pela esteira fica em "esperando aprovação" com data marcada,
+  // e não conta como agendada, com razão: sem aprovação ela não vai ao ar. Mas
+  // esse é o estado em que a esteira deixa tudo, então o cartão dizia "nada
+  // agendado" logo depois de produzir três peças com data. Agora as duas
+  // contagens aparecem, porque pedem ações diferentes: uma é produzir, a outra
+  // é só abrir o Estúdio e aprovar.
+  const aprovacaoDetalhe =
+    esperandoAprovacao > 0
+      ? `${fmt.format(esperandoAprovacao)} esperando sua aprovação`
+      : '';
 
   const agendaDetalhe = (() => {
     if (coverageFailed) return 'Não foi possível consultar os próximos agendamentos';
     if (scheduledThisWeek === 0) {
+      if (esperandoAprovacao > 0) {
+        return `Nada agendado, mas ${aprovacaoDetalhe} no Estúdio`;
+      }
       return filaTotal > 0
         ? `Nada nos próximos 7 dias, mas ${fmt.format(filaTotal)} na fila depois disso`
         : 'Sem post nem story agendado';
@@ -288,7 +303,8 @@ export default function DashboardPage() {
     if (feedThisWeek > 0) partes.push(`${fmt.format(feedThisWeek)} post${feedThisWeek > 1 ? 's' : ''}`);
     if (storyThisWeek > 0) partes.push(`${fmt.format(storyThisWeek)} story${storyThisWeek > 1 ? 'ies' : ''}`);
     const quebra = partes.length ? partes.join(' e ') : `${fmt.format(scheduledThisWeek)} publicações`;
-    return `${quebra} nos próximos 7 dias`;
+    const base = `${quebra} nos próximos 7 dias`;
+    return aprovacaoDetalhe ? `${base}, mais ${aprovacaoDetalhe}` : base;
   })();
   const overdueCount = asaas?.overdue_count ?? 0;
 
@@ -314,9 +330,15 @@ export default function DashboardPage() {
     {
       key: 'posts',
       icon: <CalendarDays size={16} />,
-      label: coverageFailed ? 'Agenda não verificada' : scheduledThisWeek > 0 ? 'Conteúdo desta semana' : 'Nada agendado esta semana',
+      label: coverageFailed
+        ? 'Agenda não verificada'
+        : scheduledThisWeek > 0
+        ? 'Conteúdo desta semana'
+        : esperandoAprovacao > 0
+        ? 'Peças esperando aprovação'
+        : 'Nada agendado esta semana',
       detail: agendaDetalhe,
-      value: coverageFailed ? '—' : fmt.format(scheduledThisWeek),
+      value: coverageFailed ? '—' : fmt.format(scheduledThisWeek + esperandoAprovacao),
       // O tom estava invertido: semana vazia aparecia em verde e semana cheia em
       // âmbar, o oposto do que o cartão "precisa de atenção" quer dizer.
       tone: !coverageFailed && scheduledThisWeek > 0 ? 'emerald' : 'amber',

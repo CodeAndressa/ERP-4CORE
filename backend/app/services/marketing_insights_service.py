@@ -96,6 +96,30 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
     week_limit = now + timedelta(days=7)
     na_semana = [entry for entry in upcoming if entry["_when"] <= week_limit]
     in_next_7_days = len(na_semana)
+
+    # As peças que a esteira acabou de produzir ficam em `awaiting_approval` com
+    # data marcada, e `SCHEDULED_STATUSES` não as inclui, com razão: peça não
+    # aprovada não vai ao ar. Só que esse é o estado em que a esteira deixa tudo,
+    # então a Visão geral dizia "nada agendado" logo depois de produzir três
+    # peças com data. Elas passam a ser contadas à parte, que é o que responde a
+    # pergunta real: "vou ficar sem post?" não, mas depende de alguém aprovar.
+    aguardando = 0
+    try:
+        linhas = (
+            db.query(MarketingContent.scheduled_at)
+            .filter(
+                MarketingContent.status == "awaiting_approval",
+                MarketingContent.scheduled_at.isnot(None),
+            )
+            .all()
+        )
+        for (quando,) in linhas:
+            momento = quando if quando.tzinfo else quando.replace(tzinfo=timezone.utc)
+            if momento > now:
+                aguardando += 1
+    except Exception:
+        db.rollback()
+        logger.exception("schedule coverage: contagem de aguardando aprovacao falhou")
     covered_until = upcoming[-1]["_when"] if upcoming else None
     next_at = upcoming[0]["_when"] if upcoming else None
     days_ahead = _days_between(now, covered_until) if covered_until else 0.0
@@ -138,6 +162,7 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
         "days_to_next": days_to_next,
         "total_upcoming": len(upcoming),
         "in_next_7_days": in_next_7_days,
+        "awaiting_approval": aguardando,
         "partial": bool(source_errors),
         "errors": source_errors,
         "by_kind": {kind: sum(1 for entry in upcoming if entry["kind"] == kind) for kind in ("story", "feed")},

@@ -79,19 +79,36 @@ SEASONAL_CALENDAR: list[dict[str, Any]] = [
             "parar e sobre quem está de plantão enquanto o resto descansa."
         ),
         "tom": "humano e caloroso, sem pieguice",
+        # A primeira versão deste tema proibia árvore, presente e Papai Noel, e
+        # usava dourado em vez de vermelho, com medo de a peça ficar kitsch. O
+        # resultado foi uma peça de Natal em que a única coisa natalina era a
+        # palavra "Natal" escrita. Peça sazonal que ninguém reconhece como
+        # sazonal falha no próprio objetivo: a data é o motivo de ela existir.
+        #
+        # A saída não é encher de enfeite: é lembrar que empresa brasileira
+        # DECORA em dezembro. Recepção com árvore, pisca-pisca no balcão e gorro
+        # vermelho no porteiro são documentais, não fantasia. O que continua
+        # proibido é o que não existe aqui (neve, rena, trenó) e o Papai Noel
+        # como protagonista vendendo o produto.
         "proibido": (
-            "Nada de Papai Noel, rena, trenó, presente embrulhado ou árvore decorada: "
-            "é uma empresa de controle de ponto, não uma loja. Nada de desejar boas "
-            "festas como se fosse o conteúdo inteiro."
+            "Nada de neve, rena, trenó ou Polo Norte: é verão no Brasil e isso vira "
+            "cartão de importação. O Papai Noel não é o protagonista nem vende nada; "
+            "no máximo um gorro vermelho em quem está trabalhando. E nada de desejar "
+            "boas festas como se fosse o conteúdo inteiro da peça."
         ),
         "paleta": {
-            "fundo": "#0D0219",
-            "fundo_2": "#2B0A2E",
-            "acento": "#E8C57A",
-            "apoio": "#FFF4E0",
+            "fundo": "#1A0410",
+            "fundo_2": "#3D0A1E",
+            "acento": "#E0323C",
+            "apoio": "#FFE9C7",
             "descricao_visual": (
-                "warm low light as if from a single lamp at dusk, amber highlights over a "
-                "deep plum base, calm and quiet, no decorations"
+                "a Brazilian workplace actually decorated for Christmas in December, "
+                "which is what real companies do: a small decorated tree by the "
+                "reception desk, warm string lights out of focus in the background, a "
+                "red Santa hat on someone at the counter, a bit of red and gold tinsel. "
+                "Deep red and warm gold lead the colour, over the brand's plum shadows. "
+                "Evening light, lamps already on. The decoration is part of the real "
+                "room, never pasted over the image"
             ),
         },
     },
@@ -320,10 +337,19 @@ def theme_visual(tema: SeasonalTheme | None) -> str:
     if not tema:
         return ""
     paleta = tema["paleta"]
+    # Este bloco cai a 90% do prompt, depois de a paleta base já ter mandado ser
+    # discreto no roxo e de a composição dizer que a cor da marca entra depois.
+    # Sem declarar que substitui aquilo, ele compete e perde: foi assim que a
+    # peça de Natal saiu sem uma única coisa natalina. E a frase antiga, "nunca
+    # em adereço ou decoração", era literalmente o que proibia a árvore.
     return (
-        f"\n\nSEASONAL TREATMENT ({tema['nome']}): {paleta['descricao_visual']}. "
-        "Keep it photographic and restrained: the season shows in the light and the "
-        "colour grade, never in props, decorations or symbols."
+        f"\n\nSEASONAL TREATMENT — {tema['nome'].upper()}. THIS SECTION OVERRIDES THE "
+        "COLOUR AND PALETTE INSTRUCTIONS ABOVE. Someone scrolling has to recognise the "
+        "season in under a second, from the colour alone, before reading any text. A "
+        f"seasonal piece nobody recognises as seasonal has failed.\n{paleta['descricao_visual']}.\n"
+        f"Lead colour: {paleta['acento']}. It must be clearly present, in the light, in "
+        "an object, or in what people are wearing. Keep it photographic: the season is "
+        "part of the real room, never a graphic pasted on top."
     )
 
 

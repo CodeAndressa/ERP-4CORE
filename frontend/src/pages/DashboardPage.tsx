@@ -277,6 +277,7 @@ export default function DashboardPage() {
   const storyThisWeek = coverage?.by_kind_next_7_days?.story ?? 0;
   const filaTotal = coverage?.total_upcoming ?? 0;
   const esperandoAprovacao = coverage?.awaiting_approval ?? 0;
+  const pecasNoTotal = coverage?.total_pieces ?? 0;
 
   // Peça produzida pela esteira fica em "esperando aprovação" com data marcada,
   // e não conta como agendada, com razão: sem aprovação ela não vai ao ar. Mas
@@ -295,9 +296,16 @@ export default function DashboardPage() {
       if (esperandoAprovacao > 0) {
         return `Nada agendado, mas ${aprovacaoDetalhe} no Estúdio`;
       }
-      return filaTotal > 0
-        ? `Nada nos próximos 7 dias, mas ${fmt.format(filaTotal)} na fila depois disso`
-        : 'Sem post nem story agendado';
+      if (filaTotal > 0) {
+        return `Nada nos próximos 7 dias, mas ${fmt.format(filaTotal)} na fila depois disso`;
+      }
+      // Zero com peça no sistema e zero sem peça nenhuma são situações
+      // diferentes e pedem ações opostas: uma é aprovar ou agendar o que já
+      // existe, a outra é produzir. Mostrar "sem post agendado" nos dois casos
+      // fazia o cartão parecer quebrado quando na verdade não havia nada.
+      return pecasNoTotal > 0
+        ? `${fmt.format(pecasNoTotal)} peça${pecasNoTotal > 1 ? 's' : ''} no Estúdio, nenhuma agendada ainda`
+        : 'Nenhuma peça criada ainda. Rode a esteira para produzir as primeiras';
     }
     const partes: string[] = [];
     if (feedThisWeek > 0) partes.push(`${fmt.format(feedThisWeek)} post${feedThisWeek > 1 ? 's' : ''}`);
@@ -336,6 +344,8 @@ export default function DashboardPage() {
         ? 'Conteúdo desta semana'
         : esperandoAprovacao > 0
         ? 'Peças esperando aprovação'
+        : pecasNoTotal === 0
+        ? 'Marketing ainda não produziu'
         : 'Nada agendado esta semana',
       detail: agendaDetalhe,
       value: coverageFailed ? '—' : fmt.format(scheduledThisWeek + esperandoAprovacao),

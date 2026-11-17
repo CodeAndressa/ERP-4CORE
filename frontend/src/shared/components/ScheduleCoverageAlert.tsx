@@ -18,6 +18,9 @@ export type Coverage = {
   // Pecas produzidas pela esteira, com data marcada, que ainda dependem de
   // alguem aprovar. Nao sao agendadas, mas tambem nao sao nada.
   awaiting_approval?:number;
+  // Quantas pecas existem, em qualquer estado. Separa "nada agendado porque
+  // ninguem aprovou" de "nada agendado porque nao ha peca nenhuma".
+  total_pieces?:number;
 };
 
 // Vermelho só quando a fila realmente vai secar. Alerta que grita em situação

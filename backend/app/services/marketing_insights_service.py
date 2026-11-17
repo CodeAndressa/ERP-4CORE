@@ -120,6 +120,16 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
     except Exception:
         db.rollback()
         logger.exception("schedule coverage: contagem de aguardando aprovacao falhou")
+
+    # Quantas peças existem, em qualquer estado. É o que separa "nada agendado
+    # porque ninguém aprovou" de "nada agendado porque não há peça nenhuma". As
+    # duas situações mostram zero e pedem ações opostas: uma é aprovar, a outra
+    # é produzir.
+    try:
+        total_pecas = db.query(MarketingContent).count()
+    except Exception:
+        db.rollback()
+        total_pecas = 0
     covered_until = upcoming[-1]["_when"] if upcoming else None
     next_at = upcoming[0]["_when"] if upcoming else None
     days_ahead = _days_between(now, covered_until) if covered_until else 0.0
@@ -163,6 +173,7 @@ def schedule_coverage(db: Session) -> dict[str, Any]:
         "total_upcoming": len(upcoming),
         "in_next_7_days": in_next_7_days,
         "awaiting_approval": aguardando,
+        "total_pieces": total_pecas,
         "partial": bool(source_errors),
         "errors": source_errors,
         "by_kind": {kind: sum(1 for entry in upcoming if entry["kind"] == kind) for kind in ("story", "feed")},

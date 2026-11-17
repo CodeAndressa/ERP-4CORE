@@ -44,6 +44,12 @@ from app.services.marketing_brand_system import (
     normalize_pt_br_text,
     sentence_case,
 )
+from app.services.marketing_art_critic import (
+    MAX_REDOS,
+    critique_art,
+    instrucao_de_correcao,
+)
+from app.services.marketing_asset_service import read_art_bytes
 from app.services.marketing_competitor_service import build_benchmark, sync_all
 from app.services.marketing_seasonal import (
     SEASONAL_CALENDAR,
@@ -101,6 +107,11 @@ AGENT_ROSTER: list[dict[str, str]] = [
         "key": "ilustrador",
         "name": "Ilustrador",
         "role": "Gera a arte 4:5 e compõe a marca por cima",
+    },
+    {
+        "key": "critico_arte",
+        "name": "Crítico de arte",
+        "role": "Olha a arte pronta e devolve para refazer quando ela não passa",
     },
     {
         "key": "agendador",
@@ -729,6 +740,32 @@ async def run_pipeline(
         raise HTTPException(500, "A esteira falhou. Confira o histórico para ver em qual agente parou.") from exc
 
 
+async def _criticar(
+    recorder: StepRecorder, content_id: int, art_path: str, headline: str
+) -> dict[str, Any] | None:
+    """Roda a crítica da arte. Devolve None quando ela própria falha.
+
+    A falha do crítico não pode derrubar a peça: ele é filtro de volume, não
+    portão. Se o juiz cair, a arte segue para a aprovação humana sem o parecer,
+    que é exatamente como era antes dele existir. Deixar de produzir por causa
+    do revisor seria trocar um problema caro por um pior.
+    """
+    try:
+        async with recorder.step("critico_arte", content_id) as box:
+            conteudo, _ = await read_art_bytes(art_path)
+            veredito, usage = await critique_art(conteudo, headline)
+            box["usage"] = usage
+            if veredito["aprovado"]:
+                box["summary"] = f"Aprovada, nota minima {veredito['nota_minima']:.0f}."
+            else:
+                pontos = ", ".join(p["dimensao"] for p in veredito["reprovadas"])
+                box["summary"] = f"Reprovada em {pontos} (nota {veredito['nota_minima']:.0f})."
+        return veredito
+    except Exception:
+        logger.exception("critica de arte falhou; a peca segue sem o parecer")
+        return None
+
+
 async def _produce(
     db: Session,
     recorder: StepRecorder,
@@ -844,22 +881,53 @@ async def _produce(
                     item.image_prompt = image_prompt
                     db.commit()
 
-                async with recorder.step("ilustrador", item.id) as box:
-                    art_path, usage = await generate_art_with_usage(
-                        image_prompt,
-                        review["headline"],
-                        layout,
-                        product,
-                        fact,
-                        template,
-                        palette=theme_palette(tema_sazonal),
-                        cta=draft.get("cta", ""),
-                    )
-                    box["usage"] = usage
-                    box["summary"] = ROTULO_TEMPLATE.get(template, f"Arte {layout} gerada.").format(
-                        produto=(product or {}).get("name", ""),
-                        numero=(fact or {}).get("numero", ""),
-                    )
+                correcoes = ""
+                veredito: dict[str, Any] | None = None
+
+                # Gera, critica, e refaz no maximo duas vezes. As travas de
+                # parada estao logo abaixo e cada uma existe por um motivo
+                # medido; ver marketing_art_critic.py.
+                for tentativa in range(MAX_REDOS + 1):
+                    async with recorder.step("ilustrador", item.id) as box:
+                        art_path, usage = await generate_art_with_usage(
+                            image_prompt + correcoes,
+                            review["headline"],
+                            layout,
+                            product,
+                            fact,
+                            template,
+                            palette=theme_palette(tema_sazonal),
+                            cta=draft.get("cta", ""),
+                        )
+                        box["usage"] = usage
+                        box["summary"] = (
+                            ROTULO_TEMPLATE.get(template, f"Arte {layout} gerada.").format(
+                                produto=(product or {}).get("name", ""),
+                                numero=(fact or {}).get("numero", ""),
+                            )
+                            if tentativa == 0
+                            else f"Arte refeita ({tentativa}a correcao)."
+                        )
+
+                    anterior = veredito
+                    veredito = await _criticar(recorder, item.id, art_path, review["headline"])
+                    if veredito is None or veredito["aprovado"]:
+                        break
+                    if tentativa >= MAX_REDOS:
+                        break
+                    # Nao melhorou: insistir so queima outra imagem. O laco para
+                    # e a peca vai para a pessoa com a ressalva registrada.
+                    if anterior and veredito["nota_minima"] <= anterior["nota_minima"]:
+                        break
+                    correcoes = instrucao_de_correcao(veredito)
+
+                if veredito and not veredito["aprovado"]:
+                    # Fica gravado na peca: quem for aprovar ve o que o critico
+                    # apontou e decide, em vez de receber a arte sem contexto.
+                    item.revision_notes = " ".join(
+                        f"{p['dimensao']}: {p['problema']}" for p in veredito["reprovadas"]
+                    )[:2000]
+
                 item.art_path = art_path
 
             item.status = "awaiting_approval"

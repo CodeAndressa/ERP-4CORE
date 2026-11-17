@@ -197,8 +197,22 @@ class PipelineTests(unittest.TestCase):
              patch.object(pipeline, "ask_json", new=self._async(self._fake_ask_json)), \
              patch.object(pipeline, "has_text_model", return_value=True), \
              patch.object(pipeline, "learned_guidance", new=self._async_value({"copy": "", "image": ""})), \
-             patch.object(pipeline, "generate_art_with_usage", new=self._fake_generate_art):
+             patch.object(pipeline, "generate_art_with_usage", new=self._fake_generate_art),              patch.object(pipeline, "critique_art", new=self._async(self._fake_critique)),              patch.object(pipeline, "read_art_bytes", new=self._async_value((b"png", "image/png"))):
             return asyncio.run(pipeline.run_pipeline(self.db, content_limit=1, layout="feed"))
+
+    def _fake_critique(self, conteudo, headline):
+        """Crítica que aprova de primeira: o caminho normal.
+
+        Os casos de reprovação e de refação são testados em
+        test_marketing_art_critic.py, sem rede, porque ali a regra é pura."""
+        usage = Usage("fake", "critico-de-teste", 50, 20, cost_usd=0.0004, measured=True)
+        return {
+            "notas": {"produto": 9, "camadas": 8, "legibilidade": 9, "marca": 9},
+            "nota_minima": 8.0,
+            "aprovado": True,
+            "reprovadas": [],
+            "resumo": "Peça coerente.",
+        }, usage
 
     @staticmethod
     def _async(fn):
@@ -238,6 +252,7 @@ class PipelineTests(unittest.TestCase):
                 "revisor_texto",
                 "diretor_arte",
                 "ilustrador",
+                "critico_arte",
                 "agendador",
             ],
         )
@@ -262,10 +277,13 @@ class PipelineTests(unittest.TestCase):
         result = self._run()
         steps = self.db.query(MarketingAgentStep).all()
         billed = [step for step in steps if step.cost_usd > 0]
-        # estrategista, diretor de criacao, redator, revisor, diretor de arte e
-        # ilustrador. O analista e o agendador nao chamam modelo.
-        self.assertEqual(len(billed), 6)
-        self.assertAlmostEqual(result["costs"]["cost_usd"], 0.001 * 5 + 0.0145, places=6)
+        # estrategista, diretor de criacao, redator, revisor, diretor de arte,
+        # ilustrador e critico de arte. O analista e o agendador nao chamam
+        # modelo. O critico entrou na conta porque ele olha a imagem gerada, e
+        # olhar imagem custa: e justamente o passo que evita a arte errada
+        # chegar na aprovacao, que custa muito mais.
+        self.assertEqual(len(billed), 7)
+        self.assertAlmostEqual(result["costs"]["cost_usd"], 0.001 * 5 + 0.0145 + 0.0004, places=6)
         self.assertTrue(result["costs"]["fully_measured"])
 
     def test_pauta_sem_produto_nem_dado_cai_na_foto(self):

@@ -122,7 +122,20 @@ export default function BranchedMenu({
         const bodyH = kids ? PAD * 2 + kids.length * rowHeight : 0
         return (
           <div key={item.value ?? item.label} className="branched-menu__section" data-open={isOpen ? '' : undefined}>
-            {kids ? (
+            {kids && item.href ? (
+              <a ref={(el) => { heads.current[i] = el }} href={item.href} className="branched-menu__head"
+                aria-expanded={isOpen} aria-current={item.value === active ? 'page' : undefined}
+                data-active={item.value === active ? '' : undefined}
+                onClick={(e) => {
+                  if (!cliqueComum(e)) return;
+                  e.preventDefault();
+                  if (isOpen && item.value === active) { toggle(i); return; }
+                  if (!isOpen) toggle(i);
+                  select(item.value ?? item.label, item);
+                }}>
+                {item.label}
+              </a>
+            ) : kids ? (
               <button ref={(el) => { heads.current[i] = el }} type="button" className="branched-menu__head"
                 aria-expanded={isOpen} onClick={() => toggle(i)}>
                 {item.label}

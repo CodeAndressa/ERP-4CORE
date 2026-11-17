@@ -44,11 +44,16 @@ export default function MainMenu() {
 
   const telaAtiva = useMemo(() => {
     const todas = NAV.flatMap((g) => g.areas).flatMap((a) => a.screens);
-    return (
-      todas
-        .filter((s) => pathname === s.path || pathname.startsWith(`${s.path}/`))
-        .sort((a, b) => b.path.length - a.path.length)[0]?.path ?? ''
-    );
+    const naTela = todas
+      .filter((s) => pathname === s.path || pathname.startsWith(`${s.path}/`))
+      .sort((a, b) => b.path.length - a.path.length)[0]?.path;
+    if (naTela) return naTela;
+
+    // A propria area tambem pode ser a rota. Antes isso nao era considerado, e
+    // `/marketing` ficava com nada marcado no menu, como se a pessoa nao
+    // estivesse em lugar nenhum.
+    const area = NAV.flatMap((g) => g.areas).find((a) => pathname === a.path);
+    return area?.path ?? '';
   }, [pathname]);
 
 

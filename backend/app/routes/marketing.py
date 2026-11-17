@@ -1,6 +1,8 @@
 import json
 import secrets
-from datetime import datetime, timezone
+import logging
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from typing import Literal
 
 import httpx
@@ -15,6 +17,8 @@ from app.models.marketing import ExternalScheduledPost, InstagramMessage
 from app.services import instagram_dm_service
 from app.services.groq_service import groq_error_detail, groq_model_id
 from app.services.meta_marketing_service import MetaMarketingService, mask_token
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/marketing", tags=["marketing"])
 
@@ -272,6 +276,27 @@ async def get_conversation_messages(conversation_id: str):
     return {"messages": await instagram_dm_service.conversation_messages(conversation_id)}
 
 
+class AutoReplyConfig(BaseModel):
+    enabled: bool = False
+    text: str = Field(default="", max_length=900)
+    only_off_hours: bool = False
+    hour_start: str = Field(default="08:00", max_length=5)
+    hour_end: str = Field(default="18:00", max_length=5)
+
+
+@router.get("/meta/instagram/autoreply")
+async def get_autoreply():
+    return await instagram_dm_service.autoreply_config()
+
+
+@router.put("/meta/instagram/autoreply")
+async def put_autoreply(payload: AutoReplyConfig):
+    return await instagram_dm_service.save_autoreply_config(
+        payload.enabled, payload.text, payload.only_off_hours,
+        payload.hour_start, payload.hour_end,
+    )
+
+
 @router.get("/meta/instagram/unread")
 def instagram_unread(db: Session = Depends(get_db)):
     """O que chegou pelo webhook e ainda nao foi aberto.
@@ -382,6 +407,16 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db)):
                 continue
             direction = "outbound" if my_id and sender_id == my_id else "inbound"
             conversation_id = recipient_id if direction == "outbound" else sender_id
+            # Antes de gravar: houve conversa aqui antes desta mensagem? É o que
+            # define primeiro contato, e precisa ser perguntado agora, porque
+            # daqui a duas linhas a resposta muda.
+            ja_houve_contato = (
+                db.query(InstagramMessage)
+                .filter(InstagramMessage.conversation_id == (conversation_id or sender_id))
+                .first()
+                is not None
+            )
+
             db.add(InstagramMessage(
                 conversation_id=conversation_id or sender_id,
                 sender_id=sender_id,
@@ -389,8 +424,56 @@ async def receive_webhook(request: Request, db: Session = Depends(get_db)):
                 text=text,
                 mid=mid,
             ))
+            db.commit()
+
+            if direction == "inbound":
+                await _try_autoreply(db, conversation_id or sender_id, sender_id, text, ja_houve_contato)
+
     db.commit()
     return {"status": "ok"}
+
+
+async def _try_autoreply(
+    db: Session, conversation_id: str, sender_id: str, text: str, ja_houve_contato: bool
+) -> None:
+    """Responde o primeiro contato, quando a resposta automática está ligada.
+
+    Nunca levanta: o evento já foi gravado e precisa continuar valendo. Erro
+    devolvido ao webhook faz a Meta reenviar o mesmo evento, e reenvio com falha
+    repetida acaba desligando a assinatura."""
+    try:
+        desde = datetime.now(timezone.utc) - timedelta(days=1)
+        enviadas_hoje = (
+            db.query(InstagramMessage)
+            .filter(
+                InstagramMessage.direction == "outbound",
+                InstagramMessage.mid.like("auto-%"),
+                InstagramMessage.created_at >= desde,
+            )
+            .count()
+        )
+
+        mensagem = await instagram_dm_service.should_autoreply(
+            conversation_id, sender_id, text, ja_houve_contato, enviadas_hoje
+        )
+        if not mensagem:
+            return
+
+        await instagram_dm_service.send_message(sender_id, mensagem)
+
+        # Gravada com o prefixo `auto-`, que é o que permite contar quantas
+        # saíram no dia e distinguir resposta da máquina de resposta de pessoa.
+        db.add(InstagramMessage(
+            conversation_id=conversation_id,
+            sender_id=sender_id,
+            direction="outbound",
+            text=mensagem,
+            mid=f"auto-{uuid4().hex}",
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("resposta automatica do direct falhou")
 
 
 # ─── Agendamentos externos (registrados à mão — ex.: Meta Business Suite) ────

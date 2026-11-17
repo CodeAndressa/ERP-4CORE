@@ -19,6 +19,7 @@ from fastapi import HTTPException
 
 from app.core.config import settings
 from app.services import token_store
+from app.services.marketing_schedule_service import BRAZIL_TZ
 
 GRAPH_VERSION = "v23.0"
 BASE_URL = f"https://graph.instagram.com/{GRAPH_VERSION}"
@@ -319,6 +320,102 @@ COMO RESPONDER
 Devolva JSON:
 {{"resposta": "o texto pronto para enviar", "intencao": "duvida|preco|suporte|elogio|outro"}}
 """.strip()
+
+
+# ─── Resposta automática ────────────────────────────────────────────────────
+
+AUTOREPLY_DEFAULT = (
+    "Oi! Aqui é a 4Core. Recebemos sua mensagem e respondemos em instantes, "
+    "no horário comercial. Se quiser adiantar, conta pra gente quantos "
+    "funcionários a sua empresa tem e o que você precisa controlar: ponto, "
+    "acesso ou os dois."
+)
+
+# Teto por dia. Existe para o caso de a detecção de primeiro contato falhar: o
+# estrago para em 40 mensagens, não em mil.
+AUTOREPLY_DAILY_CAP = 40
+
+
+async def autoreply_config() -> dict[str, Any]:
+    """Como a resposta automática está configurada.
+
+    Desligada por padrão de propósito: ninguém deve descobrir que tem resposta
+    automática ligada depois que ela já falou com trinta clientes."""
+    ligada = (await _stored("autoreply_enabled")) == "1"
+    texto = (await _stored("autoreply_text")) or AUTOREPLY_DEFAULT
+    inicio = (await _stored("autoreply_hour_start")) or "08:00"
+    fim = (await _stored("autoreply_hour_end")) or "18:00"
+    apenas_fora = (await _stored("autoreply_only_off_hours")) == "1"
+    return {
+        "enabled": ligada,
+        "text": texto,
+        "only_off_hours": apenas_fora,
+        "hour_start": inicio,
+        "hour_end": fim,
+        "daily_cap": AUTOREPLY_DAILY_CAP,
+    }
+
+
+async def save_autoreply_config(
+    enabled: bool, text: str, only_off_hours: bool, hour_start: str, hour_end: str
+) -> dict[str, Any]:
+    limpo = " ".join((text or "").split())[:900]
+    if enabled and not limpo:
+        raise HTTPException(409, "Escreva a mensagem antes de ligar a resposta automática.")
+    await token_store.asave({
+        "instagram_login_autoreply_enabled": "1" if enabled else "0",
+        "instagram_login_autoreply_text": limpo,
+        "instagram_login_autoreply_only_off_hours": "1" if only_off_hours else "0",
+        "instagram_login_autoreply_hour_start": hour_start or "08:00",
+        "instagram_login_autoreply_hour_end": hour_end or "18:00",
+    })
+    return await autoreply_config()
+
+
+def _dentro_do_horario(agora_hhmm: str, inicio: str, fim: str) -> bool:
+    """Se o horário está dentro da janela comercial.
+
+    Janela que cruza a meia-noite (22:00 às 06:00) é tratada: sem isso, uma
+    operação noturna teria a resposta automática ligada o dia inteiro."""
+    if inicio <= fim:
+        return inicio <= agora_hhmm < fim
+    return agora_hhmm >= inicio or agora_hhmm < fim
+
+
+async def should_autoreply(
+    conversation_id: str,
+    sender_id: str,
+    text: str,
+    ja_houve_contato: bool,
+    enviadas_hoje: int,
+) -> str:
+    """A mensagem a enviar, ou string vazia quando não é caso de responder.
+
+    Devolve o texto em vez de um booleano porque quem chama precisa dele, e
+    separar a decisão do envio deixa a regra testável sem tocar na rede."""
+    _, my_id = await credentials()
+
+    # O webhook também entrega eco das mensagens que a própria conta envia. Sem
+    # esta trava, a resposta automática responderia a si mesma, em laço.
+    if not sender_id or (my_id and sender_id == my_id):
+        return ""
+    if not (text or "").strip():
+        return ""
+    if ja_houve_contato:
+        return ""
+    if enviadas_hoje >= AUTOREPLY_DAILY_CAP:
+        return ""
+
+    config = await autoreply_config()
+    if not config["enabled"]:
+        return ""
+
+    if config["only_off_hours"]:
+        agora = datetime.now(BRAZIL_TZ).strftime("%H:%M")
+        if _dentro_do_horario(agora, config["hour_start"], config["hour_end"]):
+            return ""
+
+    return str(config["text"])
 
 
 async def suggest_reply(conversation_id: str) -> dict[str, Any]:

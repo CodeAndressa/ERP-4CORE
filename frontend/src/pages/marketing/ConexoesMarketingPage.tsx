@@ -38,6 +38,15 @@ interface MetaPage {
   instagram_business_account?: { id: string; username?: string };
 }
 
+interface AutoReply {
+  enabled: boolean;
+  text: string;
+  only_off_hours: boolean;
+  hour_start: string;
+  hour_end: string;
+  daily_cap?: number;
+}
+
 interface DmStatus {
   // configured: existe token guardado. healthy: ele ainda vale.
   // Os dois precisam ser separados porque a tela mostrava "Conectado" com o token
@@ -80,6 +89,8 @@ export default function ConexoesMarketingPage() {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [dmStatus, setDmStatus] = useState<DmStatus | null>(null);
+  const [auto, setAuto] = useState<AutoReply | null>(null);
+  const [autoBusy, setAutoBusy] = useState(false);
   // Serve so para a mensagem de erro falar do .env local ou do painel da Vercel,
   // conforme onde o backend esta rodando.
   const [envStatus, setEnvStatus] = useState<{ is_production: boolean } | null>(null);
@@ -109,6 +120,9 @@ export default function ConexoesMarketingPage() {
   }
 
   function loadDmStatus() {
+    api.get<AutoReply>('/marketing/meta/instagram/autoreply')
+      .then(({ data }) => setAuto(data))
+      .catch(() => {});
     api.get<DmStatus>('/marketing/meta/instagram-login/status')
       .then(({ data }) => setDmStatus(data))
       .catch(() => setDmStatus(null));
@@ -140,6 +154,24 @@ export default function ConexoesMarketingPage() {
       setDmMessage(err?.response?.data?.detail || 'Não foi possível validar esse token.');
     } finally {
       setDmBusy(false);
+    }
+  }
+
+  async function salvarAuto(valor: AutoReply) {
+    setAutoBusy(true);
+    try {
+      const { data } = await api.put<AutoReply>('/marketing/meta/instagram/autoreply', valor);
+      setAuto(data);
+      setDmMessage(
+        data.enabled
+          ? '\u2705 Resposta automática ligada para o primeiro contato.'
+          : '\u2705 Resposta automática desligada.',
+      );
+    } catch (error) {
+      const detalhe = (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setDmMessage(detalhe || 'Não foi possível salvar a resposta automática.');
+    } finally {
+      setAutoBusy(false);
     }
   }
 
@@ -462,6 +494,80 @@ export default function ConexoesMarketingPage() {
                 <MessageCircle size={13} /> Abrir mensagens
               </Link>
             </div>
+
+            {/* A resposta automatica fica aqui, e nao numa tela propria, porque
+                depende do token logo acima: sem ele ligado, ela nao tem como
+                sair, e separar as duas faria alguem ligar uma sem a outra. */}
+            {auto && (
+              <div className="mt-4 rounded-2xl border p-4" style={{ borderColor: 'var(--erp-border)', background: 'var(--erp-surface-2)' }}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--erp-text)' }}>
+                      Resposta automática no primeiro contato
+                    </p>
+                    <p className="mt-0.5 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
+                      Sai uma vez por pessoa, só para quem nunca escreveu antes. Teto de{' '}
+                      {auto.daily_cap ?? 40} por dia.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void salvarAuto({ ...auto, enabled: !auto.enabled })}
+                    disabled={autoBusy}
+                    className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold"
+                    style={{
+                      background: auto.enabled ? 'var(--erp-violet)' : 'var(--erp-surface)',
+                      border: `1px solid ${auto.enabled ? 'var(--erp-violet)' : 'var(--erp-border)'}`,
+                      color: auto.enabled ? '#fff' : 'var(--erp-text)',
+                      opacity: autoBusy ? 0.6 : 1,
+                    }}
+                  >
+                    {auto.enabled ? 'Ligada' : 'Desligada'}
+                  </button>
+                </div>
+
+                <textarea
+                  value={auto.text}
+                  onChange={(e) => setAuto({ ...auto, text: e.target.value })}
+                  rows={3}
+                  maxLength={900}
+                  placeholder="O que a 4Core responde a quem escreve pela primeira vez"
+                  className="field mt-3 resize-y"
+                />
+
+                <label className="mt-3 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--erp-text-muted)' }}>
+                  <input
+                    type="checkbox"
+                    checked={auto.only_off_hours}
+                    onChange={(e) => setAuto({ ...auto, only_off_hours: e.target.checked })}
+                  />
+                  Só fora do expediente, das
+                  <input
+                    type="time"
+                    value={auto.hour_start}
+                    onChange={(e) => setAuto({ ...auto, hour_start: e.target.value })}
+                    className="field !w-auto !py-1"
+                  />
+                  às
+                  <input
+                    type="time"
+                    value={auto.hour_end}
+                    onChange={(e) => setAuto({ ...auto, hour_end: e.target.value })}
+                    className="field !w-auto !py-1"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => void salvarAuto(auto)}
+                  disabled={autoBusy}
+                  className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold"
+                  style={{ background: 'var(--erp-surface)', border: '1px solid var(--erp-border)', color: 'var(--erp-text)', opacity: autoBusy ? 0.6 : 1 }}
+                >
+                  Salvar mensagem
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">

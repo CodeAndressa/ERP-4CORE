@@ -89,10 +89,13 @@ app.add_middleware(
 async def require_authentication(request: Request, call_next):
     cron_authorization = request.headers.get('authorization', '')
     marketing_cron_secret = settings.marketing_cron_secret or settings.cron_secret
+    # A fila de publicação é disparada pelo Vercel Schedules (vercel.json), que
+    # assina com CRON_SECRET; o MARKETING_CRON_SECRET continua valendo para o
+    # disparo manual pelo GitHub Actions.
+    process_due_secrets = [s for s in (settings.marketing_cron_secret, settings.cron_secret) if s]
     cron_allowed = (
         request.url.path == '/marketing/content/process-due'
-        and bool(marketing_cron_secret)
-        and secrets.compare_digest(cron_authorization, f'Bearer {marketing_cron_secret}')
+        and any(secrets.compare_digest(cron_authorization, f'Bearer {s}') for s in process_due_secrets)
     ) or (
         request.url.path == '/marketing/content/stories/ensure-daily'
         and bool(marketing_cron_secret)

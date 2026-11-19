@@ -1,8 +1,9 @@
 name: Publicar conteudos agendados
 
+# O disparo automático agora é do Vercel Schedules (backend/vercel.json), a cada
+# 15 min. O cron do GitHub atrasava horas e era desativado por inatividade; este
+# workflow fica só para rodar a fila na mão quando precisar.
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 concurrency:

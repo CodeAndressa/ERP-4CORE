@@ -7,5 +7,13 @@
   ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/api" }
-  ]
+  ],
+  "schedules": {
+    "publicar-agendados": {
+      "schedule": "*/15 * * * *",
+      "timezone": "America/Sao_Paulo",
+      "path": "/marketing/content/process-due",
+      "requestMethod": "POST"
+    }
+  }
 }

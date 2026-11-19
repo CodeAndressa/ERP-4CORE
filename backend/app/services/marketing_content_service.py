@@ -162,7 +162,7 @@ async def suggest_content_topics(
         raise HTTPException(502, "A IA retornou sugestoes em formato invalido.") from exc
 
 
-def normalize_uploaded_art(content: bytes) -> bytes:
+def normalize_uploaded_art(content: bytes, layout: str = "feed") -> bytes:
     try:
         image = Image.open(io.BytesIO(content))
         image.load()
@@ -172,9 +172,16 @@ def normalize_uploaded_art(content: bytes) -> bytes:
     width, height = image.size
     if width < 400 or height < 500:
         raise HTTPException(422, "A arte precisa ter no minimo 400 x 500 pixels.")
-    if abs((width / height) - 0.8) > 0.012:
-        raise HTTPException(422, "A arte precisa estar no formato retrato 4:5, por exemplo 1080 x 1350 px.")
-    image = image.resize((1080, 1350), Image.Resampling.LANCZOS)
+    # Story pronto (feito no Canva ou fora do ERP) vem em 9:16; feed segue 4:5.
+    if layout == "story":
+        if abs((width / height) - 0.5625) > 0.012:
+            raise HTTPException(422, "O story precisa estar no formato 9:16, por exemplo 1080 x 1920 px.")
+        target = (1080, 1920)
+    else:
+        if abs((width / height) - 0.8) > 0.012:
+            raise HTTPException(422, "A arte precisa estar no formato retrato 4:5, por exemplo 1080 x 1350 px.")
+        target = (1080, 1350)
+    image = image.resize(target, Image.Resampling.LANCZOS)
     output = io.BytesIO()
     image.save(output, format="PNG", optimize=True)
     return output.getvalue()

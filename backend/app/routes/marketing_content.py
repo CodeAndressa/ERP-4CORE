@@ -553,7 +553,7 @@ async def upload_edited_art(
     content = await file.read(15 * 1024 * 1024 + 1)
     if len(content) > 15 * 1024 * 1024:
         raise HTTPException(413, "A imagem deve ter no máximo 15 MB.")
-    normalized = normalize_uploaded_art(content)
+    normalized = normalize_uploaded_art(content, item.layout)
     item.art_path = await store_generated_art(normalized, "image/png")
     item.status = "awaiting_approval"
     item.approved_at = None

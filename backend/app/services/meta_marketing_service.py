@@ -571,6 +571,49 @@ class MetaMarketingService:
             media_id = await self._publish_container(client, ig_id, token, container_id, "o story")
         return {"container_id": container_id, "media_id": media_id}
 
+    async def create_instagram_reel_container(self, video_url: str, caption: str) -> str:
+        """Primeira metade da publicação de um Reel: só cria o contêiner.
+
+        Vídeo leva minutos para a Meta processar, mais do que uma chamada na Vercel
+        aguenta esperar. Por isso o ERP guarda o id do contêiner e quem conclui é a
+        fila de /process-due, que roda a cada 5 minutos."""
+        ig_id = await self.get_instagram_account_id()
+        _, token = await self._page_token_async(None, None)
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            created = await client.post(
+                f"{self.base_url}/{ig_id}/media",
+                data={
+                    "access_token": token,
+                    "media_type": "REELS",
+                    "video_url": video_url,
+                    "caption": caption,
+                    "share_to_feed": "true",
+                },
+            )
+        if created.status_code >= 400:
+            raise HTTPException(created.status_code, f"Meta recusou o Reel: {created.text[:300]}")
+        container_id = str(created.json().get("id", ""))
+        if not container_id:
+            raise HTTPException(502, "A Meta não retornou o contêiner do Reel.")
+        return container_id
+
+    async def instagram_container_status(self, container_id: str) -> tuple[str, str]:
+        """(status_code, status) do contêiner: IN_PROGRESS, FINISHED, ERROR, EXPIRED..."""
+        _, token = await self._page_token_async(None, None)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self.base_url}/{container_id}",
+                params={"access_token": token, "fields": "status_code,status"},
+            )
+        payload = response.json() if response.status_code < 400 else {}
+        return str(payload.get("status_code") or "IN_PROGRESS"), str(payload.get("status") or "")
+
+    async def publish_instagram_container(self, container_id: str, o_que: str = "o Reel") -> str:
+        ig_id = await self.get_instagram_account_id()
+        _, token = await self._page_token_async(None, None)
+        async with httpx.AsyncClient(timeout=90.0) as client:
+            return await self._publish_container(client, ig_id, token, container_id, o_que)
+
     async def publish_facebook_image(self, image_url: str, caption: str) -> str:
         page_id, token = await self._page_token_async(None, None)
         async with httpx.AsyncClient(timeout=40.0) as client:

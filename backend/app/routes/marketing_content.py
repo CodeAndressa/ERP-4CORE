@@ -21,7 +21,17 @@ from app.services.marketing_art_learning import (
     list_feedback,
     record_feedback,
 )
-from app.services.marketing_asset_service import art_response, read_art_bytes, signed_art_url, store_generated_art
+from app.services.marketing_asset_service import (
+    STORAGE_PREFIX,
+    VIDEO_EXTENSIONS,
+    art_response,
+    create_video_upload_url,
+    read_art_bytes,
+    signed_art_url,
+    storage_configured,
+    storage_object_exists,
+    store_generated_art,
+)
 from app.services.marketing_canva_service import build_canva_pptx
 from app.services.marketing_content_service import (
     FALLBACK_TOPIC_SUGGESTIONS,
@@ -38,19 +48,31 @@ from app.core.config import settings
 router = APIRouter(prefix="/marketing/content", tags=["marketing-content"])
 
 ALLOWED_CHANNELS = {"instagram", "facebook", "both"}
-ALLOWED_FORMATS = {"image"}
-ALLOWED_LAYOUTS = {"feed", "story"}
+ALLOWED_FORMATS = {"image", "video"}
+ALLOWED_LAYOUTS = {"feed", "story", "reel"}
 EDITABLE_STATUSES = {"draft", "awaiting_approval", "rejected", "failed", "approved", "scheduled"}
 BRAZIL_TZ = ZoneInfo("America/Sao_Paulo")
+# Upload direto pela API só serve no ambiente local: na Vercel o corpo é cortado
+# em ~4,5 MB, e lá o vídeo vai do navegador direto para o Supabase Storage.
+MAX_DIRECT_VIDEO_BYTES = 200 * 1024 * 1024
 
 
 class ContentCreate(BaseModel):
     title: str = Field(min_length=3, max_length=180)
     brief: str = Field(default="", max_length=4000)
+    caption: str = Field(default="", max_length=10000)
     channel: Literal["instagram", "facebook", "both"] = "instagram"
-    format: Literal["image"] = "image"
-    layout: Literal["feed", "story"] = "feed"
+    format: Literal["image", "video"] = "image"
+    layout: Literal["feed", "story", "reel"] = "feed"
     scheduled_at: datetime | None = None
+
+
+class VideoUploadRequest(BaseModel):
+    content_type: Literal["video/mp4", "video/quicktime"] = "video/mp4"
+
+
+class VideoConfirmRequest(BaseModel):
+    object_path: str = Field(min_length=8, max_length=300)
 
 
 class ContentUpdate(BaseModel):
@@ -157,13 +179,82 @@ def _get(db: Session, content_id: int) -> MarketingContent:
     return item
 
 
+def _reel_waiting_on_meta(item: MarketingContent) -> bool:
+    return (
+        item.layout == "reel"
+        and item.status == "publishing"
+        and bool(item.meta_container_id)
+        and not item.instagram_media_id
+    )
+
+
+async def _advance_reel(item: MarketingContent, db: Session) -> MarketingContent:
+    """Segunda metade do Reel: se a Meta terminou de processar, publica; senão
+    deixa como está para a próxima rodada da fila tentar de novo."""
+    meta = MetaMarketingService()
+    try:
+        status_code, detail = await meta.instagram_container_status(item.meta_container_id)
+        if status_code in {"ERROR", "EXPIRED"}:
+            raise HTTPException(502, f"A Meta não processou o vídeo do Reel: {detail or status_code}")
+        if status_code != "FINISHED":
+            return item
+        item.instagram_media_id = await meta.publish_instagram_container(item.meta_container_id)
+        item.status = "published"
+        item.published_at = datetime.now(timezone.utc)
+    except HTTPException as exc:
+        item.status = "failed"
+        item.error_message = str(exc.detail)
+        item.meta_container_id = ""
+        db.commit()
+        raise
+    except Exception as exc:
+        item.status = "failed"
+        item.error_message = "Falha inesperada ao publicar o Reel na Meta."
+        item.meta_container_id = ""
+        db.commit()
+        raise HTTPException(502, item.error_message) from exc
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+async def _start_reel(item: MarketingContent, db: Session) -> MarketingContent:
+    item.status = "publishing"
+    item.error_message = ""
+    item.meta_container_id = ""
+    item.instagram_media_id = ""
+    db.commit()
+    try:
+        # A Meta baixa o vídeo assim que o contêiner é criado, mas o download pode
+        # demorar; 6 h de validade deixa folga de sobra.
+        video_url = await signed_art_url(item.art_path, expires_in=6 * 3600)
+        item.meta_container_id = await MetaMarketingService().create_instagram_reel_container(video_url, item.caption)
+    except HTTPException as exc:
+        item.status = "failed"
+        item.error_message = str(exc.detail)
+        db.commit()
+        raise
+    except Exception as exc:
+        item.status = "failed"
+        item.error_message = "Falha inesperada ao enviar o Reel para a Meta."
+        db.commit()
+        raise HTTPException(502, item.error_message) from exc
+    db.commit()
+    db.refresh(item)
+    return item
+
+
 async def _publish(item: MarketingContent, db: Session) -> MarketingContent:
     if not item.art_path:
-        raise HTTPException(409, "Gere a arte antes de publicar.")
+        raise HTTPException(409, "Envie o vídeo antes de publicar." if item.layout == "reel" else "Gere a arte antes de publicar.")
     if not item.approved_at:
         raise HTTPException(409, "A publicação precisa ser aprovada antes do envio.")
     if item.status == "published":
         return item
+    if item.layout == "reel":
+        if not _reel_waiting_on_meta(item):
+            await _start_reel(item, db)
+        return await _advance_reel(item, db)
 
     item.status = "publishing"
     item.error_message = ""
@@ -214,11 +305,14 @@ def list_content(
 
 @router.post("", status_code=201)
 def create_content(payload: ContentCreate, db: Session = Depends(get_db)):
+    is_reel = payload.layout == "reel"
     item = MarketingContent(
         title=payload.title.strip(),
         brief=payload.brief.strip(),
-        channel=payload.channel,
-        format=payload.format,
+        caption=payload.caption.strip(),
+        # Reel é vídeo e só existe no Instagram: a API de Reels do Facebook é outra.
+        channel="instagram" if is_reel else payload.channel,
+        format="video" if is_reel else "image",
         layout=payload.layout,
         scheduled_at=_utc(payload.scheduled_at),
         status="draft",
@@ -289,15 +383,33 @@ async def process_due(db: Session = Depends(get_db)):
         .limit(10)
         .all()
     )
+    reels_in_flight = (
+        db.query(MarketingContent)
+        .filter(MarketingContent.layout == "reel")
+        .filter(MarketingContent.status == "publishing")
+        .filter(MarketingContent.meta_container_id != "")
+        .filter(MarketingContent.instagram_media_id == "")
+        .limit(10)
+        .all()
+    )
     published: list[int] = []
+    processing: list[int] = []
     failed: list[dict] = []
-    for item in due:
+    for item in [*reels_in_flight, *due]:
         try:
             await _publish(item, db)
-            published.append(item.id)
+            if item.status == "published":
+                published.append(item.id)
+            else:
+                processing.append(item.id)
         except HTTPException as exc:
             failed.append({"id": item.id, "error": str(exc.detail)})
-    return {"processed": len(due), "published": published, "failed": failed}
+    return {
+        "processed": len(due) + len(reels_in_flight),
+        "published": published,
+        "processing": processing,
+        "failed": failed,
+    }
 
 
 @router.post("/stories/ensure-daily")
@@ -388,6 +500,8 @@ def update_content(content_id: int, payload: ContentUpdate, db: Session = Depend
     if item.status not in EDITABLE_STATUSES:
         raise HTTPException(409, "Esta publicação não pode mais ser editada.")
     values = payload.model_dump(exclude_unset=True)
+    if item.layout == "reel" and values.get("channel", "instagram") != "instagram":
+        raise HTTPException(422, "Reels são publicados só no Instagram.")
     if "scheduled_at" in values:
         values["scheduled_at"] = _utc(values["scheduled_at"])
     for key, value in values.items():
@@ -408,6 +522,8 @@ async def get_art(content_id: int, db: Session = Depends(get_db)):
 @router.get("/{content_id}/canva-export")
 async def export_for_canva(content_id: int, db: Session = Depends(get_db)):
     item = _get(db, content_id)
+    if item.layout == "reel":
+        raise HTTPException(409, "Reels são vídeo; edite no seu editor de vídeo e reenvie o arquivo.")
     art_content, _ = await read_art_bytes(item.art_path)
     try:
         content = await build_canva_pptx(art_content, item.title)
@@ -430,6 +546,8 @@ async def upload_edited_art(
     item = _get(db, content_id)
     if item.status in {"generating", "publishing", "published"}:
         raise HTTPException(409, "Esta publicação não pode receber uma nova arte agora.")
+    if item.layout == "reel":
+        raise HTTPException(409, "Reels recebem vídeo: use o envio de vídeo.")
     if file.content_type not in {"image/png", "image/jpeg", "image/webp"}:
         raise HTTPException(422, "Envie a arte exportada do Canva em PNG, JPG ou WEBP.")
     content = await file.read(15 * 1024 * 1024 + 1)
@@ -446,6 +564,74 @@ async def upload_edited_art(
     db.commit()
     db.refresh(item)
     return _serialize(item)
+
+
+def _reel_ready_for_video(item: MarketingContent) -> None:
+    if item.layout != "reel":
+        raise HTTPException(409, "Só Reels recebem vídeo.")
+    if item.status in {"generating", "publishing", "published"}:
+        raise HTTPException(409, "Este Reel não pode receber um novo vídeo agora.")
+
+
+def _attach_video(item: MarketingContent, art_path: str, db: Session) -> dict:
+    item.art_path = art_path
+    # Vídeo novo invalida a aprovação anterior: quem aprovou viu outro vídeo.
+    item.status = "awaiting_approval"
+    item.approved_at = None
+    item.error_message = ""
+    item.meta_container_id = ""
+    item.instagram_media_id = ""
+    item.facebook_post_id = ""
+    db.commit()
+    db.refresh(item)
+    return _serialize(item)
+
+
+@router.post("/{content_id}/video/upload-url")
+async def video_upload_url(content_id: int, payload: VideoUploadRequest, db: Session = Depends(get_db)):
+    """Com Supabase: devolve URL assinada para o navegador subir o vídeo direto.
+    Sem Supabase (ambiente local): avisa que o envio é pela própria API."""
+    item = _get(db, content_id)
+    _reel_ready_for_video(item)
+    if not storage_configured():
+        return {"mode": "direct"}
+    return {"mode": "signed", **(await create_video_upload_url(payload.content_type))}
+
+
+@router.post("/{content_id}/video/confirm")
+async def confirm_video(content_id: int, payload: VideoConfirmRequest, db: Session = Depends(get_db)):
+    item = _get(db, content_id)
+    _reel_ready_for_video(item)
+    object_path = payload.object_path.strip().lstrip("/")
+    if not object_path.startswith("reels/") or ".." in object_path or not object_path.endswith(tuple(VIDEO_EXTENSIONS.values())):
+        raise HTTPException(422, "Caminho de vídeo inválido.")
+    if not await storage_object_exists(object_path):
+        raise HTTPException(409, "O vídeo ainda não chegou ao Storage. Tente enviar de novo.")
+    return _attach_video(item, f"{STORAGE_PREFIX}{object_path}", db)
+
+
+@router.post("/{content_id}/video/upload")
+async def upload_video_direct(content_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    item = _get(db, content_id)
+    _reel_ready_for_video(item)
+    if file.content_type not in VIDEO_EXTENSIONS:
+        raise HTTPException(422, "Envie o Reel em MP4 ou MOV.")
+    content = await file.read(MAX_DIRECT_VIDEO_BYTES + 1)
+    if len(content) > MAX_DIRECT_VIDEO_BYTES:
+        raise HTTPException(413, "O vídeo deve ter no máximo 200 MB.")
+    return _attach_video(item, await store_generated_art(content, file.content_type), db)
+
+
+@router.get("/{content_id}/video-url")
+async def video_url(content_id: int, db: Session = Depends(get_db)):
+    """Para o player da tela: URL temporária no Storage, sem passar o vídeo pela API
+    (que na Vercel não devolve respostas grandes). Local: a tela usa /art."""
+    item = _get(db, content_id)
+    if item.layout != "reel" or not item.art_path:
+        raise HTTPException(404, "Este conteúdo não tem vídeo.")
+    if not item.art_path.startswith(STORAGE_PREFIX):
+        return {"url": None}
+    return {"url": await signed_art_url(item.art_path, expires_in=3600)}
 
 
 class RedoRequest(BaseModel):
@@ -533,6 +719,8 @@ async def generate_content_caption(content_id: int, payload: CaptionRequest, db:
 def approve_content(content_id: int, payload: ApprovalRequest, db: Session = Depends(get_db)):
     item = _get(db, content_id)
     if not item.art_path or not item.caption:
+        if item.layout == "reel":
+            raise HTTPException(409, "Envie o vídeo e escreva a legenda antes de aprovar o Reel.")
         raise HTTPException(409, "Gere e revise a arte antes de aprovar.")
     if payload.scheduled_at is not None:
         item.scheduled_at = _utc(payload.scheduled_at)
@@ -558,7 +746,9 @@ def reject_content(content_id: int, payload: RejectRequest, db: Session = Depend
     item.error_message = ""
     _append_revision_note(item, payload.reason)
     db.commit()
-    if payload.reason.strip():
+    # O aprendizado alimenta o gerador de artes; vídeo de Reel é gravado fora do
+    # ERP, então o ajuste dele fica só em revision_notes.
+    if payload.reason.strip() and item.layout != "reel":
         record_feedback(
             db,
             content=item,

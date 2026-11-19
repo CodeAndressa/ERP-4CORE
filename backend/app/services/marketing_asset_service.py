@@ -56,11 +56,65 @@ async def _ensure_bucket(client: httpx.AsyncClient) -> None:
     _BUCKET_READY = True
 
 
+VIDEO_EXTENSIONS = {"video/mp4": ".mp4", "video/quicktime": ".mov"}
+
+
+def is_video_path(art_path: str) -> bool:
+    return art_path.lower().endswith(tuple(VIDEO_EXTENSIONS.values()))
+
+
+def storage_configured() -> bool:
+    return _configured()
+
+
+async def create_video_upload_url(content_type: str) -> dict[str, str]:
+    """URL assinada para o navegador enviar o vídeo direto ao Supabase Storage.
+
+    O backend roda na Vercel, que corta o corpo da requisição em ~4,5 MB; um Reel
+    passa disso fácil. Então o arquivo nunca atravessa a API: ela só assina o
+    upload e depois confirma o caminho."""
+    extension = VIDEO_EXTENSIONS.get(content_type)
+    if not extension:
+        raise HTTPException(422, "Envie o Reel em MP4 ou MOV.")
+    if not _configured():
+        raise HTTPException(409, "Supabase Storage não configurado.")
+    object_path = f"reels/{uuid4().hex}{extension}"
+    base = settings.site_supabase_url.rstrip("/")
+    bucket = settings.marketing_assets_bucket.strip("/")
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        await _ensure_bucket(client)
+        response = await client.post(
+            f"{base}/storage/v1/object/upload/sign/{bucket}/{object_path}",
+            headers=_headers("application/json"),
+            json={},
+        )
+    if response.status_code >= 400:
+        raise HTTPException(502, f"Falha ao preparar o envio do vídeo: {response.text[:200]}")
+    signed = response.json().get("url") or response.json().get("signedURL") or ""
+    if not signed:
+        raise HTTPException(502, "O Storage não retornou a URL de envio do vídeo.")
+    if not signed.startswith("http"):
+        signed = f"{base}/storage/v1{signed if signed.startswith('/') else '/' + signed}"
+    return {"upload_url": signed, "object_path": object_path}
+
+
+async def storage_object_exists(object_path: str) -> bool:
+    if not _configured():
+        return False
+    # Range de 1 byte: confirma que o arquivo chegou sem baixar o vídeo inteiro.
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.get(_object_url(object_path), headers={**_headers(), "Range": "bytes=0-0"})
+    return response.status_code < 400
+
+
 async def store_generated_art(content: bytes, content_type: str = "image/png") -> str:
-    extension = ".jpg" if content_type == "image/jpeg" else ".webp" if content_type == "image/webp" else ".png"
-    object_path = f"generated/{uuid4().hex}{extension}"
+    extension = VIDEO_EXTENSIONS.get(content_type) or (
+        ".jpg" if content_type == "image/jpeg" else ".webp" if content_type == "image/webp" else ".png"
+    )
+    folder = "reels" if content_type in VIDEO_EXTENSIONS else "generated"
+    object_path = f"{folder}/{uuid4().hex}{extension}"
     if _configured():
-        async with httpx.AsyncClient(timeout=40.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             await _ensure_bucket(client)
             response = await client.post(
                 _object_url(object_path),
